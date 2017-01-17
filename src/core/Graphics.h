@@ -86,6 +86,8 @@ protected:
 	unsigned char GetColour(int x, int y, TileType tileType);
 	int MapColour(unsigned char colour, Palette palette);
 
+	// Used as a dummy read/write location when an attempt is made to access
+	// VRAM or OAM during periods when it is inaccessible on the real hardware
 	unsigned char _dummy;
 
 	void CheckLineCompare();

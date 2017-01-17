@@ -27,7 +27,7 @@ void RunCpu(int& currentCycle, int cycleTarget)
 	currentCycle = std::max(currentCycle, cycleTarget);
 }
 
-int* RunEmulatorFrame()
+int* GetEmulatorFrame()
 {
 	EmuGraphics.ResetFrame();
 	auto cycleCounter = 0;
@@ -87,7 +87,7 @@ int main()
 			if (event.type == sf::Event::Closed) window.close();
 		}
 
-		texture.update(reinterpret_cast<sf::Uint8*>(RunEmulatorFrame()));
+		texture.update(reinterpret_cast<sf::Uint8*>(GetEmulatorFrame()));
 
 		//window.clear();
 		window.draw(sprite);
