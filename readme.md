@@ -34,9 +34,8 @@ As of now Emu Boy is still in its early stages and is very much a work in progre
 * Windows-only (Visual Studio 2015 solution)
 * Simulates the slow response-time of the Game Boy LCD screen and smoothes upsized jagged pixels
 
-
-<p align="center"><img src="http://codingthemachine.com/wp-content/uploads/2017/01/EmuBoyRun.gif" /></p>
-
+&nbsp;
+<p align="center" style="border: 5px solid red"><kbd><img src="http://codingthemachine.com/wp-content/uploads/2017/01/EmuBoyRun.gif" /></kbd></p>
 
 ## To-do list
 Plenty of features remain to be added including:
