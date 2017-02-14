@@ -1,6 +1,8 @@
 #pragma once
 #include <cstdint>
+#include <unordered_map>
 
+class SpriteManager;
 class MemoryMap;
 class Cpu;
 
@@ -12,8 +14,35 @@ enum LcdcStatus : unsigned char
 	OamAndVramReadMode	= 3
 };
 
+enum SpriteFlags : unsigned char
+{
+	PaletteSelector = 0x10,
+	XFlip			= 0x20,
+	YFlip			= 0x30,
+	ZPriority		= 0x40
+};
+
+// Windows-specific
+#pragma pack(push, 1)
+struct SpriteData
+{
+	unsigned char YPos;
+	unsigned char XPos;
+	unsigned char PatternNum;
+	SpriteFlags Flags;
+
+	uintptr_t SpriteData::OrderedSpriteId() const
+	{
+		return reinterpret_cast<uintptr_t>(this);
+	}
+};
+// Windows-specific
+#pragma pack(pop)
+
 class Graphics
 {
+	friend SpriteManager;
+
 public:
 	static const unsigned int SystemClockHz = 4194304;
 
@@ -90,7 +119,11 @@ protected:
 	// VRAM or OAM during periods when it is inaccessible on the real hardware
 	unsigned char _dummy;
 
+	bool _spriteMovedSinceSort;
+	std::list<SpriteData*> _orderedSprites;
+
 	void CheckLineCompare();
+	void SortSpritesIfRequired();
 
 public:
 
@@ -103,6 +136,11 @@ public:
 	unsigned char& Vram(unsigned short address) { return _status != LcdcStatus::OamAndVramReadMode ? _vram[address] : _dummy; }
 	unsigned char& Oam(unsigned short address) { return _status != LcdcStatus::OamReadMode && _status != LcdcStatus::OamAndVramReadMode
 															? _oam[address] : _dummy; }
+
+	unsigned char ReadOam(unsigned short address) { return _status != LcdcStatus::OamReadMode && _status != LcdcStatus::OamAndVramReadMode
+															? _oam[address] : 0xff; }
+
+	void WriteOam(unsigned short address, unsigned char value);
 
 	unsigned char ReadRegister(unsigned short address) { return _registers[address]; }
 	void WriteRegister(unsigned short address, unsigned char value);

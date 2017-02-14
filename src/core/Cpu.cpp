@@ -766,8 +766,8 @@ void Cpu::RequestInterrupt(InterruptFlags interruptFlags)
 	_waitingInterrupts |= interruptFlags;
 
 	// Docs don't specify whether a requested interrupt must be actually enabled to
-	// bring a STOPped or HALTed CPU back to life. Assuming for now they don't have to be
-	if ((_waitingInterrupts & _enabledInterrupts) && _interruptsEnabled)
+	// bring a STOPped or HALTed CPU back to life. Assuming for now they do have to be
+	if (_waitingInterrupts & _enabledInterrupts && _interruptsEnabled)
 	{
 		_state = CpuState::Running;
 	}

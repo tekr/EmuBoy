@@ -1,5 +1,5 @@
 #pragma once
-#include "D:/Trading/src/EmuBoy/src/core/Graphics.h"
+#include "../core/Graphics.h"
 
 class TestGraphics : public Graphics
 {

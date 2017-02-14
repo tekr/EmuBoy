@@ -54,6 +54,28 @@ void Graphics::CheckLineCompare()
 	}
 }
 
+void Graphics::SortSpritesIfRequired()
+{
+	if (_spriteMovedSinceSort)
+	{
+		// Priority is by X coordinate, then sprite number
+		auto compareFn = [](SpriteData& s1, SpriteData& s2)
+		{
+			if (s1.XPos < s2.XPos) return -1;
+			else if (s1.XPos > s2.XPos) return 1;
+
+			if (&s1 < &s2) return -1;
+			else if (&s1 > &s2) return 1;
+
+			return 0;
+		};
+
+//		std::sort(_orderedSprites.begin(), _orderedSprites.end(), compareFn);
+
+		_spriteMovedSinceSort = false;
+	}
+}
+
 Graphics::Graphics(Cpu& cpu, MemoryMap& memoryMap): _cpu(cpu), _memoryMap(memoryMap), _screenEnabled(true), _totalCycles(0)
 {
 	_memoryMap.SetGraphics(this);
@@ -67,9 +89,19 @@ Graphics::~Graphics()
 {
 }
 
+void Graphics::WriteOam(unsigned short address, unsigned char value)
+{
+	if (_status != LcdcStatus::OamReadMode && _status != LcdcStatus::OamAndVramReadMode)
+	{
+		_oam[address] = value;
+	}
+
+	_spriteMovedSinceSort |= address % 4 < 2;
+}
+
 void Graphics::WriteRegister(unsigned short address, unsigned char value)
 {
-	// Writing to the line count register  resets it
+	// Writing to the line count register resets it
 	if (address == RegLineCount) value = 0;
 
 	_registers[address] = value;
@@ -77,6 +109,10 @@ void Graphics::WriteRegister(unsigned short address, unsigned char value)
 
 int Graphics::RenderLine()
 {
+	SortSpritesIfRequired();
+
+	
+
 	// Reset line counter at start of frame
 	if (_currentScanline == 0)
 	{
@@ -134,6 +170,7 @@ int Graphics::RenderLine()
 	_registers[RegLineCount]++;
 	_currentScanline++;
 
+	// Must only increase window scanline counter if it was enabled for this line
 	if (windowWasEnabled) _currentWindowScanline++;
 
 	CheckLineCompare();
