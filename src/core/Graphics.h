@@ -17,8 +17,8 @@ enum SpriteFlags : unsigned char
 {
 	PaletteSelector = 0x10,
 	XFlip			= 0x20,
-	YFlip			= 0x30,
-	ZPriority		= 0x40
+	YFlip			= 0x40,
+	ZPriority		= 0x80
 };
 
 // Windows-specific
@@ -76,6 +76,7 @@ protected:
 	static const unsigned int RegBgScrollX		= 0x3;
 	static const unsigned int RegLineCount		= 0x4;
 	static const unsigned int RegLineCompare	= 0x5;
+	static const unsigned int RegDmaTransfer	= 0x6;
 	static const unsigned int RegBgWinPalette	= 0x7;
 	static const unsigned int RegSprite0Palette = 0x8;
 	static const unsigned int RegSprite1Palette = 0x9;
@@ -98,10 +99,7 @@ protected:
 	unsigned int _currentScanline;
 	unsigned int _currentWindowScanline;
 
-	bool DisplayEnabled() const
-	{
-		return (_registers[RegLcdControl] & 0x80) != 0;
-	}
+	bool DisplayEnabled() const { return (_registers[RegLcdControl] & 0x80) != 0; }
 	bool WindowEnabled() const { return (_registers[RegLcdControl] & 0x20) != 0; }
 	bool BackgroundEnabled() const { return (_registers[RegLcdControl] & 0x1) != 0; }
 	bool SpritesEnabled() const { return (_registers[RegLcdControl] & 0x2) != 0; }

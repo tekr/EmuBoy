@@ -86,13 +86,13 @@ void Graphics::WriteOam(unsigned short address, unsigned char value)
 {
 	if (_status != LcdcStatus::OamReadMode && _status != LcdcStatus::OamAndVramReadMode)
 	{
+		auto locationChanged = address % 4 < 2 && value != _oam[address];
 		_oam[address] = value;
 
-		// Check for change to X or Y coordinate
-		if (address % 4 < 2)
+		if (locationChanged)
 		{
-			auto pointer = reinterpret_cast<SpriteData*>(&_oam[address & 0xfffc]);
-			_spriteManager.SpriteMoved(*pointer);
+			auto spriteData = reinterpret_cast<SpriteData*>(&_oam[address & 0xfffc]);
+			_spriteManager.SpriteMoved(*spriteData);
 		}
 	}
 }
@@ -102,6 +102,17 @@ void Graphics::WriteRegister(unsigned short address, unsigned char value)
 	// Writing to the line count register resets it
 	if (address == RegLineCount) value = 0;
 	else if (address == RegLcdControl) _spriteManager.SetUseTallSprites(value & 0x4);
+	else if (address == RegDmaTransfer)
+	{
+		unsigned short sourceAddress = value << 8;
+		unsigned short destAddress = 0;
+
+		// Emulate DMA transfer
+		for (auto i = 0; i < OamSize; i++)
+		{
+			WriteOam(destAddress++, _memoryMap.ReadByte(sourceAddress++));
+		}
+	}
 
 	_registers[address] = value;
 }
@@ -165,6 +176,8 @@ int Graphics::RenderLine()
 					colour = GetColour(backgroundX, backgroundY, TileType::Background);
 				}
 
+				auto spritePixelOnTop = false;
+
 				if (spritesEnabled)
 				{
 					// Sprite x-offset is -8 and width is +8; the two cancel out
@@ -178,15 +191,17 @@ int Graphics::RenderLine()
 						// Don't draw sprite unless it's visible over Window & BG (based on priority and BG/Window colour)
 						(!((*spriteIter)->Flags & SpriteFlags::ZPriority) || colour != 0))
 					{
-						colour = GetSpriteColour(**spriteIter, x, _currentScanline);
-						pixel = MapColour(colour, (*spriteIter)->Flags & SpriteFlags::PaletteSelector ? Palette::Sprite1 : Palette::Sprite0);
-					}
-					else
-					{
-						pixel = MapColour(colour, Palette::BgAndWindow);
+						auto spriteColour = GetSpriteColour(**spriteIter, x, _currentScanline);
+						spritePixelOnTop = spriteColour != 0;
+
+						if (spritePixelOnTop)
+						{
+							pixel = MapColour(spriteColour, (*spriteIter)->Flags & SpriteFlags::PaletteSelector ? Palette::Sprite1 : Palette::Sprite0);
+						}
 					}
 				}
-				else
+
+				if (!spritePixelOnTop)
 				{
 					pixel = MapColour(colour, Palette::BgAndWindow);
 				}
@@ -194,7 +209,7 @@ int Graphics::RenderLine()
 		}
 		else
 		{
-			memset(&Bitmap[_currentScanline*HozPixels], 0x2f, HozPixels*4);
+			memset(&Bitmap[_currentScanline*HozPixels], 0x3f, HozPixels*4);
 		}
 	}
 

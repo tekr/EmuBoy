@@ -40,7 +40,7 @@ public:
 	// GB hardware supports 10 sprites per scanline
 	static const int MaxSpritesPerLine = 10;
 
-	explicit SpriteManager();
+	SpriteManager();
 
 	void SetUseTallSprites(bool tallSprites) { _spriteHeight = tallSprites ? 16 : 8; }
 
