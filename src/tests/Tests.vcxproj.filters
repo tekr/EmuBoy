@@ -68,6 +68,5 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
-    <None Include="ROMs\Tetris.gb" />
   </ItemGroup>
 </Project>

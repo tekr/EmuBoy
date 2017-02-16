@@ -4,8 +4,8 @@
 
 SpriteManager::SpriteManager()
 {
-}
 
+}
 
 SpriteManager::~SpriteManager()
 {

@@ -13,7 +13,7 @@ public:
 	using Graphics::SpritesEnabled;
 	using Graphics::GetTileOffset;
 
-	TestGraphics(Cpu& cpu, MemoryMap& memoryMap) : Graphics(cpu, memoryMap)
+	TestGraphics(Cpu& cpu, MemoryMap& memoryMap, SpriteManager& spriteManager) : Graphics(cpu, memoryMap, spriteManager)
 	{
 	}
 

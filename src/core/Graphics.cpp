@@ -2,8 +2,9 @@
 #include "Graphics.h"
 #include "MemoryMap.h"
 #include "Cpu.h"
+#include "SpriteManager.h"
 
-unsigned char Graphics::GetColour(int x, int y, TileType tileType)
+unsigned char Graphics::GetColour(int x, int y, TileType tileType) const
 {
 	auto tileMapBase = _registers[RegLcdControl] & (tileType == TileType::Window ? 0x40 : 0x8)
 		                   ? TileMapBase2
@@ -26,8 +27,21 @@ unsigned char Graphics::GetColour(int x, int y, TileType tileType)
 	auto baseByte = tileDataBase + (tileNumber * 16) + ((y & 0x7) << 1);
 	auto bitShift = 7 - x % 8;
 
-	auto result = _vram[baseByte] >> bitShift & 0x1 | (_vram[baseByte + 1] >> bitShift & 0x1) << 1;
-	return result;
+	return _vram[baseByte] >> bitShift & 0x1 | (_vram[baseByte + 1] >> bitShift & 0x1) << 1;
+}
+
+unsigned char Graphics::GetSpriteColour(SpriteData& spriteData, int x, int y) const
+{
+	auto patternX = x - spriteData.XPos + 8;
+	auto patternY = y - spriteData.YPos + 16;
+
+	if (spriteData.Flags & SpriteFlags::XFlip) patternX = 7 - patternX;
+	if (spriteData.Flags & SpriteFlags::YFlip) patternY = _spriteManager.GetSpriteHeight() - 1 - patternY;
+
+	auto baseByte = TileDataTableBase1 + (spriteData.PatternNum * 16) + (patternY << 1);
+	auto bitShift = 7 - patternX % 8;
+
+	return _vram[baseByte] >> bitShift & 0x1 | (_vram[baseByte + 1] >> bitShift & 0x1) << 1;
 }
 
 int Graphics::MapColour(unsigned char colour, Palette palette)
@@ -54,29 +68,8 @@ void Graphics::CheckLineCompare()
 	}
 }
 
-void Graphics::SortSpritesIfRequired()
-{
-	if (_spriteMovedSinceSort)
-	{
-		// Priority is by X coordinate, then sprite number
-		auto compareFn = [](SpriteData& s1, SpriteData& s2)
-		{
-			if (s1.XPos < s2.XPos) return -1;
-			else if (s1.XPos > s2.XPos) return 1;
-
-			if (&s1 < &s2) return -1;
-			else if (&s1 > &s2) return 1;
-
-			return 0;
-		};
-
-//		std::sort(_orderedSprites.begin(), _orderedSprites.end(), compareFn);
-
-		_spriteMovedSinceSort = false;
-	}
-}
-
-Graphics::Graphics(Cpu& cpu, MemoryMap& memoryMap): _cpu(cpu), _memoryMap(memoryMap), _screenEnabled(true), _totalCycles(0)
+Graphics::Graphics(Cpu& cpu, MemoryMap& memoryMap, SpriteManager& spriteManager)
+	: _cpu(cpu), _memoryMap(memoryMap), _screenEnabled(true), _totalCycles(0), _spriteManager(spriteManager)
 {
 	_memoryMap.SetGraphics(this);
 
@@ -94,30 +87,37 @@ void Graphics::WriteOam(unsigned short address, unsigned char value)
 	if (_status != LcdcStatus::OamReadMode && _status != LcdcStatus::OamAndVramReadMode)
 	{
 		_oam[address] = value;
-	}
 
-	_spriteMovedSinceSort |= address % 4 < 2;
+		// Check for change to X or Y coordinate
+		if (address % 4 < 2)
+		{
+			auto pointer = reinterpret_cast<SpriteData*>(&_oam[address & 0xfffc]);
+			_spriteManager.SpriteMoved(*pointer);
+		}
+	}
 }
 
 void Graphics::WriteRegister(unsigned short address, unsigned char value)
 {
 	// Writing to the line count register resets it
 	if (address == RegLineCount) value = 0;
+	else if (address == RegLcdControl) _spriteManager.SetUseTallSprites(value & 0x4);
 
 	_registers[address] = value;
 }
 
 int Graphics::RenderLine()
 {
-	SortSpritesIfRequired();
-
-	
-
 	// Reset line counter at start of frame
 	if (_currentScanline == 0)
 	{
 		_registers[RegLineCount] = 0;
+		_spriteManager.SetScanline(0);
 		CheckLineCompare();
+	}
+	else
+	{
+		_spriteManager.NextScanline();
 	}
 
 	// Reset window current line when the window start is reached
@@ -137,6 +137,15 @@ int Graphics::RenderLine()
 			auto windowY = _currentWindowScanline;
 			auto belowWindowStart = WindowEnabled() && _currentScanline >= _registers[RegWindowY];
 
+			auto sprites = _spriteManager.GetActiveSprites();
+			auto spriteIter = sprites.cbegin();
+			auto spriteIterEnd = sprites.cend();
+
+			auto spritesThisLine = 0;
+
+			auto backgroundEnabled = BackgroundEnabled();
+			auto spritesEnabled = SpritesEnabled();
+
 			for (auto x = 0; x < HozPixels;x++)
 			{
 				auto windowX = x - _registers[RegWindowX] + 7;
@@ -150,20 +159,42 @@ int Graphics::RenderLine()
 					colour = GetColour(windowX, windowY, TileType::Window);
 					windowWasEnabled = true;
 				}
-				else if (BackgroundEnabled())
+				else if (backgroundEnabled)
 				{
 					auto backgroundX = x + _registers[RegBgScrollX];
 					colour = GetColour(backgroundX, backgroundY, TileType::Background);
 				}
 
-				pixel = MapColour(colour, Palette::BgAndWindow);
+				if (spritesEnabled)
+				{
+					// Sprite x-offset is -8 and width is +8; the two cancel out
+					while (spriteIter != spriteIterEnd && (*spriteIter)->XPos <= x)
+					{
+						++spriteIter;
+						++spritesThisLine;
+					}
 
-				// TODO: Sprites!
+					if (spriteIter != spriteIterEnd && spritesThisLine <= SpriteManager::MaxSpritesPerLine &&
+						// Don't draw sprite unless it's visible over Window & BG (based on priority and BG/Window colour)
+						(!((*spriteIter)->Flags & SpriteFlags::ZPriority) || colour != 0))
+					{
+						colour = GetSpriteColour(**spriteIter, x, _currentScanline);
+						pixel = MapColour(colour, (*spriteIter)->Flags & SpriteFlags::PaletteSelector ? Palette::Sprite1 : Palette::Sprite0);
+					}
+					else
+					{
+						pixel = MapColour(colour, Palette::BgAndWindow);
+					}
+				}
+				else
+				{
+					pixel = MapColour(colour, Palette::BgAndWindow);
+				}
 			}
 		}
 		else
 		{
-			memset(&Bitmap[_currentScanline*HozPixels], 0xff, HozPixels*4);
+			memset(&Bitmap[_currentScanline*HozPixels], 0x2f, HozPixels*4);
 		}
 	}
 
