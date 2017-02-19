@@ -88,6 +88,8 @@ protected:
 	CpuState _state;
 	uint64_t _totalCycles;
 
+	bool _skipNextPCIncrement;
+
 	// Master interrupt enable
 	bool _interruptsEnabled;
 
@@ -103,7 +105,16 @@ protected:
 	// Jump table for all top-level opcodes
 	const std::vector<int(Cpu::*)(unsigned char opcode)> _opcodeJumpTable;
 
-	unsigned char GetNextProgramByte() { return ReadByte(_registers.PC++); }
+	unsigned char GetNextProgramByte()
+	{
+		auto result = ReadByte(_registers.PC);
+
+		if (!_skipNextPCIncrement) ++_registers.PC;
+		_skipNextPCIncrement = false;
+
+		return result;
+	}
+
 	unsigned char GetByteOperand() { return GetNextProgramByte(); }
 	unsigned short GetWordOperand() { return GetByteOperand() | GetByteOperand() << 8; }
 
@@ -308,11 +319,23 @@ protected:
 
 	int InvalidOp(unsigned char opcode);
 
+	void StartIfRequired()
+	{
+		if (_state == CpuState::Stopped && (_memoryMap.ReadByte(MemoryMap::Joypad) & 0xf) != 0xf)
+		{
+			_state = CpuState::Running;
+		}
+	}
+
 public:
 	explicit Cpu(MemoryMap& memory);
 	~Cpu();
 
-	bool IsRunning() const { return _state == CpuState::Running; }
+	bool IsRunning()
+	{
+		StartIfRequired();
+		return _state == CpuState::Running;
+	}
 
 	// Gets the total number of elapsed emulated CPU cycles (does not count when CPU is stopped/halted)
 	uint64_t GetTotalCycles() const { return _totalCycles; }

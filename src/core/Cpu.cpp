@@ -336,7 +336,7 @@ int Cpu::IncDec8RegOrMem(unsigned char opcode)
 
 	flags |= newData == 0 ? ZeroFlag : NoFlags;
 	flags |= inc ? 0 : SubFlag;
-	_registers.F = flags | ((inc && ((newData & 0xf) == 0)) || (!inc && ((newData & 0xf) == 0xf)) ? HalfCarryFlag : NoFlags);
+	_registers.F = flags | (inc && (newData & 0xf) == 0 || !inc && (newData & 0xf) == 0xf ? HalfCarryFlag : NoFlags);
 
 	return cycleCount;
 }
@@ -400,8 +400,8 @@ int Cpu::Add16RegReg(unsigned char opcode)
 	auto& regRef = GetReg16Ref1(opcode);
 	auto res = _registers.HL + regRef;
 
-	unsigned char flags = (_registers.F & ZeroFlag) | (res & 0x1000 ? CarryFlag : NoFlags);
-	flags |= ((_registers.HL & 0xfff) + (regRef & 0xfff)) & 0x1000 ? HalfCarryFlag : NoFlags;
+	unsigned char flags = _registers.F & ZeroFlag | (res & 0x1000 ? CarryFlag : NoFlags);
+	flags |= (_registers.HL & 0xfff) + (regRef & 0xfff) & 0x1000 ? HalfCarryFlag : NoFlags;
 
 	_registers.HL = static_cast<unsigned short>(res);
 	_registers.F = flags;
@@ -451,24 +451,29 @@ int Cpu::Jr(unsigned char opcode)
 
 int Cpu::Daa(unsigned char opcode)
 {
-	auto accValue = _registers.A;
+	int accValue = _registers.A;
 	auto flags = _registers.F & SubFlag;
 
-	if (_registers.F & HalfCarryFlag || (accValue & 0xf) > 9)
+	if (flags)
 	{
-		accValue += (flags ? -0x6 : 0x6);
+		if (_registers.F & HalfCarryFlag) accValue = (accValue - 6) & 0xff;
+		if (_registers.F & CarryFlag) accValue -= 0x60;
+	}
+	else
+	{
+		if (_registers.F & HalfCarryFlag || (accValue & 0xf) > 9) accValue += 0x06;
+		if (_registers.F & CarryFlag || accValue > 0x9f) accValue += 0x60;
 	}
 
-	if (_registers.F & CarryFlag || (accValue & 0xf0) > 0x90)
-	{
-		accValue += (flags ? -0x60 : 0x60);
-		flags |= CarryFlag;
-	}
+	// Carry maintained if it was set before DAA was executed
+	if (accValue & 0x100 || _registers.F & CarryFlag) flags |= CarryFlag;
+
+	accValue &= 0xff;
+	if (accValue == 0) flags |= ZeroFlag;
 
 	_registers.A = accValue;
-	flags |= accValue == 0 ? ZeroFlag : NoFlags;
-
 	_registers.F = flags;
+
 	return OneCycle;
 }
 
@@ -522,16 +527,7 @@ int Cpu::Ld8RegOrMemRegOrMem(unsigned char opcode)
 
 int Cpu::Halt(unsigned char opcode)
 {
-	if (_interruptsEnabled)
-	{
-		_state = CpuState::Halted;
-	}
-	else
-	{
-		// TODO: This should cause the next program byte to be fetched twice consecutively,
-		// per GB CPU manual. Also two consecutive HALTs should hang the CPU
-	}
-
+	_state = CpuState::Halted;
 	return OneCycle;
 }
 
@@ -599,6 +595,10 @@ int Cpu::Push16Reg(unsigned char opcode)
 int Cpu::Pop16Reg(unsigned char opcode)
 {
 	GetReg16Ref3(opcode) = PopWord();
+
+	// Ensure lower nibble of F is zero after possible pop into it
+	_registers.F &= 0xf0;
+
 	return ThreeCycles;
 }
 
@@ -765,11 +765,14 @@ void Cpu::RequestInterrupt(InterruptFlags interruptFlags)
 {
 	_waitingInterrupts |= interruptFlags;
 
-	// Docs don't specify whether a requested interrupt must be actually enabled to
-	// bring a STOPped or HALTed CPU back to life. Assuming for now they do have to be
-	if (_waitingInterrupts & _enabledInterrupts && _interruptsEnabled)
+	// Master interrupt enable is not checked when waking from halt
+	if (_state == CpuState::Halted && _waitingInterrupts & _enabledInterrupts)
 	{
 		_state = CpuState::Running;
+
+		// Hardware bug causes next PC increment to be skipped if
+		// master interrupt enabled was false
+		_skipNextPCIncrement = !_interruptsEnabled;
 	}
 
 	_interruptCheckRequired = true;
@@ -777,6 +780,7 @@ void Cpu::RequestInterrupt(InterruptFlags interruptFlags)
 
 int Cpu::DoNextInstruction()
 {
+	StartIfRequired();
 	if (_state != CpuState::Running) return 0;
 
 	if (_interruptCheckRequired)

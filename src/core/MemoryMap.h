@@ -24,6 +24,8 @@ public:
 
 	static const unsigned short InternalRomDisable = 0xff50;
 
+	static const unsigned short Joypad = 0xff00;
+
 protected:
 	std::shared_ptr<Cartridge> _cartridge;
 	Graphics* _graphics;
