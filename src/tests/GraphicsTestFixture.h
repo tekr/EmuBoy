@@ -11,7 +11,6 @@ public:
 	TestMemoryMap MemoryMap;
 	TestCpu Cpu{ MemoryMap };
 	SpriteManager SpriteManager{};
-
 	Graphics Graphics{ Cpu, MemoryMap, SpriteManager };
 
 	GraphicsTestFixture() {}
