@@ -1035,12 +1035,12 @@ TEST_F(CpuTestFixture, Ret)
 
 TEST_F(CpuTestFixture, Pop)
 {
-	const std::vector<std::tuple<unsigned char, unsigned short&(*)(Registers&)>> scenarios
+	const std::vector<std::tuple<unsigned char, unsigned short&(*)(Registers&), unsigned short>> scenarios
 	{
-		{ 0xc1, [](Registers& r) -> auto& { return r.BC; } },
-		{ 0xd1, [](Registers& r) -> auto& { return r.DE; } },
-		{ 0xe1, [](Registers& r) -> auto& { return r.HL; } },
-		{ 0xf1, [](Registers& r) -> auto& { return r.AF; } }
+		{ 0xc1, [](Registers& r) -> auto& { return r.BC; }, 0xffff },
+		{ 0xd1, [](Registers& r) -> auto& { return r.DE; }, 0xffff },
+		{ 0xe1, [](Registers& r) -> auto& { return r.HL; }, 0xffff },
+		{ 0xf1, [](Registers& r) -> auto& { return r.AF; }, 0xfff0 }
 	};
 
 	for (auto& scenario : scenarios)
@@ -1066,7 +1066,7 @@ TEST_F(CpuTestFixture, Pop)
 
 			oldRegisters.PC = 1;
 			oldRegisters.SP += 2;
-			destRegFn(oldRegisters) = testVal;
+			destRegFn(oldRegisters) = testVal & std::get<2>(scenario);
 
 			EXPECT_EQ(oldRegisters, registers);
 		}
