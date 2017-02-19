@@ -61,6 +61,8 @@ public:
 	static const unsigned int VramSize = 1 << 13;
 	static const unsigned int OamSize = 160;
 
+	static const unsigned short SpriteDataTableBase = 0;
+
 protected:
 	static const unsigned int RegisterBlockSize = 0xb;
 
@@ -109,10 +111,7 @@ protected:
 	enum class TileType { Background, Window };
 	enum class Palette { BgAndWindow, Sprite0, Sprite1 };
 
-	unsigned char GetColour(int x, int y, TileType tileType) const;
-
-	unsigned char GetSpriteColour(SpriteData& spriteData, int x, int y) const;
-
+	unsigned char GetBgOrWinColour(int x, int y, TileType tileType) const;
 
 	int MapColour(unsigned char colour, Palette palette);
 

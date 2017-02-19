@@ -4,7 +4,7 @@
 class TestGraphics : public Graphics
 {
 public:
-	using Graphics::GetColour;
+	using Graphics::GetBgOrWinColour;
 	using Graphics::MapColour;
 	
 	using Graphics::DisplayEnabled;

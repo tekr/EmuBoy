@@ -4,7 +4,7 @@
 #include "Cpu.h"
 #include "SpriteManager.h"
 
-unsigned char Graphics::GetColour(int x, int y, TileType tileType) const
+unsigned char Graphics::GetBgOrWinColour(int x, int y, TileType tileType) const
 {
 	auto tileMapBase = _registers[RegLcdControl] & (tileType == TileType::Window ? 0x40 : 0x8)
 		                   ? TileMapBase2
@@ -26,20 +26,6 @@ unsigned char Graphics::GetColour(int x, int y, TileType tileType) const
 
 	auto baseByte = tileDataBase + (tileNumber * 16) + ((y & 0x7) << 1);
 	auto bitShift = 7 - x % 8;
-
-	return _vram[baseByte] >> bitShift & 0x1 | (_vram[baseByte + 1] >> bitShift & 0x1) << 1;
-}
-
-unsigned char Graphics::GetSpriteColour(SpriteData& spriteData, int x, int y) const
-{
-	auto patternX = x - spriteData.XPos + 8;
-	auto patternY = y - spriteData.YPos + 16;
-
-	if (spriteData.Flags & SpriteFlags::XFlip) patternX = 7 - patternX;
-	if (spriteData.Flags & SpriteFlags::YFlip) patternY = _spriteManager.GetSpriteHeight() - 1 - patternY;
-
-	auto baseByte = TileDataTableBase1 + (spriteData.PatternNum * 16) + (patternY << 1);
-	auto bitShift = 7 - patternX % 8;
 
 	return _vram[baseByte] >> bitShift & 0x1 | (_vram[baseByte + 1] >> bitShift & 0x1) << 1;
 }
@@ -131,26 +117,22 @@ int Graphics::RenderLine()
 		_spriteManager.NextScanline();
 	}
 
-	// Reset window current line when the window start is reached
+	// Window current line needs to be reset when window start is reached
 	if (_currentScanline == _registers[RegWindowY]) _currentWindowScanline = 0;
-
-	auto windowWasEnabled = false;
 
 	if (_currentScanline < VertPixels)
 	{
-		// According to docs, should only change during VBlank
 		if (DisplayEnabled())
 		{
-			// A very inefficient rendering implementation. Does many
-			// calls/recalculates many intermediate values for every pixel.
+			// A rather inefficient rendering implementation.
+			// Many intermediate results could be lifted outside loops
 
 			auto backgroundY = _currentScanline + _registers[RegBgScrollY];
-			auto windowY = _currentWindowScanline;
 			auto belowWindowStart = WindowEnabled() && _currentScanline >= _registers[RegWindowY];
 
-			auto sprites = _spriteManager.GetActiveSprites();
-			auto spriteIter = sprites.cbegin();
-			auto spriteIterEnd = sprites.cend();
+			auto visibleSprites = _spriteManager.GetVisibleSprites();
+			auto sprite = visibleSprites.cbegin();
+			auto firstNonvisibleSprite = visibleSprites.cend();
 
 			auto spritesThisLine = 0;
 
@@ -167,36 +149,34 @@ int Graphics::RenderLine()
 				if (belowWindowStart && windowX >= 0)
 				{
 					// Window is on top
-					colour = GetColour(windowX, windowY, TileType::Window);
-					windowWasEnabled = true;
+					colour = GetBgOrWinColour(windowX, _currentWindowScanline++, TileType::Window);
 				}
 				else if (backgroundEnabled)
 				{
 					auto backgroundX = x + _registers[RegBgScrollX];
-					colour = GetColour(backgroundX, backgroundY, TileType::Background);
+					colour = GetBgOrWinColour(backgroundX, backgroundY, TileType::Background);
 				}
 
 				auto spritePixelOnTop = false;
 
 				if (spritesEnabled)
 				{
-					// Sprite x-offset is -8 and width is +8; the two cancel out
-					while (spriteIter != spriteIterEnd && (*spriteIter)->XPos <= x)
+					while (sprite != firstNonvisibleSprite && (*sprite)->XPos - SpriteManager::SpriteXOffset + SpriteManager::SpriteWidth <= x)
 					{
-						++spriteIter;
+						++sprite;
 						++spritesThisLine;
 					}
 
-					if (spriteIter != spriteIterEnd && spritesThisLine <= SpriteManager::MaxSpritesPerLine &&
+					if (sprite != firstNonvisibleSprite && (*sprite)->XPos - SpriteManager::SpriteXOffset <= x && spritesThisLine <= SpriteManager::MaxSpritesPerLine &&
 						// Don't draw sprite unless it's visible over Window & BG (based on priority and BG/Window colour)
-						(!((*spriteIter)->Flags & SpriteFlags::ZPriority) || colour != 0))
+						(!((*sprite)->Flags & SpriteFlags::ZPriority) || colour != 0))
 					{
-						auto spriteColour = GetSpriteColour(**spriteIter, x, _currentScanline);
+						auto spriteColour = _spriteManager.GetSpriteColour(**sprite, x, _currentScanline, _vram);
 						spritePixelOnTop = spriteColour != 0;
 
 						if (spritePixelOnTop)
 						{
-							pixel = MapColour(spriteColour, (*spriteIter)->Flags & SpriteFlags::PaletteSelector ? Palette::Sprite1 : Palette::Sprite0);
+							pixel = MapColour(spriteColour, (*sprite)->Flags & SpriteFlags::PaletteSelector ? Palette::Sprite1 : Palette::Sprite0);
 						}
 					}
 				}
@@ -209,15 +189,12 @@ int Graphics::RenderLine()
 		}
 		else
 		{
-			memset(&Bitmap[_currentScanline*HozPixels], 0x3f, HozPixels*4);
+			memset(&Bitmap[_currentScanline*HozPixels], 0xff, HozPixels*4);
 		}
 	}
 
 	_registers[RegLineCount]++;
 	_currentScanline++;
-
-	// Must only increase window scanline counter if it was enabled for this line
-	if (windowWasEnabled) _currentWindowScanline++;
 
 	CheckLineCompare();
 	return ScanlineClocks;
