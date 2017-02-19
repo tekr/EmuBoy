@@ -5,11 +5,13 @@
 #include "../core/MemoryMap.h"
 #include "../core/Graphics.h"
 #include "../core/CartridgeFactory.h"
+#include "../core/SpriteManager.h"
 
 
 MemoryMap EmuMemoryMap;
 Cpu EmuCpu{ EmuMemoryMap };
-Graphics EmuGraphics{ EmuCpu, EmuMemoryMap };
+SpriteManager EmuSpriteManager;
+Graphics EmuGraphics{ EmuCpu, EmuMemoryMap, EmuSpriteManager };
 
 void InitialiseEmulator()
 {

@@ -164,6 +164,8 @@
     <Import Project="..\..\packages\sfml-audio.2.4.0.0\build\native\sfml-audio.targets" Condition="Exists('..\..\packages\sfml-audio.2.4.0.0\build\native\sfml-audio.targets')" />
     <Import Project="..\..\packages\sfml-graphics.redist.2.4.0.0\build\native\sfml-graphics.redist.targets" Condition="Exists('..\..\packages\sfml-graphics.redist.2.4.0.0\build\native\sfml-graphics.redist.targets')" />
     <Import Project="..\..\packages\sfml-graphics.2.4.0.0\build\native\sfml-graphics.targets" Condition="Exists('..\..\packages\sfml-graphics.2.4.0.0\build\native\sfml-graphics.targets')" />
+    <Import Project="..\..\packages\boost.1.63.0.0\build\native\boost.targets" Condition="Exists('..\..\packages\boost.1.63.0.0\build\native\boost.targets')" />
+    <Import Project="..\..\packages\boost_container-vc140.1.63.0.0\build\native\boost_container-vc140.targets" Condition="Exists('..\..\packages\boost_container-vc140.1.63.0.0\build\native\boost_container-vc140.targets')" />
   </ImportGroup>
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
     <PropertyGroup>
@@ -177,5 +179,7 @@
     <Error Condition="!Exists('..\..\packages\sfml-audio.2.4.0.0\build\native\sfml-audio.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\..\packages\sfml-audio.2.4.0.0\build\native\sfml-audio.targets'))" />
     <Error Condition="!Exists('..\..\packages\sfml-graphics.redist.2.4.0.0\build\native\sfml-graphics.redist.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\..\packages\sfml-graphics.redist.2.4.0.0\build\native\sfml-graphics.redist.targets'))" />
     <Error Condition="!Exists('..\..\packages\sfml-graphics.2.4.0.0\build\native\sfml-graphics.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\..\packages\sfml-graphics.2.4.0.0\build\native\sfml-graphics.targets'))" />
+    <Error Condition="!Exists('..\..\packages\boost.1.63.0.0\build\native\boost.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\..\packages\boost.1.63.0.0\build\native\boost.targets'))" />
+    <Error Condition="!Exists('..\..\packages\boost_container-vc140.1.63.0.0\build\native\boost_container-vc140.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\..\packages\boost_container-vc140.1.63.0.0\build\native\boost_container-vc140.targets'))" />
   </Target>
 </Project>

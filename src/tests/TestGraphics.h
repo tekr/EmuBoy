@@ -1,10 +1,10 @@
 #pragma once
-#include "D:/Trading/src/EmuBoy/src/core/Graphics.h"
+#include "../core/Graphics.h"
 
 class TestGraphics : public Graphics
 {
 public:
-	using Graphics::GetColour;
+	using Graphics::GetBgOrWinColour;
 	using Graphics::MapColour;
 	
 	using Graphics::DisplayEnabled;
@@ -13,7 +13,7 @@ public:
 	using Graphics::SpritesEnabled;
 	using Graphics::GetTileOffset;
 
-	TestGraphics(Cpu& cpu, MemoryMap& memoryMap) : Graphics(cpu, memoryMap)
+	TestGraphics(Cpu& cpu, MemoryMap& memoryMap, SpriteManager& spriteManager) : Graphics(cpu, memoryMap, spriteManager)
 	{
 	}
 

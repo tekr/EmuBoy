@@ -39,6 +39,9 @@
     <ClCompile Include="CartridgeFactory.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="SpriteManager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Cartridge.h">
@@ -65,5 +68,11 @@
     <ClInclude Include="CartridgeFactory.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="SpriteManager.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
   </ItemGroup>
 </Project>

@@ -36,7 +36,7 @@ unsigned char MemoryMap::ReadByte(unsigned short address) const
 
 	if (address < UnusableArea1)
 	{
-		return _graphics->Oam(address - RamOam);
+		return _graphics->ReadOam(address - RamOam);
 	}
 
 	if (address < IoPorts)
@@ -86,7 +86,7 @@ void MemoryMap::WriteByte(unsigned short address, unsigned char value)
 	}
 	else if (address < UnusableArea1)
 	{
-		_graphics->Oam(address - RamOam) = value;
+		_graphics->WriteOam(address - RamOam, value);
 	}
 	else if (address < IoPorts)
 	{

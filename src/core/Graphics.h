@@ -3,6 +3,7 @@
 
 class MemoryMap;
 class Cpu;
+class SpriteManager;
 
 enum LcdcStatus : unsigned char
 {
@@ -11,6 +12,31 @@ enum LcdcStatus : unsigned char
 	OamReadMode			= 2,
 	OamAndVramReadMode	= 3
 };
+
+enum SpriteFlags : unsigned char
+{
+	PaletteSelector = 0x10,
+	XFlip			= 0x20,
+	YFlip			= 0x40,
+	ZPriority		= 0x80
+};
+
+// Windows-specific
+#pragma pack(push, 1)
+struct SpriteData
+{
+	unsigned char YPos;
+	unsigned char XPos;
+	unsigned char PatternNum;
+	SpriteFlags Flags;
+
+	uintptr_t SpriteData::OrderedSpriteId() const
+	{
+		return reinterpret_cast<uintptr_t>(this);
+	}
+};
+// Windows-specific
+#pragma pack(pop)
 
 class Graphics
 {
@@ -32,9 +58,10 @@ public:
 	static_assert(FrameClocks == 70224, "Clocks per frame is incorrect");
 
 	const double FrameRate = static_cast<double>(SystemClockHz) / FrameClocks;
-
 	static const unsigned int VramSize = 1 << 13;
 	static const unsigned int OamSize = 160;
+
+	static const unsigned short SpriteDataTableBase = 0;
 
 protected:
 	static const unsigned int RegisterBlockSize = 0xb;
@@ -51,6 +78,7 @@ protected:
 	static const unsigned int RegBgScrollX		= 0x3;
 	static const unsigned int RegLineCount		= 0x4;
 	static const unsigned int RegLineCompare	= 0x5;
+	static const unsigned int RegDmaTransfer	= 0x6;
 	static const unsigned int RegBgWinPalette	= 0x7;
 	static const unsigned int RegSprite0Palette = 0x8;
 	static const unsigned int RegSprite1Palette = 0x9;
@@ -83,12 +111,15 @@ protected:
 	enum class TileType { Background, Window };
 	enum class Palette { BgAndWindow, Sprite0, Sprite1 };
 
-	unsigned char GetColour(int x, int y, TileType tileType);
+	unsigned char GetBgOrWinColour(int x, int y, TileType tileType) const;
+
 	int MapColour(unsigned char colour, Palette palette);
 
 	// Used as a dummy read/write location when an attempt is made to access
 	// VRAM or OAM during periods when it is inaccessible on the real hardware
 	unsigned char _dummy;
+
+	SpriteManager& _spriteManager;
 
 	void CheckLineCompare();
 
@@ -96,13 +127,15 @@ public:
 
 	int Bitmap[HozPixels * VertPixels];
 
-	explicit Graphics(Cpu& cpu, MemoryMap& memoryMap);;
-
+	Graphics(Cpu& cpu, MemoryMap& memoryMap, SpriteManager& spriteManager);
 	~Graphics();
 
 	unsigned char& Vram(unsigned short address) { return _status != LcdcStatus::OamAndVramReadMode ? _vram[address] : _dummy; }
-	unsigned char& Oam(unsigned short address) { return _status != LcdcStatus::OamReadMode && _status != LcdcStatus::OamAndVramReadMode
-															? _oam[address] : _dummy; }
+
+	unsigned char ReadOam(unsigned short address) { return _status != LcdcStatus::OamReadMode && _status != LcdcStatus::OamAndVramReadMode
+															? _oam[address] : 0xff; }
+
+	void WriteOam(unsigned short address, unsigned char value);
 
 	unsigned char ReadRegister(unsigned short address) { return _registers[address]; }
 	void WriteRegister(unsigned short address, unsigned char value);
