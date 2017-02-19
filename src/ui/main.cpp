@@ -11,7 +11,6 @@
 MemoryMap EmuMemoryMap;
 Cpu EmuCpu{ EmuMemoryMap };
 SpriteManager EmuSpriteManager;
-
 Graphics EmuGraphics{ EmuCpu, EmuMemoryMap, EmuSpriteManager };
 
 void InitialiseEmulator()
