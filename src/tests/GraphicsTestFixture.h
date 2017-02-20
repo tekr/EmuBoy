@@ -5,10 +5,13 @@
 #include "../core/Graphics.h"
 #include "../Core/SpriteManager.h"
 
+class InputJoypad;
+
 class GraphicsTestFixture : public testing::Test
 {
 public:
-	TestMemoryMap MemoryMap;
+	InputJoypad Joypad;
+	TestMemoryMap MemoryMap { Joypad };
 	TestCpu Cpu{ MemoryMap };
 	SpriteManager SpriteManager{};
 	Graphics Graphics{ Cpu, MemoryMap, SpriteManager };

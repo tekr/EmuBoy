@@ -3,6 +3,7 @@
 #include "Cartridge.h"
 #include "GbInternalRom.h"
 #include "Graphics.h"
+#include "InputJoypad.h"
 
 class MemoryMap
 {
@@ -22,11 +23,13 @@ public:
 	static const size_t RomBankSize = 1 << 14;
 	static const size_t RamBankSize = 1 << 13;
 
+	static const unsigned short JoypadPort = 0xff00;
 	static const unsigned short InternalRomDisable = 0xff50;
 
 protected:
 	std::shared_ptr<Cartridge> _cartridge;
 	Graphics* _graphics;
+	InputJoypad& _joypad;
 
 	unsigned char _fixedRam[RamBankSize];
 	unsigned char _highRam[128];
@@ -35,7 +38,7 @@ protected:
 	bool _internalRomEnabled = true;
 
 public:
-	MemoryMap();
+	explicit MemoryMap(InputJoypad& joypad);
 	~MemoryMap();
 
 	void SetCartridge(std::shared_ptr<Cartridge> cartridge) { _cartridge = cartridge; }

@@ -6,7 +6,8 @@
 class CpuTestFixture : public testing::Test
 {
 public:
-	TestMemoryMap MemoryMap;
+	InputJoypad Joypad;
+	TestMemoryMap MemoryMap { Joypad };
 	TestCpu Cpu{ MemoryMap };
 
 	CpuTestFixture() {}
