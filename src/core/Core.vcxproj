@@ -149,6 +149,7 @@
     <ClInclude Include="Cpu.h" />
     <ClInclude Include="GbInternalRom.h" />
     <ClInclude Include="Graphics.h" />
+    <ClInclude Include="InputJoypad.h" />
     <ClInclude Include="MemoryMap.h" />
     <ClInclude Include="SpriteManager.h" />
     <ClInclude Include="stdafx.h" />
@@ -161,6 +162,7 @@
     <ClCompile Include="Core.cpp" />
     <ClCompile Include="GbInternalRom.cpp" />
     <ClCompile Include="Graphics.cpp" />
+    <ClCompile Include="InputJoypad.cpp" />
     <ClCompile Include="MemoryMap.cpp" />
     <ClCompile Include="SpriteManager.cpp" />
     <ClCompile Include="stdafx.cpp">

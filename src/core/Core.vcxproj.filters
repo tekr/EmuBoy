@@ -42,6 +42,9 @@
     <ClCompile Include="SpriteManager.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="InputJoypad.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Cartridge.h">
@@ -69,6 +72,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="SpriteManager.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="InputJoypad.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
