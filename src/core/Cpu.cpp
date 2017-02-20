@@ -400,7 +400,7 @@ int Cpu::Add16RegReg(unsigned char opcode)
 	auto& regRef = GetReg16Ref1(opcode);
 	auto res = _registers.HL + regRef;
 
-	unsigned char flags = _registers.F & ZeroFlag | (res & 0x1000 ? CarryFlag : NoFlags);
+	unsigned char flags = _registers.F & ZeroFlag | (res & 0x10000 ? CarryFlag : NoFlags);
 	flags |= (_registers.HL & 0xfff) + (regRef & 0xfff) & 0x1000 ? HalfCarryFlag : NoFlags;
 
 	_registers.HL = static_cast<unsigned short>(res);
@@ -673,22 +673,13 @@ int Cpu::Ld8AccHiMemC(unsigned char opcode)
 
 int Cpu::Add8SpImm(unsigned char opcode)
 {
-	auto temp = _registers.SP;
-	_registers.SP += static_cast<char>(GetByteOperand());
-	temp ^= _registers.SP;
-
-	_registers.F = (temp & 0x800 ? HalfCarryFlag : NoFlags) | (temp & 0x8000 ? CarryFlag : NoFlags);
-
-	return ThreeCycles;
+	_registers.SP = AddSpImm();
+	return FourCycles;
 }
 
 int Cpu::Ld16HlSpImm(unsigned char opcode)
 {
-	_registers.HL = _registers.SP + static_cast<char>(GetByteOperand());
-	auto changedBits = _registers.SP ^ _registers.HL;
-
-	_registers.F = (changedBits & 0x800 ? HalfCarryFlag : NoFlags) | (changedBits & 0x8000 ? CarryFlag : NoFlags);
-
+	_registers.HL = AddSpImm();
 	return ThreeCycles;
 }
 

@@ -173,6 +173,18 @@ protected:
 		}
 	}
 
+	unsigned short Cpu::AddSpImm()
+	{
+		auto offset = GetByteOperand();
+
+		// Offset is treated as unsigned for flag calculation
+		_registers.F = ((_registers.SP & 0xff) + offset & 0x100 ? CarryFlag : NoFlags) |
+					   ((_registers.SP & 0xf) + (offset & 0xf) & 0x10 ? HalfCarryFlag : NoFlags);
+
+		// ..but signed for applying to register
+		return _registers.SP + static_cast<char>(offset);
+	}
+
 	unsigned char* const _regRefs1[8]{ &_registers.B, &_registers.D, &_registers.H, nullptr,
 							   &_registers.C, &_registers.E, &_registers.L, &_registers.A };
 
