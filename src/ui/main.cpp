@@ -2,6 +2,35 @@
 #include "SFML/Graphics.hpp"
 #include "../core/Emulator.h"
 #include "../core/CartridgeFactory.h"
+#include "../core/InputJoypad.h"
+
+InputJoypad EmuJoypad;
+
+using sfKey = sf::Keyboard::Key;
+
+std::vector<std::pair<sf::Keyboard::Key, JoypadKey>> KeyMap
+{
+	{ sfKey::D, JoypadKey::Right },
+	{ sfKey::A, JoypadKey::Left },
+	{ sfKey::W, JoypadKey::Up },
+	{ sfKey::S, JoypadKey::Down },
+	{ sfKey::Tab, JoypadKey::Select },
+	{ sfKey::Return, JoypadKey::Start },
+	{ sfKey::Comma, JoypadKey::B },
+	{ sfKey::Period, JoypadKey::A }
+};
+
+JoypadKey GetKeysDown()
+{
+	auto keysDown = JoypadKey::NoKey;
+
+	for (auto keyPair : KeyMap)
+	{
+		if (sf::Keyboard::isKeyPressed(keyPair.first)) keysDown = static_cast<JoypadKey>(keysDown | keyPair.second);
+	}
+
+	return keysDown;
+}
 
 int main()
 {
@@ -22,7 +51,10 @@ int main()
 		Emulator emulator{ cartridge };
 
 		while (window.isOpen())
-		{
+    {
+      // Need to get EmuJoypad ref from emulator
+		  EmuJoypad.SetKeysDown(window.hasFocus() ? GetKeysDown() : JoypadKey::NoKey);
+
 			sf::Event event;
 			while (window.pollEvent(event))
 			{

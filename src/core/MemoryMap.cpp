@@ -1,7 +1,7 @@
 #include "stdafx.h"
 #include "MemoryMap.h"
 
-MemoryMap::MemoryMap()
+MemoryMap::MemoryMap(InputJoypad& joypad) : _joypad(joypad)
 {
 }
 
@@ -58,6 +58,8 @@ unsigned char MemoryMap::ReadByte(unsigned short address) const
 
 	if (address < VramRegisters)
 	{
+		if (address == JoypadPort) return _joypad.ReadRegister();
+
 		// TODO: IO ports
 		return 0;
 	}
@@ -113,6 +115,8 @@ void MemoryMap::WriteByte(unsigned short address, unsigned char value)
 	}
 	else if (address < VramRegisters)
 	{
+		if (address == JoypadPort) _joypad.WriteRegister(value);
+
 		// TODO: I/O ports
 	}
 	else if (address < UnusableArea2)
