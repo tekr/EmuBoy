@@ -45,10 +45,21 @@ unsigned char MemoryMap::ReadByte(unsigned short address) const
 		return 0;
 	}
 
-	if (address < VramRegisters)
+	if (address < TimerPorts)
 	{
 		if (address == JoypadPort) return _joypad.ReadRegister();
 
+		// TODO: IO ports
+		return 0;
+	}
+
+	if (address < AfterTimerPorts)
+	{
+		return _timer->ReadRegister(address - TimerPorts);
+	}
+
+	if (address < VramRegisters)
+	{
 		// TODO: IO ports
 		return 0;
 	}
@@ -94,10 +105,18 @@ void MemoryMap::WriteByte(unsigned short address, unsigned char value)
 	{
 		// Writing to undocumented address space
 	}
-	else if (address < VramRegisters)
+	else if (address < TimerPorts)
 	{
 		if (address == JoypadPort) _joypad.WriteRegister(value);
 
+		// TODO: I/O ports
+	}
+	else if (address < AfterTimerPorts)
+	{
+		_timer->WriteRegister(address - TimerPorts, value);
+	}
+	else if (address < VramRegisters)
+	{
 		// TODO: I/O ports
 	}
 	else if (address < UnusableArea2)

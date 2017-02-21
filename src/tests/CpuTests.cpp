@@ -1035,12 +1035,12 @@ TEST_F(CpuTestFixture, Ret)
 
 TEST_F(CpuTestFixture, Pop)
 {
-	const std::vector<std::tuple<unsigned char, unsigned short&(*)(Registers&)>> scenarios
+	const std::vector<std::tuple<unsigned char, unsigned short&(*)(Registers&), unsigned short>> scenarios
 	{
-		{ 0xc1, [](Registers& r) -> auto& { return r.BC; } },
-		{ 0xd1, [](Registers& r) -> auto& { return r.DE; } },
-		{ 0xe1, [](Registers& r) -> auto& { return r.HL; } },
-		{ 0xf1, [](Registers& r) -> auto& { return r.AF; } }
+		{ 0xc1, [](Registers& r) -> auto& { return r.BC; }, 0xffff },
+		{ 0xd1, [](Registers& r) -> auto& { return r.DE; }, 0xffff },
+		{ 0xe1, [](Registers& r) -> auto& { return r.HL; }, 0xffff },
+		{ 0xf1, [](Registers& r) -> auto& { return r.AF; }, 0xfff0 }
 	};
 
 	for (auto& scenario : scenarios)
@@ -1066,7 +1066,7 @@ TEST_F(CpuTestFixture, Pop)
 
 			oldRegisters.PC = 1;
 			oldRegisters.SP += 2;
-			destRegFn(oldRegisters) = testVal;
+			destRegFn(oldRegisters) = testVal & std::get<2>(scenario);
 
 			EXPECT_EQ(oldRegisters, registers);
 		}
@@ -1491,7 +1491,7 @@ TEST_F(CpuTestFixture, VBlankInterrupt)
 	// Should have jumped back to program start and done first instruction again
 	EXPECT_EQ(0x3, reg.PC);
 
-	Cpu.RequestInterrupt(InterruptFlags::VBlank);
+	Cpu.RequestInterrupt(InterruptFlags::VBlankInt);
 
 	// Pushing PC and jumping to int vector takes four cycles
 	EXPECT_EQ(FourCycles, Cpu.DoNextInstruction());
@@ -1569,7 +1569,7 @@ TEST_F(CpuTestFixture, VBlankInterruptDisabled)
 	// Starting values
 	MemoryMap.SetBytes(MemoryMap::RamFixed, { 0x38, 0xff, 0xff, 0xff });
 
-	Cpu.EnabledInterrupts() = ~InterruptFlags::VBlank;
+	Cpu.EnabledInterrupts() = ~InterruptFlags::VBlankInt;
 
 	auto& reg = Cpu.Registers();
 
@@ -1584,8 +1584,8 @@ TEST_F(CpuTestFixture, VBlankInterruptDisabled)
 	EXPECT_EQ(0x38, MemoryMap.ReadByte(MemoryMap::RamFixed));
 	EXPECT_EQ(0x38, MemoryMap.ReadByte(MemoryMap::RamFixed + 1));
 
-	Cpu.RequestInterrupt(InterruptFlags::VBlank);
-	EXPECT_EQ(InterruptFlags::VBlank, Cpu.WaitingInterrupts());
+	Cpu.RequestInterrupt(InterruptFlags::VBlankInt);
+	EXPECT_EQ(InterruptFlags::VBlankInt, Cpu.WaitingInterrupts());
 
 	// Run main loop for a bit
 	for (auto i = 0; i < 10; i++) Cpu.DoNextInstruction();

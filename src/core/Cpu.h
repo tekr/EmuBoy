@@ -16,13 +16,13 @@ enum CpuFlags : unsigned char
 // Avoids enum class to simplify bit-level operations
 enum InterruptFlags : unsigned char
 {
-	None	= 0x0,
-	VBlank	= 0x01,
-	LcdStat = 0x02,
-	Timer	= 0x04,
-	Serial	= 0x08,
-	Joypad	= 0x10,
-	All		= 0x1f
+	NoInt = 0x0,
+	VBlankInt = 0x01,
+	LcdStatInt = 0x02,
+	TimerInt = 0x04,
+	SerialInt = 0x08,
+	JoypadInt = 0x10,
+	AllInt = 0x1f
 };
 
 enum class CpuState
@@ -74,11 +74,11 @@ class Cpu
 
 	const std::vector<std::pair<InterruptFlags, unsigned char>> _intVectors
 	{
-		{ InterruptFlags::VBlank,  0x40 },
-		{ InterruptFlags::LcdStat, 0x48 },
-		{ InterruptFlags::Timer,   0x50 },
-		{ InterruptFlags::Serial,  0x58 },
-		{ InterruptFlags::Joypad,  0x60 },
+		{ InterruptFlags::VBlankInt,  0x40 },
+		{ InterruptFlags::LcdStatInt, 0x48 },
+		{ InterruptFlags::TimerInt,   0x50 },
+		{ InterruptFlags::SerialInt,  0x58 },
+		{ InterruptFlags::JoypadInt,  0x60 },
 	};
 
 protected:
@@ -87,6 +87,8 @@ protected:
 
 	CpuState _state;
 	uint64_t _totalCycles;
+
+	bool _skipNextPCIncrement;
 
 	// Master interrupt enable
 	bool _interruptsEnabled;
@@ -103,7 +105,16 @@ protected:
 	// Jump table for all top-level opcodes
 	const std::vector<int(Cpu::*)(unsigned char opcode)> _opcodeJumpTable;
 
-	unsigned char GetNextProgramByte() { return ReadByte(_registers.PC++); }
+	unsigned char GetNextProgramByte()
+	{
+		auto result = ReadByte(_registers.PC);
+
+		if (!_skipNextPCIncrement) ++_registers.PC;
+		_skipNextPCIncrement = false;
+
+		return result;
+	}
+
 	unsigned char GetByteOperand() { return GetNextProgramByte(); }
 	unsigned short GetWordOperand() { return GetByteOperand() | GetByteOperand() << 8; }
 
@@ -162,6 +173,18 @@ protected:
 		}
 	}
 
+	unsigned short Cpu::AddSpImm()
+	{
+		auto offset = GetByteOperand();
+
+		// Offset is treated as unsigned for flag calculation
+		_registers.F = ((_registers.SP & 0xff) + offset & 0x100 ? CarryFlag : NoFlags) |
+					   ((_registers.SP & 0xf) + (offset & 0xf) & 0x10 ? HalfCarryFlag : NoFlags);
+
+		// ..but signed for applying to register
+		return _registers.SP + static_cast<char>(offset);
+	}
+
 	unsigned char* const _regRefs1[8]{ &_registers.B, &_registers.D, &_registers.H, nullptr,
 							   &_registers.C, &_registers.E, &_registers.L, &_registers.A };
 
@@ -201,12 +224,12 @@ protected:
 		switch (address)
 		{
 		case EnabledInterruptsAddress:
-			_enabledInterrupts = value & InterruptFlags::All;
+			_enabledInterrupts = value & InterruptFlags::AllInt;
 			_interruptCheckRequired = true;
 			break;
 
 		case WaitingInterruptsAddress:
-			_waitingInterrupts = value & InterruptFlags::All;
+			_waitingInterrupts = value & InterruptFlags::AllInt;
 			_interruptCheckRequired = true;
 			break;
 
@@ -312,7 +335,7 @@ public:
 	explicit Cpu(MemoryMap& memory);
 	~Cpu();
 
-	bool IsRunning() const { return _state == CpuState::Running; }
+	bool IsClockRunning() const	{ return _state == CpuState::Running; }
 
 	// Gets the total number of elapsed emulated CPU cycles (does not count when CPU is stopped/halted)
 	uint64_t GetTotalCycles() const { return _totalCycles; }
