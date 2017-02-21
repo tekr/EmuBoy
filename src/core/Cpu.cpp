@@ -734,13 +734,17 @@ int Cpu::PrefixCb(unsigned char opcode)
 		_registers.F = _registers.F & ~ZeroFlag | (val == 0 ? ZeroFlag : NoFlags);
 	}
 
-	if (isReg)
+	// Opcodes within this range don't write a result (other than flags)
+	if (nextOpcode < 0x40 || nextOpcode > 0x7f)
 	{
-		GetReg8Ref2(nextOpcode) = val;
-	}
-	else
-	{
-		WriteByte(_registers.HL, val);
+		if (isReg)
+		{
+			GetReg8Ref2(nextOpcode) = val;
+		}
+		else
+		{
+			WriteByte(_registers.HL, val);
+		}
 	}
 
 	return cycleCount;

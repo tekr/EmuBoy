@@ -2,6 +2,7 @@
 #include "Cartridge.h"
 #include "MemoryMap.h"
 #include <algorithm>
+#include <cassert>
 
 Cartridge::Cartridge(std::vector<unsigned char>&& rom, int ramBanks) : _rom{ std::move(rom) },
 			_ram(ramBanks * MemoryMap::RamBankSize), _ramEnabled(false)
@@ -11,7 +12,10 @@ Cartridge::Cartridge(std::vector<unsigned char>&& rom, int ramBanks) : _rom{ std
 unsigned char Cartridge::RomReadByte(unsigned short address) const
 {
 	auto bank = address < MemoryMap::RomBankSize ? 0 : _selectedRomBank;
-	return _rom[(address & MemoryMap::RomBankSize - 1) + bank * MemoryMap::RomBankSize];
+	auto index = (address & MemoryMap::RomBankSize - 1) + bank * MemoryMap::RomBankSize;
+
+	assert(index < _rom.size());
+	return _rom[index];
 }
 
 unsigned char Cartridge::RamReadByte(unsigned short address) const
