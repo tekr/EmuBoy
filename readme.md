@@ -1,3 +1,4 @@
+
 Emu Boy
 =======
 A Nintendo Game Boy emulator written in C++.
@@ -27,22 +28,20 @@ Emu Boy uses [SFML](http://www.sfml-dev.org) for outputting video & audio, and [
 As of now Emu Boy is still in its early stages and is very much a work in progress. It currently supports the following:
 
 * Fairly cycle-accurate emulation of the LR35902 CPU (all documented instructions + interrupts)
-* Partial graphics implementation (background + window support)
-* Successfully executes the internal Gameboy boot ROM, which scrolls the Nintendo logo and verifies the cartridge checksum on startup
-* Partially runs the included snake game ROM (graphics are incomplete and no input supported)
+* Full graphics implementation (sprites + background + window support)
+* Runs (at least) the included snake and Super Mario World, though the latter has some graphical glitches
 * Unit testing of most CPU instructions
 * Windows-only (Visual Studio 2015 solution)
 * Simulates the slow response-time of the Game Boy LCD screen and smoothes upsized jagged pixels
+* Keyboard input
 
 &nbsp;
 <p align="center" style="border: 5px solid red"><kbd><img src="http://codingthemachine.com/wp-content/uploads/2017/01/EmuBoyRun.gif" /></kbd></p>
 
 ## To-do list
-Plenty of features remain to be added including:
+Various features remain to be added including:
 
-* Sprites
-* Controller input
-* DMA transfers
 * Sound
+* Menus & ROM file selector
 * Linux/Mac OSX support
 * Performance optimisation
