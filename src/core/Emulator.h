@@ -8,7 +8,8 @@
 
 class Emulator
 {
-	MemoryMap EmuMemoryMap;
+	InputJoypad EmuJoypad;
+	MemoryMap EmuMemoryMap { EmuJoypad };
 	Cpu EmuCpu{ EmuMemoryMap };
 	SpriteManager EmuSpriteManager;
 	Graphics EmuGraphics{ EmuCpu, EmuMemoryMap, EmuSpriteManager };
@@ -35,5 +36,6 @@ public:
 	~Emulator();
 
 	int* GetFrame();
+	InputJoypad& GetJoypad() { return EmuJoypad; }
 };
 

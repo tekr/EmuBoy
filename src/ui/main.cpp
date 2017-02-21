@@ -4,8 +4,6 @@
 #include "../core/CartridgeFactory.h"
 #include "../core/InputJoypad.h"
 
-InputJoypad EmuJoypad;
-
 using sfKey = sf::Keyboard::Key;
 
 std::vector<std::pair<sf::Keyboard::Key, JoypadKey>> KeyMap
@@ -51,9 +49,8 @@ int main()
 		Emulator emulator{ cartridge };
 
 		while (window.isOpen())
-    {
-      // Need to get EmuJoypad ref from emulator
-		  EmuJoypad.SetKeysDown(window.hasFocus() ? GetKeysDown() : JoypadKey::NoKey);
+		{
+			emulator.GetJoypad().SetKeysDown(window.hasFocus() ? GetKeysDown() : JoypadKey::NoKey);
 
 			sf::Event event;
 			while (window.pollEvent(event))

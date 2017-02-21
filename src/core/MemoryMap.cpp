@@ -47,6 +47,8 @@ unsigned char MemoryMap::ReadByte(unsigned short address) const
 
 	if (address < TimerPorts)
 	{
+		if (address == JoypadPort) return _joypad.ReadRegister();
+
 		// TODO: IO ports
 		return 0;
 	}
@@ -58,8 +60,6 @@ unsigned char MemoryMap::ReadByte(unsigned short address) const
 
 	if (address < VramRegisters)
 	{
-		if (address == JoypadPort) return _joypad.ReadRegister();
-
 		// TODO: IO ports
 		return 0;
 	}
@@ -107,6 +107,8 @@ void MemoryMap::WriteByte(unsigned short address, unsigned char value)
 	}
 	else if (address < TimerPorts)
 	{
+		if (address == JoypadPort) _joypad.WriteRegister(value);
+
 		// TODO: I/O ports
 	}
 	else if (address < AfterTimerPorts)
@@ -115,8 +117,6 @@ void MemoryMap::WriteByte(unsigned short address, unsigned char value)
 	}
 	else if (address < VramRegisters)
 	{
-		if (address == JoypadPort) _joypad.WriteRegister(value);
-
 		// TODO: I/O ports
 	}
 	else if (address < UnusableArea2)
