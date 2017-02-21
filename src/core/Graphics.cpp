@@ -50,7 +50,7 @@ void Graphics::CheckLineCompare()
 
 	if ((status & 0x44) == 0x44)
 	{
-		_cpu.RequestInterrupt(InterruptFlags::LcdStat);
+		_cpu.RequestInterrupt(InterruptFlags::LcdStatInt);
 	}
 }
 
@@ -224,12 +224,12 @@ void Graphics::SetLcdcStatus(LcdcStatus status)
 		// interrupt if the OAM interrupt is enabled
 		interruptMask = 0x30;
 
-		_cpu.RequestInterrupt(InterruptFlags::VBlank);
+		_cpu.RequestInterrupt(InterruptFlags::VBlankInt);
 		break;
 	}
 
 	if (_registers[RegLcdStatus] & interruptMask)
 	{
-		_cpu.RequestInterrupt(InterruptFlags::LcdStat);
+		_cpu.RequestInterrupt(InterruptFlags::LcdStatInt);
 	}
 }

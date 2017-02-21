@@ -3,6 +3,7 @@
 #include "Cartridge.h"
 #include "GbInternalRom.h"
 #include "Graphics.h"
+#include "Timer.h"
 
 class MemoryMap
 {
@@ -15,6 +16,8 @@ public:
 	static const unsigned short RamOam		  = 0xfe00;
 	static const unsigned short UnusableArea1 = 0xfea0;
 	static const unsigned short IoPorts		  = 0xff00;
+	static const unsigned short TimerPorts	  = 0xff04;
+	static const unsigned short AfterTimerPorts	= 0xff08;
 	static const unsigned short VramRegisters = 0xff40;
 	static const unsigned short UnusableArea2 = 0xff4c;
 	static const unsigned short HighRam		  = 0xff80;
@@ -29,6 +32,7 @@ public:
 protected:
 	std::shared_ptr<Cartridge> _cartridge;
 	Graphics* _graphics;
+	Timer* _timer;
 
 	unsigned char _fixedRam[RamBankSize];
 	unsigned char _highRam[128];
@@ -42,6 +46,7 @@ public:
 
 	void SetCartridge(std::shared_ptr<Cartridge> cartridge) { _cartridge = cartridge; }
 	void SetGraphics(Graphics* graphics) { _graphics = graphics; }
+	void SetTimer(Timer* timer) { _timer = timer; }
 
 	unsigned char ReadByte(unsigned short address) const;
 	void WriteByte(unsigned short address, unsigned char value);

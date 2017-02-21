@@ -45,6 +45,17 @@ unsigned char MemoryMap::ReadByte(unsigned short address) const
 		return 0;
 	}
 
+	if (address < TimerPorts)
+	{
+		// TODO: IO ports
+		return 0;
+	}
+
+	if (address < AfterTimerPorts)
+	{
+		return _timer->ReadRegister(address - TimerPorts);
+	}
+
 	if (address < VramRegisters)
 	{
 		// TODO: IO ports
@@ -91,6 +102,14 @@ void MemoryMap::WriteByte(unsigned short address, unsigned char value)
 	else if (address < IoPorts)
 	{
 		// Writing to undocumented address space
+	}
+	else if (address < TimerPorts)
+	{
+		// TODO: I/O ports
+	}
+	else if (address < AfterTimerPorts)
+	{
+		_timer->WriteRegister(address - TimerPorts, value);
 	}
 	else if (address < VramRegisters)
 	{

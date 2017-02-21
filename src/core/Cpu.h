@@ -16,13 +16,13 @@ enum CpuFlags : unsigned char
 // Avoids enum class to simplify bit-level operations
 enum InterruptFlags : unsigned char
 {
-	None	= 0x0,
-	VBlank	= 0x01,
-	LcdStat = 0x02,
-	Timer	= 0x04,
-	Serial	= 0x08,
-	Joypad	= 0x10,
-	All		= 0x1f
+	NoInt = 0x0,
+	VBlankInt = 0x01,
+	LcdStatInt = 0x02,
+	TimerInt = 0x04,
+	SerialInt = 0x08,
+	JoypadInt = 0x10,
+	AllInt = 0x1f
 };
 
 enum class CpuState
@@ -74,11 +74,11 @@ class Cpu
 
 	const std::vector<std::pair<InterruptFlags, unsigned char>> _intVectors
 	{
-		{ InterruptFlags::VBlank,  0x40 },
-		{ InterruptFlags::LcdStat, 0x48 },
-		{ InterruptFlags::Timer,   0x50 },
-		{ InterruptFlags::Serial,  0x58 },
-		{ InterruptFlags::Joypad,  0x60 },
+		{ InterruptFlags::VBlankInt,  0x40 },
+		{ InterruptFlags::LcdStatInt, 0x48 },
+		{ InterruptFlags::TimerInt,   0x50 },
+		{ InterruptFlags::SerialInt,  0x58 },
+		{ InterruptFlags::JoypadInt,  0x60 },
 	};
 
 protected:
@@ -224,12 +224,12 @@ protected:
 		switch (address)
 		{
 		case EnabledInterruptsAddress:
-			_enabledInterrupts = value & InterruptFlags::All;
+			_enabledInterrupts = value & InterruptFlags::AllInt;
 			_interruptCheckRequired = true;
 			break;
 
 		case WaitingInterruptsAddress:
-			_waitingInterrupts = value & InterruptFlags::All;
+			_waitingInterrupts = value & InterruptFlags::AllInt;
 			_interruptCheckRequired = true;
 			break;
 
@@ -331,23 +331,11 @@ protected:
 
 	int InvalidOp(unsigned char opcode);
 
-	void StartIfRequired()
-	{
-		if (_state == CpuState::Stopped && (_memoryMap.ReadByte(MemoryMap::Joypad) & 0xf) != 0xf)
-		{
-			_state = CpuState::Running;
-		}
-	}
-
 public:
 	explicit Cpu(MemoryMap& memory);
 	~Cpu();
 
-	bool IsRunning()
-	{
-		StartIfRequired();
-		return _state == CpuState::Running;
-	}
+	bool IsClockRunning() const	{ return _state == CpuState::Running; }
 
 	// Gets the total number of elapsed emulated CPU cycles (does not count when CPU is stopped/halted)
 	uint64_t GetTotalCycles() const { return _totalCycles; }

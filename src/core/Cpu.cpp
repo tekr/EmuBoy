@@ -6,7 +6,7 @@
 
 Cpu::Cpu(MemoryMap& memory) :
 	_memoryMap(memory), _state(CpuState::Running), _totalCycles(0), _interruptsEnabled(true),
-	_enabledInterrupts(InterruptFlags::None), _waitingInterrupts(InterruptFlags::None), _interruptCheckRequired(false),
+	_enabledInterrupts(InterruptFlags::NoInt), _waitingInterrupts(InterruptFlags::NoInt), _interruptCheckRequired(false),
 	_aluOps
 	{
 		// ADD
@@ -429,7 +429,7 @@ int Cpu::Ld8AccMem(unsigned char opcode)
 
 int Cpu::Stop(unsigned char opcode)
 {
-	_state = CpuState::Stopped;
+	//_state = CpuState::Stopped;
 	return OneCycle;
 }
 
@@ -761,9 +761,12 @@ void Cpu::RequestInterrupt(InterruptFlags interruptFlags)
 	{
 		_state = CpuState::Running;
 
-		// Hardware bug causes next PC increment to be skipped if
-		// master interrupt enabled was false
+		// Hardware bug causes next PC increment to be skipped if master interrupt enabled was false
 		_skipNextPCIncrement = !_interruptsEnabled;
+	}
+	else if (_state == CpuState::Stopped && (interruptFlags & InterruptFlags::JoypadInt))
+	{
+		_state = CpuState::Running;
 	}
 
 	_interruptCheckRequired = true;
@@ -771,8 +774,7 @@ void Cpu::RequestInterrupt(InterruptFlags interruptFlags)
 
 int Cpu::DoNextInstruction()
 {
-	StartIfRequired();
-	if (_state != CpuState::Running) return 0;
+	if (_state != CpuState::Running) return OneCycle;
 
 	if (_interruptCheckRequired)
 	{
