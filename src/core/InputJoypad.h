@@ -8,10 +8,10 @@ enum JoypadKey
 	Left	= 1 << 1,
 	Up		= 1 << 2,
 	Down	= 1 << 3,
-	Select	= 1 << 4,
-	Start	= 1 << 5,
-	A		= 1 << 6,
-	B		= 1 << 7
+	A		= 1 << 4,
+	B		= 1 << 5,
+	Select	= 1 << 6,
+	Start	= 1 << 7
 };
 
 class InputJoypad
@@ -29,7 +29,8 @@ public:
 
 	unsigned char ReadRegister() const
 	{
-		return _register & 0x30 | 0xf & ~((~_register & 0x10 ? _keysDown & 0xf : 0) | (~_register & 0x20 ? (_keysDown & 0xf0) >> 4 : 0));
+		return _register & 0x30 | 0xf & ~((~_register & 0x10 ? _keysDown & 0xf : 0) |
+				(~_register & 0x20 ? (_keysDown & 0xf0) >> 4 : 0));
 	}
 
 	~InputJoypad();
