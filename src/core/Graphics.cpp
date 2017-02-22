@@ -116,6 +116,8 @@ void Graphics::WriteRegister(unsigned short address, unsigned char value)
 		{
 			_cpu.RequestInterrupt(InterruptFlags::VBlankInt);
 		}
+		// Turning display off immediately causes HBlankMode
+		else if (!(value & 0x80)) value = value & 0xfc | LcdcStatus::HBlankMode;
 	}
 
 	_registers[address] = value;
@@ -159,14 +161,12 @@ int Graphics::RenderLine()
 
 			for (auto x = 0; x < HozPixels;x++)
 			{
-				auto windowX = x - _registers[RegWindowX] + 7;
-				auto& pixel = Bitmap[_currentScanline*HozPixels + x];
-
 				unsigned char colour = 0;
+				auto windowX = x - _registers[RegWindowX] + 7;
 
 				if (belowWindowStart && windowX >= 0)
 				{
-					// Window is on top
+					// Window is over background
 					colour = GetBgOrWinColour(windowX, _currentWindowScanline++, TileType::Window);
 				}
 				else if (backgroundEnabled)
@@ -176,6 +176,7 @@ int Graphics::RenderLine()
 				}
 
 				auto spritePixelOnTop = false;
+				auto& pixel = Bitmap[_currentScanline*HozPixels + x];
 
 				if (spritesEnabled)
 				{
@@ -187,7 +188,7 @@ int Graphics::RenderLine()
 
 					if (sprite != firstNonvisibleSprite && (*sprite)->XPos - SpriteManager::SpriteXOffset <= x && spritesThisLine <= SpriteManager::MaxSpritesPerLine &&
 						// Don't draw sprite unless it's visible over Window & BG (based on priority and BG/Window colour)
-						(!((*sprite)->Flags & SpriteFlags::ZPriority) || colour != 0))
+						(!((*sprite)->Flags & SpriteFlags::ZPriority) || colour == 0))
 					{
 						auto spriteColour = _spriteManager.GetSpriteColour(**sprite, x, _currentScanline, _vram);
 						spritePixelOnTop = spriteColour != 0;
@@ -220,7 +221,7 @@ int Graphics::RenderLine()
 
 void Graphics::SetLcdcStatus(LcdcStatus status)
 {
-	_status = DisplayEnabled() ? status : LcdcStatus::VBlankMode;
+	_status = DisplayEnabled() ? status : LcdcStatus::HBlankMode;
 	_registers[RegLcdStatus] = (_registers[RegLcdStatus] & 0xfc) | status;
 
 	if (!DisplayEnabled()) return;
@@ -246,6 +247,10 @@ void Graphics::SetLcdcStatus(LcdcStatus status)
 		break;
 	}
 
+	// TODO: Interrupt is only actually fired if the signal (derived from ORing together
+	// the results of ANDing the mode with its corresponding mask register bit) changes
+	// from 0 to 1. Explained in detail in 8.7 of
+	// https://github.com/AntonioND/giibiiadvance/blob/master/docs/TCAGBD.pdf
 	if (_registers[RegLcdStatus] & interruptMask)
 	{
 		_cpu.RequestInterrupt(InterruptFlags::LcdStatInt);

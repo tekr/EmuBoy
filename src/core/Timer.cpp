@@ -4,8 +4,17 @@
 
 const int Timer::ModeFreqs[] = { 4096, 262144, 65536, 16384 };
 
-Timer::Timer(): _isRunning(false), _divisorMode(0), _cyclesToNextCounterInc(0)
+Timer::Timer(): _cpu(nullptr), _isRunning(false), _divisorMode(0), _cyclesToNextCounterInc(0)
 {
+}
+
+void Timer::IncCounter()
+{
+	if (++_registers[CounterReg] == 0)
+	{
+		_registers[CounterReg] = _registers[ModuloReg];
+		_cpu->RequestInterrupt(InterruptFlags::TimerInt);
+	}
 }
 
 void Timer::RunCycles(int numCycles)
@@ -23,11 +32,7 @@ void Timer::RunCycles(int numCycles)
 		{
 			for (_cyclesToNextCounterInc -= cyclesToNextEvent; _cyclesToNextCounterInc <= 0; _cyclesToNextCounterInc += GetCyclesPerCounterInc())
 			{
-				if (++_registers[CounterReg] == 0)
-				{
-					_registers[CounterReg] = _registers[ModuloReg];
-					_cpu->RequestInterrupt(InterruptFlags::TimerInt);
-				}
+				IncCounter();
 			}
 		}
 	}

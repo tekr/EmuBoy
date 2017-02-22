@@ -137,7 +137,8 @@ public:
 
 	void WriteOam(unsigned short address, unsigned char value);
 
-	unsigned char ReadRegister(unsigned short address) { return _registers[address]; }
+	unsigned char ReadRegister(unsigned short address) const { return _registers[address] | (address == RegLcdStatus ? 0x80 : 0); }
+
 	void WriteRegister(unsigned short address, unsigned char value);
 
 	void ResetFrame()

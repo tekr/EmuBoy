@@ -1,6 +1,5 @@
 #pragma once
 #include "Graphics.h"
-#include <algorithm>
 #include "MemoryMap.h"
 #include "SpriteManager.h"
 #include "Cpu.h"

@@ -23,6 +23,7 @@ Emulator::Emulator(std::shared_ptr<Cartridge> cartridge)
 	EmuTimer.SetCpu(&EmuCpu);
 	EmuMemoryMap.SetTimer(&EmuTimer);
 	EmuMemoryMap.SetCartridge(cartridge);
+	EmuJoypad.SetCpu(&EmuCpu);
 }
 
 Emulator::~Emulator()
