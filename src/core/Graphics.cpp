@@ -87,7 +87,13 @@ void Graphics::WriteRegister(unsigned short address, unsigned char value)
 {
 	// Writing to the line count register resets it
 	if (address == RegLineCount) value = 0;
-	else if (address == RegLcdControl) _spriteManager.SetUseTallSprites(value & 0x4);
+	else if (address == RegLcdControl)
+	{
+		_spriteManager.SetUseTallSprites(value & 0x4);
+
+		// Per GB programming manual p.56, turning off the display immediately resets the line count
+		if (!(value & 0x80) && _registers[RegLcdControl] & 0x80) _registers[RegLineCount] = 0;
+	}
 	else if (address == RegDmaTransfer)
 	{
 		unsigned short sourceAddress = value << 8;
@@ -97,6 +103,18 @@ void Graphics::WriteRegister(unsigned short address, unsigned char value)
 		for (auto i = 0; i < OamSize; i++)
 		{
 			WriteOam(destAddress++, _memoryMap.ReadByte(sourceAddress++));
+		}
+	}
+	else if (address == RegLcdStatus)
+	{
+		// Prevent changing read-only bits, clear match flag in bit 2 on write
+		value = value & 0xf8 | _registers[RegLcdStatus] & 0x3;
+
+		// Hardware quirk that at least Roadrash & Legend of Zerd rely on
+		// Per http://www.devrs.com/gb/files/faqs.html#GBBugs
+		if (DisplayEnabled() && _registers[RegLcdStatus] & (LcdcStatus::HBlankMode | LcdcStatus::VBlankMode))
+		{
+			_cpu.RequestInterrupt(InterruptFlags::VBlankInt);
 		}
 	}
 
@@ -220,8 +238,8 @@ void Graphics::SetLcdcStatus(LcdcStatus status)
 		break;
 
 	case LcdcStatus::VBlankMode:
-		// According to http://gameboy.mongenel.com/dmg/istat98.txt, this mode fires the LCDC
-		// interrupt if the OAM interrupt is enabled
+		// According to http://gameboy.mongenel.com/dmg/istat98.txt, LCD stat interrupt
+		// is generated for this mode if either VBlank or OAM stat bits are set
 		interruptMask = 0x30;
 
 		_cpu.RequestInterrupt(InterruptFlags::VBlankInt);

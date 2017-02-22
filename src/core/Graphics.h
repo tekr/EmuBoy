@@ -144,7 +144,6 @@ public:
 	{
 		_currentScanline = 0;
 		_currentWindowScanline = 0;
-		_registers[RegLineCount] = 0;
 	}
 
 	int RenderLine();

@@ -527,7 +527,10 @@ int Cpu::Ld8RegOrMemRegOrMem(unsigned char opcode)
 
 int Cpu::Halt(unsigned char opcode)
 {
-	_state = CpuState::Halted;
+	// Hardware bug that causes no halt and next PC increment to be skipped
+	if (!_interruptsEnabled & (_waitingInterrupts & _enabledInterrupts)) _skipNextPCIncrement = true;
+	else _state = CpuState::Halted;
+
 	return OneCycle;
 }
 
@@ -761,14 +764,8 @@ void Cpu::RequestInterrupt(InterruptFlags interruptFlags)
 	_waitingInterrupts |= interruptFlags;
 
 	// Master interrupt enable is not checked when waking from halt
-	if (_state == CpuState::Halted && _waitingInterrupts & _enabledInterrupts)
-	{
-		_state = CpuState::Running;
-
-		// Hardware bug causes next PC increment to be skipped if master interrupt enabled was false
-		_skipNextPCIncrement = !_interruptsEnabled;
-	}
-	else if (_state == CpuState::Stopped && (interruptFlags & InterruptFlags::JoypadInt))
+	if (_state == CpuState::Halted && _waitingInterrupts & _enabledInterrupts
+		|| _state == CpuState::Stopped && interruptFlags & InterruptFlags::JoypadInt)
 	{
 		_state = CpuState::Running;
 	}
@@ -782,10 +779,8 @@ int Cpu::DoNextInstruction()
 
 	if (_interruptCheckRequired)
 	{
-		// Can't find interrupt ack time in docs, so assuming it's the same as the
-		// RST instruction (difference being an interrupt also updates the master
-		// interrupt enable and waiting interrupt flag)
-		if (InterruptTriggered()) return FourCycles;
+		// Five cycles per https://github.com/AntonioND/giibiiadvance/blob/master/docs/TCAGBD.pdf section 4.9
+		if (InterruptTriggered()) return FiveCycles;
 
 		_interruptCheckRequired = false;
 	}
