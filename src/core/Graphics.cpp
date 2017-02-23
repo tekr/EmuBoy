@@ -129,7 +129,6 @@ int Graphics::RenderLine()
 	{
 		_registers[RegLineCount] = 0;
 		_spriteManager.SetScanline(0);
-		CheckLineCompare();
 	}
 	else
 	{
@@ -219,10 +218,11 @@ int Graphics::RenderLine()
 		}
 	}
 
+	CheckLineCompare();
+
 	_registers[RegLineCount]++;
 	_currentScanline++;
 
-	CheckLineCompare();
 	return ScanlineClocks;
 }
 
