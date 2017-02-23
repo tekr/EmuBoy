@@ -38,8 +38,7 @@ int Graphics::MapColour(unsigned char colour, Palette palette)
 										? RegSprite0Palette
 										: RegSprite1Palette];
 
-	// 75% opacity to emulate the slow GB screen response time
-	// Green tinge to look more like the original
+	// 75% opacity to emulate the slow GB screen response time. Green tinge to look more like the original
 	return 0xc0000000 | ((3 - (paletteData >> (colour << 1) & 0x3)) * 0x40504a);
 }
 
@@ -151,8 +150,8 @@ int Graphics::RenderLine()
 			auto belowWindowStart = WindowEnabled() && _currentScanline >= _registers[RegWindowY];
 
 			auto visibleSprites = _spriteManager.GetVisibleSprites();
-			auto sprite = visibleSprites.cbegin();
-			auto firstNonvisibleSprite = visibleSprites.cend();
+			auto firstSpriteNotLeftOfX = visibleSprites.cbegin();
+			auto firstSpriteBelowY = visibleSprites.cend();
 
 			auto spritesThisLine = 0;
 
@@ -180,23 +179,31 @@ int Graphics::RenderLine()
 
 				if (spritesEnabled)
 				{
-					while (sprite != firstNonvisibleSprite && (*sprite)->XPos - SpriteManager::SpriteXOffset + SpriteManager::SpriteWidth <= x)
+					while (firstSpriteNotLeftOfX != firstSpriteBelowY && (*firstSpriteNotLeftOfX)->XPos - SpriteManager::SpriteXOffset + SpriteManager::SpriteWidth <= x)
 					{
-						++sprite;
+						++firstSpriteNotLeftOfX;
 						++spritesThisLine;
 					}
 
-					if (sprite != firstNonvisibleSprite && (*sprite)->XPos - SpriteManager::SpriteXOffset <= x && spritesThisLine <= SpriteManager::MaxSpritesPerLine &&
-						// Don't draw sprite unless it's visible over Window & BG (based on priority and BG/Window colour)
-						(!((*sprite)->Flags & SpriteFlags::ZPriority) || colour == 0))
+					auto sprite = firstSpriteNotLeftOfX;
+
+					// Iterate through sprites overlapping this pixel as necessary until we either:
+					//  * Hit a non-transparent sprite pixel above the BG/Window
+					//  * Hit a sprite that is behind the BG/Window, at which point we use BG/Window pixel (regardless of lower-priority sprite settings)
+					//  * Run out of overlapping sprites
+					while ((sprite != firstSpriteBelowY && (*sprite)->XPos - SpriteManager::SpriteXOffset <= x && spritesThisLine <= SpriteManager::MaxSpritesPerLine &&
+						(!((*sprite)->Flags & SpriteFlags::ZPriority) || colour == 0)))
 					{
 						auto spriteColour = _spriteManager.GetSpriteColour(**sprite, x, _currentScanline, _vram);
 						spritePixelOnTop = spriteColour != 0;
 
 						if (spritePixelOnTop)
 						{
-							pixel = MapColour(spriteColour, (*sprite)->Flags & SpriteFlags::PaletteSelector ? Palette::Sprite1 : Palette::Sprite0);
+							pixel = MapColour(spriteColour, (*firstSpriteNotLeftOfX)->Flags & SpriteFlags::PaletteSelector ? Palette::Sprite1 : Palette::Sprite0);
+							break;
 						}
+
+						++sprite;
 					}
 				}
 
