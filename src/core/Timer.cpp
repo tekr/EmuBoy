@@ -40,7 +40,3 @@ void Timer::RunCycles(int numCycles)
 	_cyclesToNextDivInc -= numCycles;
 	if (_isRunning) _cyclesToNextCounterInc -= numCycles;
 }
-
-Timer::~Timer()
-{
-}

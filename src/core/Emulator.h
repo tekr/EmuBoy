@@ -18,7 +18,6 @@ class Emulator
 
 public:
 	explicit Emulator(std::shared_ptr<Cartridge> cartridge);
-	~Emulator();
 
 	int* GetFrame();
 	InputJoypad& GetJoypad() { return EmuJoypad; }

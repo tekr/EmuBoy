@@ -334,7 +334,6 @@ protected:
 
 public:
 	explicit Cpu(MemoryMap& memory);
-	~Cpu();
 
 	bool IsClockRunning() const	{ return _state == CpuState::Running; }
 

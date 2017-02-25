@@ -85,7 +85,5 @@ public:
 	{
 		return address < ControlReg ? _registers[address] : _divisorMode | (_isRunning ? 4 : 0);
 	}
-
-	~Timer();
 };
 

@@ -242,10 +242,6 @@ Cpu::Cpu(MemoryMap& memory) :
 {
 }
 
-Cpu::~Cpu()
-{
-}
-
 bool Cpu::ConditionMet(unsigned char opcode) const
 {
 	unsigned char condition = opcode & 0x10 ? CarryFlag : ZeroFlag;

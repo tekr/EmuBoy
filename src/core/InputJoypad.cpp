@@ -17,7 +17,3 @@ void InputJoypad::SetKeysDown(JoypadKey keys)
 		_cpu->RequestInterrupt(InterruptFlags::JoypadInt);
 	}
 }
-
-InputJoypad::~InputJoypad()
-{
-}

@@ -128,7 +128,6 @@ public:
 	int Bitmap[HozPixels * VertPixels];
 
 	Graphics(Cpu& cpu, MemoryMap& memoryMap, SpriteManager& spriteManager);
-	~Graphics();
 
 	unsigned char& Vram(unsigned short address) { return _status != LcdcStatus::OamAndVramReadMode ? _vram[address] : _dummy; }
 

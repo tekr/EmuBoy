@@ -37,7 +37,5 @@ public:
 		return 0xc0 | _register & 0x30 | 0xf & ~((~_register & 0x10 ? _keysDown & 0xf : 0) |
 												 (~_register & 0x20 ? (_keysDown & 0xf0) >> 4 : 0));
 	}
-
-	~InputJoypad();
 };
 

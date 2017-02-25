@@ -26,10 +26,6 @@ Emulator::Emulator(std::shared_ptr<Cartridge> cartridge)
 	EmuJoypad.SetCpu(&EmuCpu);
 }
 
-Emulator::~Emulator()
-{
-}
-
 int* Emulator::GetFrame()
 {
 	EmuGraphics.ResetFrame();

@@ -63,10 +63,6 @@ Graphics::Graphics(Cpu& cpu, MemoryMap& memoryMap, SpriteManager& spriteManager)
 	_registers[RegSprite1Palette] = 0xff;
 }
 
-Graphics::~Graphics()
-{
-}
-
 void Graphics::WriteOam(unsigned short address, unsigned char value)
 {
 	if (_status != LcdcStatus::OamReadMode && _status != LcdcStatus::OamAndVramReadMode)
