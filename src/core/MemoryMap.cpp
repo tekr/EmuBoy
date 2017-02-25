@@ -25,7 +25,7 @@ unsigned char MemoryMap::ReadByte(unsigned short address) const
 
 	if (address < RamFixed)
 	{
-		return _cartridge->RamReadByte(address - RamFixed);
+		return _cartridge->RamReadByte(address - RamSwitched);
 	}
 
 	// Includes near-complete repeat of fixed RAM from 0xe000 to OAM RAM start
