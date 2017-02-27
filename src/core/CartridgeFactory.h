@@ -6,7 +6,7 @@
 class CartridgeFactory
 {
 public:
-	static std::shared_ptr<Cartridge> LoadFromFile(std::string filePath, int ramBanks)
+	static std::unique_ptr<Cartridge> LoadFromFile(std::string filePath, int ramBanks)
 	{
 		std::ifstream ifs(filePath, std::ios::binary | std::ios::ate);
 		if (!ifs) return nullptr;
@@ -18,6 +18,6 @@ public:
 		ifs.seekg(0, std::ios::beg);
 		ifs.read(reinterpret_cast<char*>(buffer.data()), pos);
 
-		return std::make_shared<Cartridge>(std::move(buffer), ramBanks);
+		return std::make_unique<Cartridge>(std::move(buffer), ramBanks);
 	}
 };

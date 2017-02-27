@@ -18,7 +18,7 @@ void Emulator::Run(int& currentCycle, int cycleTarget)
 	currentCycle = std::max(currentCycle, cycleTarget);
 }
 
-Emulator::Emulator(std::shared_ptr<Cartridge> cartridge)
+Emulator::Emulator(Cartridge* cartridge)
 {
 	EmuTimer.SetCpu(&EmuCpu);
 	EmuMemoryMap.SetTimer(&EmuTimer);

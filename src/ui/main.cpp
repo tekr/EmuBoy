@@ -46,7 +46,7 @@ int main()
 	auto cartridge = CartridgeFactory::LoadFromFile("../../ROMs/gb-snake.gb", 0);
 	if (cartridge != nullptr)
 	{
-		Emulator emulator{ cartridge };
+		Emulator emulator{ cartridge.get() };
 
 		while (window.isOpen())
 		{

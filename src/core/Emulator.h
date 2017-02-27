@@ -17,7 +17,7 @@ class Emulator
 	void Run(int& currentCycle, int cycleTarget);
 
 public:
-	explicit Emulator(std::shared_ptr<Cartridge> cartridge);
+	explicit Emulator(Cartridge* cartridge);
 
 	int* GetFrame();
 	InputJoypad& GetJoypad() { return EmuJoypad; }

@@ -1,5 +1,4 @@
 #pragma once
-#include <memory>
 #include "Cartridge.h"
 #include "GbInternalRom.h"
 #include "Graphics.h"
@@ -32,7 +31,7 @@ public:
 	static const unsigned short Joypad = 0xff00;
 
 protected:
-	std::shared_ptr<Cartridge> _cartridge;
+	Cartridge* _cartridge;
 	Graphics* _graphics;
 	Timer* _timer;
 	InputJoypad& _joypad;
@@ -47,7 +46,7 @@ public:
 	explicit MemoryMap(InputJoypad& joypad);
 	~MemoryMap();
 
-	void SetCartridge(std::shared_ptr<Cartridge> cartridge) { _cartridge = cartridge; }
+	void SetCartridge(Cartridge* cartridge) { _cartridge = cartridge; }
 	void SetGraphics(Graphics* graphics) { _graphics = graphics; }
 	void SetTimer(Timer* timer) { _timer = timer; }
 
