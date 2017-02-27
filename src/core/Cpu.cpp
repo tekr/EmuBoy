@@ -5,8 +5,9 @@
 #include <algorithm>
 
 Cpu::Cpu(MemoryMap& memory) :
-	_memoryMap(memory), _state(CpuState::Running), _totalCycles(0), _interruptsEnabled(true),
-	_enabledInterrupts(InterruptFlags::NoInt), _waitingInterrupts(InterruptFlags::NoInt), _interruptCheckRequired(false),
+	_memoryMap(memory), _state(CpuState::Running), _totalCycles(0), _extraCyclesConsumed(0), _skipNextPCIncrement(false),
+	_interruptsEnabled(true), _enabledInterrupts(InterruptFlags::NoInt), _waitingInterrupts(InterruptFlags::NoInt),
+	_interruptCheckRequired(false),
 	_aluOps
 	{
 		// ADD
@@ -238,10 +239,6 @@ Cpu::Cpu(MemoryMap& memory) :
 		&Cpu::Ld8AccHiMemImm, &Cpu::Pop16Reg, &Cpu::Ld8AccHiMemC, &Cpu::Di, &Cpu::InvalidOp, &Cpu::Push16Reg, &Cpu::AluOp8AccImm, &Cpu::Rst,
 		&Cpu::Ld16HlSpImm, &Cpu::Ld16SpHl, &Cpu::Ld8AccMemImm, &Cpu::Ei, &Cpu::InvalidOp, &Cpu::InvalidOp, &Cpu::AluOp8AccImm, &Cpu::Rst,
 	}
-{
-}
-
-Cpu::~Cpu()
 {
 }
 
@@ -527,7 +524,10 @@ int Cpu::Ld8RegOrMemRegOrMem(unsigned char opcode)
 
 int Cpu::Halt(unsigned char opcode)
 {
-	_state = CpuState::Halted;
+	// Hardware bug that causes no halt and next PC increment to be skipped
+	if (!_interruptsEnabled & (_waitingInterrupts & _enabledInterrupts)) _skipNextPCIncrement = true;
+	else _state = CpuState::Halted;
+
 	return OneCycle;
 }
 
@@ -553,9 +553,7 @@ int Cpu::AluOp8AccRegOrMem(unsigned char opcode)
 
 int Cpu::Di(unsigned char opcode)
 {
-	// TODO: GB CPU disables interrupts after the instruction following this one
 	_interruptsEnabled = false;
-
 	return OneCycle;
 }
 
@@ -760,17 +758,18 @@ void Cpu::RequestInterrupt(InterruptFlags interruptFlags)
 {
 	_waitingInterrupts |= interruptFlags;
 
-	// Master interrupt enable is not checked when waking from halt
+	// Master interrupt enable is not required to wake from halt
 	if (_state == CpuState::Halted && _waitingInterrupts & _enabledInterrupts)
 	{
 		_state = CpuState::Running;
-
-		// Hardware bug causes next PC increment to be skipped if master interrupt enabled was false
-		_skipNextPCIncrement = !_interruptsEnabled;
+		_extraCyclesConsumed = OneCycle;
 	}
-	else if (_state == CpuState::Stopped && (interruptFlags & InterruptFlags::JoypadInt))
+	else if (_state == CpuState::Stopped && interruptFlags & InterruptFlags::JoypadInt)
 	{
 		_state = CpuState::Running;
+
+		// GB hardware waits 2^16 cycles to let xtal oscillator stabilise
+		_extraCyclesConsumed = OneCycle * 65536;
 	}
 
 	_interruptCheckRequired = true;
@@ -780,20 +779,24 @@ int Cpu::DoNextInstruction()
 {
 	if (_state != CpuState::Running) return OneCycle;
 
+	auto cycles = _extraCyclesConsumed;
+	_extraCyclesConsumed = 0;
+
 	if (_interruptCheckRequired)
 	{
-		// Can't find interrupt ack time in docs, so assuming it's the same as the
-		// RST instruction (difference being an interrupt also updates the master
-		// interrupt enable and waiting interrupt flag)
-		if (InterruptTriggered()) return FourCycles;
-
-		_interruptCheckRequired = false;
+		// Interrupt takes five cycles per section 4.9 of
+		// https://github.com/AntonioND/giibiiadvance/blob/master/docs/TCAGBD.pdf
+		if (InterruptTriggered()) cycles += FiveCycles;
+		else _interruptCheckRequired = false;
 	}
 
-	auto opcode = GetNextProgramByte();
+	if (cycles == 0)
+	{
+		auto opcode = GetNextProgramByte();
 
-	auto opPtr = _opcodeJumpTable[opcode];
-	auto cycles = (this ->* opPtr)(opcode);
+		auto opPtr = _opcodeJumpTable[opcode];
+		cycles = (this->*opPtr)(opcode);
+	}
 
 	_totalCycles += cycles;
 	return cycles;

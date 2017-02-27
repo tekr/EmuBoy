@@ -52,7 +52,3 @@ unsigned char SpriteManager::GetSpriteColour(SpriteData& spriteData, int x, int 
 
 	return vram[baseByte] >> bitShift & 0x1 | (vram[baseByte + 1] >> bitShift & 0x1) << 1;
 }
-
-SpriteManager::~SpriteManager()
-{
-}

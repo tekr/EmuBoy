@@ -29,11 +29,12 @@ class Timer
 	int _cyclesToNextDivInc = CyclesPerDivInc;
 	int _cyclesToNextCounterInc;
 
-	int GetCyclesPerCounterInc() const { return ClockFreq / ModeFreqs[_divisorMode];	}
+	int GetCyclesPerCounterInc() const { return ClockFreq / ModeFreqs[_divisorMode]; }
+
+	void IncCounter();
 
 public:
 	Timer();
-
 	int GetCyclesToNextEvent() const { return std::max(0, _isRunning ? std::min(_cyclesToNextCounterInc, _cyclesToNextDivInc) : _cyclesToNextDivInc); }
 
 	void RunCycles(int numCycles);
@@ -42,7 +43,20 @@ public:
 
 	void WriteRegister(int address, unsigned char value)
 	{
-		if (address == DivReg) value = 0;
+		// Per section 5.5 of https://github.com/AntonioND/giibiiadvance/blob/master/docs/TCAGBD.pdf
+		auto overHalfwayToCounterInc = _isRunning && _cyclesToNextCounterInc >= GetCyclesPerCounterInc() >> 1;
+
+		if (address == DivReg)
+		{
+			value = 0;
+			_cyclesToNextDivInc = CyclesPerDivInc;
+
+			if (overHalfwayToCounterInc)
+			{
+				IncCounter();
+				_cyclesToNextCounterInc = GetCyclesPerCounterInc();
+			}
+		}
 
 		if (address < ControlReg) _registers[address] = value;
 		else
@@ -50,6 +64,8 @@ public:
 			auto newMode = value & 3;
 			if (newMode != _divisorMode)
 			{
+				// TODO: This can cause counter to increment under
+				// specific circumstances explained in the link above
 				_divisorMode = newMode;
 				_cyclesToNextCounterInc = GetCyclesPerCounterInc();
 			}
@@ -57,6 +73,8 @@ public:
 			auto newIsRunning = (value & 4) != 0;
 			if (newIsRunning != _isRunning)
 			{
+				if (!newIsRunning && overHalfwayToCounterInc) IncCounter();
+
 				_isRunning = newIsRunning;
 				_cyclesToNextCounterInc = GetCyclesPerCounterInc();
 			}
@@ -67,7 +85,5 @@ public:
 	{
 		return address < ControlReg ? _registers[address] : _divisorMode | (_isRunning ? 4 : 0);
 	}
-
-	~Timer();
 };
 

@@ -87,6 +87,7 @@ protected:
 
 	CpuState _state;
 	uint64_t _totalCycles;
+	int _extraCyclesConsumed;
 
 	bool _skipNextPCIncrement;
 
@@ -206,10 +207,10 @@ protected:
 		switch (address)
 		{
 		case WaitingInterruptsAddress:
-			return _waitingInterrupts;
+			return _waitingInterrupts | 0xe0;
 
 		case EnabledInterruptsAddress:
-			return _enabledInterrupts;
+			return _enabledInterrupts ;
 
 		default:
 			return _memoryMap.ReadByte(address);
@@ -333,7 +334,6 @@ protected:
 
 public:
 	explicit Cpu(MemoryMap& memory);
-	~Cpu();
 
 	bool IsClockRunning() const	{ return _state == CpuState::Running; }
 

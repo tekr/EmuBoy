@@ -128,7 +128,6 @@ public:
 	int Bitmap[HozPixels * VertPixels];
 
 	Graphics(Cpu& cpu, MemoryMap& memoryMap, SpriteManager& spriteManager);
-	~Graphics();
 
 	unsigned char& Vram(unsigned short address) { return _status != LcdcStatus::OamAndVramReadMode ? _vram[address] : _dummy; }
 
@@ -137,14 +136,14 @@ public:
 
 	void WriteOam(unsigned short address, unsigned char value);
 
-	unsigned char ReadRegister(unsigned short address) { return _registers[address]; }
+	unsigned char ReadRegister(unsigned short address) const { return _registers[address] | (address == RegLcdStatus ? 0x80 : 0); }
+
 	void WriteRegister(unsigned short address, unsigned char value);
 
 	void ResetFrame()
 	{
 		_currentScanline = 0;
 		_currentWindowScanline = 0;
-		_registers[RegLineCount] = 0;
 	}
 
 	int RenderLine();

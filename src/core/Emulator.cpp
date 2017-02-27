@@ -2,15 +2,28 @@
 #include "Emulator.h"
 #include "CartridgeFactory.h"
 
+void Emulator::Run(int& currentCycle, int cycleTarget)
+{
+	while (currentCycle < cycleTarget)
+	{
+		auto cyclesToRun = std::min(cycleTarget - currentCycle, EmuTimer.GetCyclesToNextEvent());
+		auto cyclesRun = 0;
+
+		while (cyclesRun < cyclesToRun) cyclesRun += EmuCpu.DoNextInstruction();
+
+		EmuTimer.RunCycles(cyclesRun);
+		currentCycle += cyclesRun;
+	}
+
+	currentCycle = std::max(currentCycle, cycleTarget);
+}
+
 Emulator::Emulator(std::shared_ptr<Cartridge> cartridge)
 {
 	EmuTimer.SetCpu(&EmuCpu);
 	EmuMemoryMap.SetTimer(&EmuTimer);
 	EmuMemoryMap.SetCartridge(cartridge);
-}
-
-Emulator::~Emulator()
-{
+	EmuJoypad.SetCpu(&EmuCpu);
 }
 
 int* Emulator::GetFrame()

@@ -6,7 +6,6 @@
 class CartridgeFactory
 {
 public:
-
 	static std::shared_ptr<Cartridge> LoadFromFile(std::string filePath, int ramBanks)
 	{
 		std::ifstream ifs(filePath, std::ios::binary | std::ios::ate);

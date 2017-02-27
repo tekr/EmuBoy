@@ -38,8 +38,7 @@ int Graphics::MapColour(unsigned char colour, Palette palette)
 										? RegSprite0Palette
 										: RegSprite1Palette];
 
-	// 75% opacity to emulate the slow GB screen response time
-	// Green tinge to look more like the original
+	// 75% opacity to emulate the slow GB screen response time. Green tinge to look more like the original
 	return 0xc0000000 | ((3 - (paletteData >> (colour << 1) & 0x3)) * 0x40504a);
 }
 
@@ -64,10 +63,6 @@ Graphics::Graphics(Cpu& cpu, MemoryMap& memoryMap, SpriteManager& spriteManager)
 	_registers[RegSprite1Palette] = 0xff;
 }
 
-Graphics::~Graphics()
-{
-}
-
 void Graphics::WriteOam(unsigned short address, unsigned char value)
 {
 	if (_status != LcdcStatus::OamReadMode && _status != LcdcStatus::OamAndVramReadMode)
@@ -87,7 +82,13 @@ void Graphics::WriteRegister(unsigned short address, unsigned char value)
 {
 	// Writing to the line count register resets it
 	if (address == RegLineCount) value = 0;
-	else if (address == RegLcdControl) _spriteManager.SetUseTallSprites(value & 0x4);
+	else if (address == RegLcdControl)
+	{
+		_spriteManager.SetUseTallSprites(value & 0x4);
+
+		// Per GB programming manual p.56, turning off the display immediately resets the line count
+		if (!(value & 0x80) && _registers[RegLcdControl] & 0x80) _registers[RegLineCount] = 0;
+	}
 	else if (address == RegDmaTransfer)
 	{
 		unsigned short sourceAddress = value << 8;
@@ -98,6 +99,20 @@ void Graphics::WriteRegister(unsigned short address, unsigned char value)
 		{
 			WriteOam(destAddress++, _memoryMap.ReadByte(sourceAddress++));
 		}
+	}
+	else if (address == RegLcdStatus)
+	{
+		// Prevent changing read-only bits, clear match flag in bit 2 on write
+		value = value & 0xf8 | _registers[RegLcdStatus] & 0x3;
+
+		// Hardware quirk that at least Roadrash & Legend of Zerd rely on
+		// Per http://www.devrs.com/gb/files/faqs.html#GBBugs
+		if (DisplayEnabled() && _registers[RegLcdStatus] & (LcdcStatus::HBlankMode | LcdcStatus::VBlankMode))
+		{
+			_cpu.RequestInterrupt(InterruptFlags::VBlankInt);
+		}
+		// Turning display off immediately causes HBlankMode
+		else if (!(value & 0x80)) value = value & 0xfc | LcdcStatus::HBlankMode;
 	}
 
 	_registers[address] = value;
@@ -110,15 +125,8 @@ int Graphics::RenderLine()
 	{
 		_registers[RegLineCount] = 0;
 		_spriteManager.SetScanline(0);
-		CheckLineCompare();
+		_currentWindowScanline = 0;
 	}
-	else
-	{
-		_spriteManager.NextScanline();
-	}
-
-	// Window current line needs to be reset when window start is reached
-	if (_currentScanline == _registers[RegWindowY]) _currentWindowScanline = 0;
 
 	if (_currentScanline < VertPixels)
 	{
@@ -128,11 +136,11 @@ int Graphics::RenderLine()
 			// Many intermediate results could be lifted outside loops
 
 			auto backgroundY = _currentScanline + _registers[RegBgScrollY];
-			auto belowWindowStart = WindowEnabled() && _currentScanline >= _registers[RegWindowY];
+			auto windowVisibleThisLine = WindowEnabled() && _currentScanline >= _registers[RegWindowY] && _registers[RegWindowX] < 167;
 
 			auto visibleSprites = _spriteManager.GetVisibleSprites();
-			auto sprite = visibleSprites.cbegin();
-			auto firstNonvisibleSprite = visibleSprites.cend();
+			auto firstSpriteNotLeftOfX = visibleSprites.cbegin();
+			auto firstSpriteBelowY = visibleSprites.cend();
 
 			auto spritesThisLine = 0;
 
@@ -141,15 +149,13 @@ int Graphics::RenderLine()
 
 			for (auto x = 0; x < HozPixels;x++)
 			{
-				auto windowX = x - _registers[RegWindowX] + 7;
-				auto& pixel = Bitmap[_currentScanline*HozPixels + x];
-
 				unsigned char colour = 0;
+				auto windowX = x - _registers[RegWindowX] + 7;
 
-				if (belowWindowStart && windowX >= 0)
+				if (windowVisibleThisLine && windowX >= 0)
 				{
-					// Window is on top
-					colour = GetBgOrWinColour(windowX, _currentWindowScanline++, TileType::Window);
+					// Window is over background
+					colour = GetBgOrWinColour(windowX, _currentWindowScanline, TileType::Window);
 				}
 				else if (backgroundEnabled)
 				{
@@ -158,26 +164,35 @@ int Graphics::RenderLine()
 				}
 
 				auto spritePixelOnTop = false;
+				auto& pixel = Bitmap[_currentScanline*HozPixels + x];
 
 				if (spritesEnabled)
 				{
-					while (sprite != firstNonvisibleSprite && (*sprite)->XPos - SpriteManager::SpriteXOffset + SpriteManager::SpriteWidth <= x)
+					while (firstSpriteNotLeftOfX != firstSpriteBelowY && (*firstSpriteNotLeftOfX)->XPos - SpriteManager::SpriteXOffset + SpriteManager::SpriteWidth <= x)
 					{
-						++sprite;
+						++firstSpriteNotLeftOfX;
 						++spritesThisLine;
 					}
 
-					if (sprite != firstNonvisibleSprite && (*sprite)->XPos - SpriteManager::SpriteXOffset <= x && spritesThisLine <= SpriteManager::MaxSpritesPerLine &&
-						// Don't draw sprite unless it's visible over Window & BG (based on priority and BG/Window colour)
-						(!((*sprite)->Flags & SpriteFlags::ZPriority) || colour != 0))
+					auto sprite = firstSpriteNotLeftOfX;
+
+					// Iterate through sprites overlapping this pixel as necessary until we either:
+					//  * Hit a non-transparent sprite pixel above the BG/Window
+					//  * Hit a sprite that is behind the BG/Window, at which point we use BG/Window pixel (regardless of lower-priority sprite settings)
+					//  * Run out of overlapping sprites
+					while ((sprite != firstSpriteBelowY && (*sprite)->XPos - SpriteManager::SpriteXOffset <= x && spritesThisLine <= SpriteManager::MaxSpritesPerLine &&
+						(!((*sprite)->Flags & SpriteFlags::ZPriority) || colour == 0)))
 					{
 						auto spriteColour = _spriteManager.GetSpriteColour(**sprite, x, _currentScanline, _vram);
 						spritePixelOnTop = spriteColour != 0;
 
 						if (spritePixelOnTop)
 						{
-							pixel = MapColour(spriteColour, (*sprite)->Flags & SpriteFlags::PaletteSelector ? Palette::Sprite1 : Palette::Sprite0);
+							pixel = MapColour(spriteColour, (*firstSpriteNotLeftOfX)->Flags & SpriteFlags::PaletteSelector ? Palette::Sprite1 : Palette::Sprite0);
+							break;
 						}
+
+						++sprite;
 					}
 				}
 
@@ -186,6 +201,11 @@ int Graphics::RenderLine()
 					pixel = MapColour(colour, Palette::BgAndWindow);
 				}
 			}
+
+			if (windowVisibleThisLine)
+			{
+				++_currentWindowScanline;
+			}
 		}
 		else
 		{
@@ -193,16 +213,18 @@ int Graphics::RenderLine()
 		}
 	}
 
-	_registers[RegLineCount]++;
-	_currentScanline++;
-
 	CheckLineCompare();
+
+	++_registers[RegLineCount];
+	++_currentScanline;
+	_spriteManager.NextScanline();
+
 	return ScanlineClocks;
 }
 
 void Graphics::SetLcdcStatus(LcdcStatus status)
 {
-	_status = DisplayEnabled() ? status : LcdcStatus::VBlankMode;
+	_status = DisplayEnabled() ? status : LcdcStatus::HBlankMode;
 	_registers[RegLcdStatus] = (_registers[RegLcdStatus] & 0xfc) | status;
 
 	if (!DisplayEnabled()) return;
@@ -220,14 +242,18 @@ void Graphics::SetLcdcStatus(LcdcStatus status)
 		break;
 
 	case LcdcStatus::VBlankMode:
-		// According to http://gameboy.mongenel.com/dmg/istat98.txt, this mode fires the LCDC
-		// interrupt if the OAM interrupt is enabled
+		// According to http://gameboy.mongenel.com/dmg/istat98.txt, LCD stat interrupt
+		// is generated for this mode if either VBlank or OAM stat bits are set
 		interruptMask = 0x30;
 
 		_cpu.RequestInterrupt(InterruptFlags::VBlankInt);
 		break;
 	}
 
+	// TODO: Interrupt is only actually fired if the signal (derived from ORing together
+	// the results of ANDing the mode with its corresponding mask register bit) changes
+	// from 0 to 1. Explained in detail in 8.7 of
+	// https://github.com/AntonioND/giibiiadvance/blob/master/docs/TCAGBD.pdf
 	if (_registers[RegLcdStatus] & interruptMask)
 	{
 		_cpu.RequestInterrupt(InterruptFlags::LcdStatInt);

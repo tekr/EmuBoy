@@ -21,7 +21,6 @@ protected:
 
 public:
 	Cartridge(std::vector<unsigned char>&& rom, int ramBanks);
-	~Cartridge() = default;
 
 	unsigned char RomReadByte(unsigned short address) const;
 	unsigned char RamReadByte(unsigned short address) const;

@@ -55,7 +55,5 @@ public:
 	void SpriteMoved(SpriteData& spriteData);
 
 	unsigned char GetSpriteColour(SpriteData& spriteData, int x, int y, unsigned char* vram) const;
-
-	~SpriteManager();
 };
 

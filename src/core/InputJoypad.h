@@ -14,25 +14,28 @@ enum JoypadKey
 	Start	= 1 << 7
 };
 
+class Cpu;
+
 class InputJoypad
 {
+	Cpu* _cpu;
+
 	JoypadKey _keysDown;
 	unsigned char _register;
-
 
 public:
 	InputJoypad();
 
-	void SetKeysDown(JoypadKey keys) { _keysDown = keys; }
+	void SetCpu(Cpu* cpu) { _cpu = cpu; }
+
+	void SetKeysDown(JoypadKey keys);
 
 	void WriteRegister(unsigned char value) { _register = value; }
 
 	unsigned char ReadRegister() const
 	{
-		return _register & 0x30 | 0xf & ~((~_register & 0x10 ? _keysDown & 0xf : 0) |
-				(~_register & 0x20 ? (_keysDown & 0xf0) >> 4 : 0));
+		return 0xc0 | _register & 0x30 | 0xf & ~((~_register & 0x10 ? _keysDown & 0xf : 0) |
+												 (~_register & 0x20 ? (_keysDown & 0xf0) >> 4 : 0));
 	}
-
-	~InputJoypad();
 };
 
