@@ -125,14 +125,8 @@ int Graphics::RenderLine()
 	{
 		_registers[RegLineCount] = 0;
 		_spriteManager.SetScanline(0);
+		_currentWindowScanline = 0;
 	}
-	else
-	{
-		_spriteManager.NextScanline();
-	}
-
-	// Window current line needs to be reset when window start is reached
-	if (_currentScanline == _registers[RegWindowY]) _currentWindowScanline = 0;
 
 	if (_currentScanline < VertPixels)
 	{
@@ -142,7 +136,7 @@ int Graphics::RenderLine()
 			// Many intermediate results could be lifted outside loops
 
 			auto backgroundY = _currentScanline + _registers[RegBgScrollY];
-			auto belowWindowStart = WindowEnabled() && _currentScanline >= _registers[RegWindowY];
+			auto windowVisibleThisLine = WindowEnabled() && _currentScanline >= _registers[RegWindowY] && _registers[RegWindowX] < 167;
 
 			auto visibleSprites = _spriteManager.GetVisibleSprites();
 			auto firstSpriteNotLeftOfX = visibleSprites.cbegin();
@@ -158,10 +152,10 @@ int Graphics::RenderLine()
 				unsigned char colour = 0;
 				auto windowX = x - _registers[RegWindowX] + 7;
 
-				if (belowWindowStart && windowX >= 0)
+				if (windowVisibleThisLine && windowX >= 0)
 				{
 					// Window is over background
-					colour = GetBgOrWinColour(windowX, _currentWindowScanline++, TileType::Window);
+					colour = GetBgOrWinColour(windowX, _currentWindowScanline, TileType::Window);
 				}
 				else if (backgroundEnabled)
 				{
@@ -207,6 +201,11 @@ int Graphics::RenderLine()
 					pixel = MapColour(colour, Palette::BgAndWindow);
 				}
 			}
+
+			if (windowVisibleThisLine)
+			{
+				++_currentWindowScanline;
+			}
 		}
 		else
 		{
@@ -216,8 +215,9 @@ int Graphics::RenderLine()
 
 	CheckLineCompare();
 
-	_registers[RegLineCount]++;
-	_currentScanline++;
+	++_registers[RegLineCount];
+	++_currentScanline;
+	_spriteManager.NextScanline();
 
 	return ScanlineClocks;
 }
