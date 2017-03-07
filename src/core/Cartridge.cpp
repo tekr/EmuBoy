@@ -4,12 +4,12 @@
 #include <algorithm>
 #include <cassert>
 
-Cartridge::Cartridge(std::vector<unsigned char>&& rom, int ramBanks) : _rom{ std::move(rom) },
+Cartridge::Cartridge(std::vector<uint8_t>&& rom, int ramBanks) : _rom{ std::move(rom) },
 			_ram(ramBanks * MemoryMap::RamBankSize), _ramEnabled(false)
 {
 }
 
-unsigned char Cartridge::RomReadByte(unsigned short address) const
+uint8_t Cartridge::RomReadByte(uint16_t address) const
 {
 	auto bank = address < MemoryMap::RomBankSize ? 0 : _selectedRomBank;
 	auto index = (address & MemoryMap::RomBankSize - 1) + bank * MemoryMap::RomBankSize;
@@ -18,12 +18,12 @@ unsigned char Cartridge::RomReadByte(unsigned short address) const
 	return _rom[index];
 }
 
-unsigned char Cartridge::RamReadByte(unsigned short address) const
+uint8_t Cartridge::RamReadByte(uint16_t address) const
 {
 	return _ramEnabled ? _ram[address + _selectedRamBank * MemoryMap::RamBankSize] : 0x0;
 }
 
-void Cartridge::RomWriteByte(unsigned short address, unsigned char value)
+void Cartridge::RomWriteByte(uint16_t address, uint8_t value)
 {
 	if (address < 0x2000)
 	{
@@ -50,7 +50,7 @@ void Cartridge::RomWriteByte(unsigned short address, unsigned char value)
 	}
 }
 
-void Cartridge::RamWriteByte(unsigned short address, unsigned char value)
+void Cartridge::RamWriteByte(uint16_t address, uint8_t value)
 {
 	if (_ramEnabled)
 	{

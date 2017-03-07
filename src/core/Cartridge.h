@@ -4,8 +4,8 @@
 class Cartridge
 {
 protected:
-	std::vector<unsigned char> _rom;
-	std::vector<unsigned char> _ram;
+	std::vector<uint8_t> _rom;
+	std::vector<uint8_t> _ram;
 
 	int _selectedRomBank{ 1 };
 	int _selectedRamBank{ 0 };
@@ -20,11 +20,11 @@ protected:
 	bool _ramEnabled;
 
 public:
-	Cartridge(std::vector<unsigned char>&& rom, int ramBanks);
+	Cartridge(std::vector<uint8_t>&& rom, int ramBanks);
 
-	unsigned char RomReadByte(unsigned short address) const;
-	unsigned char RamReadByte(unsigned short address) const;
+	uint8_t RomReadByte(uint16_t address) const;
+	uint8_t RamReadByte(uint16_t address) const;
 
-	void RomWriteByte(unsigned short address, unsigned char value);
-	void RamWriteByte(unsigned short address, unsigned char value);
+	void RomWriteByte(uint16_t address, uint8_t value);
+	void RamWriteByte(uint16_t address, uint8_t value);
 };

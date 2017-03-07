@@ -6,11 +6,11 @@
 class TestCartridge : public Cartridge
 {
 public:
-	TestCartridge::TestCartridge() : Cartridge(std::vector<unsigned char>(MemoryMap::RomBankSize), 1)
+	TestCartridge::TestCartridge() : Cartridge(std::vector<uint8_t>(MemoryMap::RomBankSize), 1)
 	{
 	}
 
-	void SetBytes(unsigned short address, std::vector<unsigned char>&& bytes)
+	void SetBytes(uint16_t address, std::vector<uint8_t>&& bytes)
 	{
 		memcpy(_rom.data() + address, bytes.data(), bytes.size());
 	}
@@ -29,11 +29,11 @@ public:
 		SetInternalRomEnabled(false);
 	}
 
-	unsigned char& operator[](unsigned short address);
+	uint8_t& operator[](uint16_t address);
 	bool operator==(const TestMemoryMap& other) const;
 	void operator=(const TestMemoryMap& other);
 
-	void SetBytes(unsigned short address, std::vector<unsigned char>&& bytes);
+	void SetBytes(uint16_t address, std::vector<uint8_t>&& bytes);
 
 	void SetInternalRomEnabled(bool enabled);
 };

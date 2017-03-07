@@ -1,7 +1,7 @@
 #include "stdafx.h"
 #include "TestMemoryMap.h"
 
-unsigned char& TestMemoryMap::operator[](unsigned short address)
+uint8_t& TestMemoryMap::operator[](uint16_t address)
 {
 	if (address >= RamFixed && address < RamFixed + TestRamSize)
 	{
@@ -21,7 +21,7 @@ void TestMemoryMap::operator=(const TestMemoryMap& other)
 	memcpy(_fixedRam, other._fixedRam, TestRamSize);
 }
 
-void TestMemoryMap::SetBytes(unsigned short address, std::vector<unsigned char>&& bytes)
+void TestMemoryMap::SetBytes(uint16_t address, std::vector<uint8_t>&& bytes)
 {
 	if (address < RamVideo)
 	{

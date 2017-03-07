@@ -13,7 +13,7 @@ public:
 
 		auto pos = ifs.tellg();
 
-		auto buffer = std::vector<unsigned char>(static_cast<int>(pos));
+		auto buffer = std::vector<uint8_t>(static_cast<int>(pos));
 
 		ifs.seekg(0, std::ios::beg);
 		ifs.read(reinterpret_cast<char*>(buffer.data()), pos);

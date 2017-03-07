@@ -9,7 +9,7 @@ MemoryMap::~MemoryMap()
 {
 }
 
-unsigned char MemoryMap::ReadByte(unsigned short address) const
+uint8_t MemoryMap::ReadByte(uint16_t address) const
 {
 	if (address < RamVideo)
 	{
@@ -77,7 +77,7 @@ unsigned char MemoryMap::ReadByte(unsigned short address) const
 	return _highRam[address - HighRam];
 }
 
-void MemoryMap::WriteByte(unsigned short address, unsigned char value)
+void MemoryMap::WriteByte(uint16_t address, uint8_t value)
 {
 	if (address < RamVideo)
 	{

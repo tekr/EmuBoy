@@ -3,7 +3,7 @@
 #include <vector>
 
 // Avoids enum class to simplify bit-level operations
-enum CpuFlags : unsigned char
+enum CpuFlags : uint8_t
 {
 	ZeroFlag = 0x80,
 	SubFlag = 0x40,
@@ -14,7 +14,7 @@ enum CpuFlags : unsigned char
 };
 
 // Avoids enum class to simplify bit-level operations
-enum InterruptFlags : unsigned char
+enum InterruptFlags : uint8_t
 {
 	NoInt = 0x0,
 	VBlankInt = 0x01,
@@ -37,15 +37,15 @@ struct Registers
 {
 // Allows referencing the full 16-bit register as well as the two 8-bit halves
 // Registers stored low-byte first due to x86 endianness
-#define REGISTER_PAIR(X, Y) union { struct { unsigned char Y; unsigned char X; }; unsigned short X##Y; }
+#define REGISTER_PAIR(X, Y) union { struct { uint8_t Y; uint8_t X; }; uint16_t X##Y; }
 
 	REGISTER_PAIR(A, F);
 	REGISTER_PAIR(B, C);
 	REGISTER_PAIR(D, E);
 	REGISTER_PAIR(H, L);
 
-	unsigned short SP;
-	unsigned short PC;
+	uint16_t SP;
+	uint16_t PC;
 
 	Registers() : AF(0), BC(0), DE(0), HL(0), SP(0xfffe), PC(0)
 	{
@@ -68,11 +68,11 @@ class Cpu
 	static const int FiveCycles  = OneCycle * 5;
 	static const int SixCycles   = OneCycle * 6;
 
-	static const unsigned short HiMemBaseAddress = 0xff00;
-	static const unsigned short WaitingInterruptsAddress = 0xff0f;
-	static const unsigned short EnabledInterruptsAddress = 0xffff;
+	static const uint16_t HiMemBaseAddress = 0xff00;
+	static const uint16_t WaitingInterruptsAddress = 0xff0f;
+	static const uint16_t EnabledInterruptsAddress = 0xffff;
 
-	const std::vector<std::pair<InterruptFlags, unsigned char>> _intVectors
+	const std::vector<std::pair<InterruptFlags, uint8_t>> _intVectors
 	{
 		{ InterruptFlags::VBlankInt,  0x40 },
 		{ InterruptFlags::LcdStatInt, 0x48 },
@@ -95,18 +95,18 @@ protected:
 	bool _interruptsEnabled;
 
 	// Interrupt enable/waiting flags. Not typed as InterruptFlags to facilitate bit operations
-	unsigned char _enabledInterrupts;
-	unsigned char _waitingInterrupts;
+	uint8_t _enabledInterrupts;
+	uint8_t _waitingInterrupts;
 
 	bool _interruptCheckRequired;
 
-	const std::vector<unsigned char(*)(unsigned char& dest, unsigned char src, bool carry)> _aluOps;
-	const std::vector<void(*)(unsigned char& dest, unsigned char& flags)> _prefixCbOps;
+	const std::vector<uint8_t(*)(uint8_t& dest, uint8_t src, bool carry)> _aluOps;
+	const std::vector<void(*)(uint8_t& dest, uint8_t& flags)> _prefixCbOps;
 
 	// Jump table for all top-level opcodes
-	const std::vector<int(Cpu::*)(unsigned char opcode)> _opcodeJumpTable;
+	const std::vector<int(Cpu::*)(uint8_t opcode)> _opcodeJumpTable;
 
-	unsigned char GetNextProgramByte()
+	uint8_t GetNextProgramByte()
 	{
 		auto result = ReadByte(_registers.PC);
 
@@ -116,22 +116,22 @@ protected:
 		return result;
 	}
 
-	unsigned char GetByteOperand() { return GetNextProgramByte(); }
-	unsigned short GetWordOperand() { return GetByteOperand() | GetByteOperand() << 8; }
+	uint8_t GetByteOperand() { return GetNextProgramByte(); }
+	uint16_t GetWordOperand() { return GetByteOperand() | GetByteOperand() << 8; }
 
-	void PushWord(unsigned short word)
+	void PushWord(uint16_t word)
 	{
 		WriteByte(--_registers.SP, word >> 8);
 		WriteByte(--_registers.SP, word & 0xff);
 	}
 
-	unsigned short PopWord()
+	uint16_t PopWord()
 	{
-		unsigned short word = ReadByte(_registers.SP++);
+		uint16_t word = ReadByte(_registers.SP++);
 		return word | ReadByte(_registers.SP++) << 8;
 	}
 
-	unsigned short& GetReg16Ref1(unsigned char opcode)
+	uint16_t& GetReg16Ref1(uint8_t opcode)
 	{
 		switch (opcode & 0x30)
 		{
@@ -146,7 +146,7 @@ protected:
 		}
 	}
 
-	unsigned short& GetReg16Ref2(unsigned char opcode)
+	uint16_t& GetReg16Ref2(uint8_t opcode)
 	{
 		switch (opcode & 0x30)
 		{
@@ -159,7 +159,7 @@ protected:
 		}
 	}
 
-	unsigned short& GetReg16Ref3(unsigned char opcode)
+	uint16_t& GetReg16Ref3(uint8_t opcode)
 	{
 		switch (opcode & 0x30)
 		{
@@ -174,7 +174,7 @@ protected:
 		}
 	}
 
-	unsigned short Cpu::AddSpImm()
+	uint16_t Cpu::AddSpImm()
 	{
 		auto offset = GetByteOperand();
 
@@ -183,26 +183,26 @@ protected:
 					   ((_registers.SP & 0xf) + (offset & 0xf) & 0x10 ? HalfCarryFlag : NoFlags);
 
 		// ..but signed for applying to register
-		return _registers.SP + static_cast<char>(offset);
+		return _registers.SP + static_cast<int8_t>(offset);
 	}
 
-	unsigned char* const _regRefs1[8]{ &_registers.B, &_registers.D, &_registers.H, nullptr,
+	uint8_t* const _regRefs1[8]{ &_registers.B, &_registers.D, &_registers.H, nullptr,
 							   &_registers.C, &_registers.E, &_registers.L, &_registers.A };
 
-	unsigned char& GetReg8Ref1(unsigned char opcode) const
+	uint8_t& GetReg8Ref1(uint8_t opcode) const
 	{
 		return *_regRefs1[((opcode & 0x30) >> 4 | (opcode & 0x8) >> 1)];
 	}
 
-	unsigned char* const _regRefs2[8]{ &_registers.B, &_registers.C, &_registers.D, &_registers.E,
+	uint8_t* const _regRefs2[8]{ &_registers.B, &_registers.C, &_registers.D, &_registers.E,
 							   &_registers.H, &_registers.L, nullptr, &_registers.A };
 
-	unsigned char& GetReg8Ref2(unsigned char opcode) const
+	uint8_t& GetReg8Ref2(uint8_t opcode) const
 	{
 		return *_regRefs2[opcode & 0x7];
 	}
 
-	unsigned char ReadByte(unsigned short address) const
+	uint8_t ReadByte(uint16_t address) const
 	{
 		switch (address)
 		{
@@ -217,7 +217,7 @@ protected:
 		}
 	}
 
-	void WriteByte(unsigned short address, unsigned char value)
+	void WriteByte(uint16_t address, uint8_t value)
 	{
 		// TODO: Not great that every memory write pays the cost of checking whether interrupt
 		// registers are being updated. Could move this to the memory map address decoder and
@@ -240,97 +240,97 @@ protected:
 	}
 
 	// Returns true if condition for conditional instruction is met
-	bool ConditionMet(unsigned char opcode) const;
+	bool ConditionMet(uint8_t opcode) const;
 
 	bool InterruptTriggered();
 
-	int Nop(unsigned char opcode);
+	int Nop(uint8_t opcode);
 
-	int Ld16RegImm(unsigned char opcode);
+	int Ld16RegImm(uint8_t opcode);
 
-	int St8MemRegAcc(unsigned char opcode);
+	int St8MemRegAcc(uint8_t opcode);
 
-	int Inc16Reg(unsigned char opcode);
+	int Inc16Reg(uint8_t opcode);
 
-	int Dec16Reg(unsigned char opcode);
+	int Dec16Reg(uint8_t opcode);
 
-	int IncDec8RegOrMem(unsigned char opcode);
+	int IncDec8RegOrMem(uint8_t opcode);
 
-	int Ld8RegOrMemImm(unsigned char opcode);
+	int Ld8RegOrMemImm(uint8_t opcode);
 
-	int Rlca(unsigned char opcode);
+	int Rlca(uint8_t opcode);
 
-	int Rla(unsigned char opcode);
+	int Rla(uint8_t opcode);
 
-	int Rrca(unsigned char opcode);
+	int Rrca(uint8_t opcode);
 
-	int Rra(unsigned char opcode);
+	int Rra(uint8_t opcode);
 
-	int St16MemSp(unsigned char opcode);
+	int St16MemSp(uint8_t opcode);
 
-	int Add16RegReg(unsigned char opcode);
+	int Add16RegReg(uint8_t opcode);
 
-	int Ld8AccMem(unsigned char opcode);
+	int Ld8AccMem(uint8_t opcode);
 
-	int Stop(unsigned char opcode);
+	int Stop(uint8_t opcode);
 
-	int Jr(unsigned char opcode);
+	int Jr(uint8_t opcode);
 
-	int Daa(unsigned char opcode);
+	int Daa(uint8_t opcode);
 
-	int Cpl(unsigned char opcode);
+	int Cpl(uint8_t opcode);
 
-	int Scf(unsigned char opcode);
+	int Scf(uint8_t opcode);
 
-	int Ccf(unsigned char opcode);
+	int Ccf(uint8_t opcode);
 
-	int Ld8RegOrMemRegOrMem(unsigned char opcode);
+	int Ld8RegOrMemRegOrMem(uint8_t opcode);
 
-	int Halt(unsigned char opcode);
+	int Halt(uint8_t opcode);
 
-	int AluOp8AccRegOrMem(unsigned char opcode);
+	int AluOp8AccRegOrMem(uint8_t opcode);
 
-	int Di(unsigned char opcode);
+	int Di(uint8_t opcode);
 
-	int Ei(unsigned char opcode);
+	int Ei(uint8_t opcode);
 
-	int Ret(unsigned char opcode);
+	int Ret(uint8_t opcode);
 
-	int Push16Reg(unsigned char opcode);
+	int Push16Reg(uint8_t opcode);
 
-	int Pop16Reg(unsigned char opcode);
+	int Pop16Reg(uint8_t opcode);
 
-	int Jp(unsigned char opcode);
+	int Jp(uint8_t opcode);
 
-	int Call(unsigned char opcode);
+	int Call(uint8_t opcode);
 
-	int AluOp8AccImm(unsigned char opcode);
+	int AluOp8AccImm(uint8_t opcode);
 
-	int Rst(unsigned char opcode);
+	int Rst(uint8_t opcode);
 
-	int St8HiMemImmAcc(unsigned char opcode);
+	int St8HiMemImmAcc(uint8_t opcode);
 
-	int St8HiMemCAcc(unsigned char opcode);
+	int St8HiMemCAcc(uint8_t opcode);
 
-	int Ld8AccHiMemImm(unsigned char opcode);
+	int Ld8AccHiMemImm(uint8_t opcode);
 
-	int Ld8AccHiMemC(unsigned char opcode);
+	int Ld8AccHiMemC(uint8_t opcode);
 
-	int Add8SpImm(unsigned char opcode);
+	int Add8SpImm(uint8_t opcode);
 
-	int Ld16HlSpImm(unsigned char opcode);
+	int Ld16HlSpImm(uint8_t opcode);
 
-	int JpHl(unsigned char opcode);
+	int JpHl(uint8_t opcode);
 
-	int Ld8AccMemImm(unsigned char opcode);
+	int Ld8AccMemImm(uint8_t opcode);
 
-	int St8MemImmAcc(unsigned char opcode);
+	int St8MemImmAcc(uint8_t opcode);
 
-	int Ld16SpHl(unsigned char opcode);
+	int Ld16SpHl(uint8_t opcode);
 
-	int PrefixCb(unsigned char opcode);
+	int PrefixCb(uint8_t opcode);
 
-	int InvalidOp(unsigned char opcode);
+	int InvalidOp(uint8_t opcode);
 
 public:
 	explicit Cpu(MemoryMap& memory);

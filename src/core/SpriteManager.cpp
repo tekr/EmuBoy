@@ -6,7 +6,7 @@ SpriteManager::SpriteManager(): _currentScanline(0), _spriteHeight(NormalSpriteH
 {
 }
 
-void SpriteManager::SetScanline(unsigned char scanline)
+void SpriteManager::SetScanline(uint8_t scanline)
 {
 	// TODO: Test for excessive memory allocation/freeing in this method
 
@@ -30,7 +30,7 @@ void SpriteManager::SpriteMoved(SpriteData& spriteData)
 	_yOrderedSprites.insert(&spriteData);
 }
 
-unsigned char SpriteManager::GetSpriteColour(SpriteData& spriteData, int x, int y, unsigned char* vram) const
+uint8_t SpriteManager::GetSpriteColour(SpriteData& spriteData, int x, int y, uint8_t* vram) const
 {
 	auto patternX = x - spriteData.XPos + SpriteXOffset;
 	auto patternY = y - spriteData.YPos + SpriteYOffset;

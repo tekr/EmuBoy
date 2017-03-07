@@ -22,7 +22,7 @@ class Timer
 
 	Cpu* _cpu;
 
-	unsigned char _registers[3];
+	uint8_t _registers[3];
 	bool _isRunning;
 	int _divisorMode;
 
@@ -41,7 +41,7 @@ public:
 
 	void SetCpu(Cpu* cpu) { _cpu = cpu; }
 
-	void WriteRegister(int address, unsigned char value)
+	void WriteRegister(uint16_t address, uint8_t value)
 	{
 		// Per section 5.5 of https://github.com/AntonioND/giibiiadvance/blob/master/docs/TCAGBD.pdf
 		auto overHalfwayToCounterInc = _isRunning && _cyclesToNextCounterInc >= GetCyclesPerCounterInc() >> 1;
@@ -81,7 +81,7 @@ public:
 		}
 	}
 
-	unsigned char ReadRegister(int address)
+	uint8_t ReadRegister(uint16_t address)
 	{
 		return address < ControlReg ? _registers[address] : _divisorMode | (_isRunning ? 4 : 0);
 	}

@@ -11,7 +11,7 @@ public:
 	Registers& Registers() { return _registers; }
 
 	bool& InterruptsEnabled() { return _interruptsEnabled; }
-	unsigned char& EnabledInterrupts() { return _enabledInterrupts; }
-	unsigned char& WaitingInterrupts() { return _waitingInterrupts; }
+	uint8_t& EnabledInterrupts() { return _enabledInterrupts; }
+	uint8_t& WaitingInterrupts() { return _waitingInterrupts; }
 };
 

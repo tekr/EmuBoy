@@ -11,143 +11,143 @@ Cpu::Cpu(MemoryMap& memory) :
 	_aluOps
 	{
 		// ADD
-		[](unsigned char& dest, unsigned char src, bool carry)
+		[](uint8_t& dest, uint8_t src, bool carry)
 		{
 			auto res = dest + src;
-			unsigned char flags = res > 0xff ? CarryFlag : NoFlags;
+			uint8_t flags = res > 0xff ? CarryFlag : NoFlags;
 			flags |= (dest & 0xf) + (src & 0xf) > 0xf ? HalfCarryFlag : NoFlags;
-			dest = static_cast<unsigned char>(res);
+			dest = static_cast<uint8_t>(res);
 
-			return static_cast<unsigned char>(flags | (dest == 0 ? ZeroFlag : NoFlags));
+			return static_cast<uint8_t>(flags | (dest == 0 ? ZeroFlag : NoFlags));
 		},
 
 		// ADC
-		[](unsigned char& dest, unsigned char src, bool carry)
+		[](uint8_t& dest, uint8_t src, bool carry)
 		{
 			auto carryOffset = (carry ? 1 : 0);
 			auto res = dest + src + carryOffset;
-			unsigned char flags = res > 0xff ? CarryFlag : NoFlags;
+			uint8_t flags = res > 0xff ? CarryFlag : NoFlags;
 			flags |= (dest & 0xf) + (src & 0xf) + carryOffset > 0xf ? HalfCarryFlag : NoFlags;
-			dest = static_cast<unsigned char>(res);
+			dest = static_cast<uint8_t>(res);
 
-			return static_cast<unsigned char>(flags | (dest == 0 ? ZeroFlag : NoFlags));
+			return static_cast<uint8_t>(flags | (dest == 0 ? ZeroFlag : NoFlags));
 		},
 
 		// SUB
-		[](unsigned char& dest, unsigned char src, bool carry)
+		[](uint8_t& dest, uint8_t src, bool carry)
 		{
 			auto res = dest - src;
-			unsigned char flags = SubFlag | (res < 0 ? CarryFlag : NoFlags);
+			uint8_t flags = SubFlag | (res < 0 ? CarryFlag : NoFlags);
 			flags |= (dest & 0xf) - (src & 0xf) < 0 ? HalfCarryFlag : NoFlags;
-			dest = static_cast<unsigned char>(res);
+			dest = static_cast<uint8_t>(res);
 
-			return static_cast<unsigned char>(flags | (dest == 0 ? ZeroFlag : NoFlags));
+			return static_cast<uint8_t>(flags | (dest == 0 ? ZeroFlag : NoFlags));
 		},
 
 		// SBC
-		[](unsigned char& dest, unsigned char src, bool carry)
+		[](uint8_t& dest, uint8_t src, bool carry)
 		{
 			auto carryOffset = (carry ? 1 : 0);
 			auto res = dest - src - carryOffset;
-			unsigned char flags = SubFlag | (res < 0 ? CarryFlag : NoFlags);
+			uint8_t flags = SubFlag | (res < 0 ? CarryFlag : NoFlags);
 			flags |= (dest & 0xf) - (src & 0xf) - carryOffset < 0 ? HalfCarryFlag : NoFlags;
-			dest = static_cast<unsigned char>(res);
+			dest = static_cast<uint8_t>(res);
 
-			return static_cast<unsigned char>(flags | (dest == 0 ? ZeroFlag : NoFlags));
+			return static_cast<uint8_t>(flags | (dest == 0 ? ZeroFlag : NoFlags));
 		},
 
 		// AND
-		[](unsigned char& dest, unsigned char src, bool carry)
+		[](uint8_t& dest, uint8_t src, bool carry)
 		{
 			dest &= src;
-			return static_cast<unsigned char>(HalfCarryFlag | (dest == 0 ? ZeroFlag : NoFlags));
+			return static_cast<uint8_t>(HalfCarryFlag | (dest == 0 ? ZeroFlag : NoFlags));
 		},
 
 		// XOR
-		[](unsigned char& dest, unsigned char src, bool carry)
+		[](uint8_t& dest, uint8_t src, bool carry)
 		{
 			dest ^= src;
-			return static_cast<unsigned char>(dest == 0 ? ZeroFlag : NoFlags);
+			return static_cast<uint8_t>(dest == 0 ? ZeroFlag : NoFlags);
 		},
 
 		// OR
-		[](unsigned char& dest, unsigned char src, bool carry)
+		[](uint8_t& dest, uint8_t src, bool carry)
 		{
 			dest |= src;
-			return static_cast<unsigned char>(dest == 0 ? ZeroFlag : NoFlags);
+			return static_cast<uint8_t>(dest == 0 ? ZeroFlag : NoFlags);
 		},
 
 		// CP
-		[](unsigned char& dest, unsigned char src, bool carry)
+		[](uint8_t& dest, uint8_t src, bool carry)
 		{
 			auto res = dest - src;
-			unsigned char flags = SubFlag | (res < 0 ? CarryFlag : NoFlags);
+			uint8_t flags = SubFlag | (res < 0 ? CarryFlag : NoFlags);
 			flags |= (dest & 0xf) - (src & 0xf) < 0 ? HalfCarryFlag : NoFlags;
 
-			return static_cast<unsigned char>(flags | (res == 0 ? ZeroFlag : NoFlags));
+			return static_cast<uint8_t>(flags | (res == 0 ? ZeroFlag : NoFlags));
 		}
 	},
 	_prefixCbOps
 	{
 		// RLC
-		[](unsigned char& dest, unsigned char& flags)
+		[](uint8_t& dest, uint8_t& flags)
 		{
 			dest = _rotl8(dest, 1);
 			flags = dest & 0x1 ? CarryFlag : NoFlags;
 		},
 
 		// RRC
-		[](unsigned char& dest, unsigned char& flags)
+		[](uint8_t& dest, uint8_t& flags)
 		{
 			dest = _rotr8(dest, 1);
 			flags = dest & 0x80 ? CarryFlag : NoFlags;
 		},
 
 		// RL
-		[](unsigned char& dest, unsigned char& flags)
+		[](uint8_t& dest, uint8_t& flags)
 		{
-			unsigned char tmp = (flags & CarryFlag) >> 4;
+			uint8_t tmp = (flags & CarryFlag) >> 4;
 			flags = (dest & 0x80) >> 3;
 			dest = dest << 1 | tmp;
 		},
 
 		// RR
-		[](unsigned char& dest, unsigned char& flags)
+		[](uint8_t& dest, uint8_t& flags)
 		{
-			unsigned char tmp = (flags & CarryFlag) << 3;
+			uint8_t tmp = (flags & CarryFlag) << 3;
 			flags = (dest & 0x1) << 4;
 			dest = dest >> 1 | tmp;
 		},
 
 		// SLA
-		[](unsigned char& dest, unsigned char& flags)
+		[](uint8_t& dest, uint8_t& flags)
 		{
 			flags = (dest & 0x80) >> 3;
 			dest <<= 1;
 		},
 
 		// SRA
-		[](unsigned char& dest, unsigned char& flags)
+		[](uint8_t& dest, uint8_t& flags)
 		{
 			flags = (dest & 0x1) << 4;
 			dest = dest >> 1 | (dest & 0x80);
 		},
 
 		// SWAP
-		[](unsigned char& dest, unsigned char& flags)
+		[](uint8_t& dest, uint8_t& flags)
 		{
 			dest = _rotl8(dest, 4);
 			flags = NoFlags;
 		},
 
 		// SRL
-		[](unsigned char& dest, unsigned char& flags)
+		[](uint8_t& dest, uint8_t& flags)
 		{
 			flags = (dest & 0x1) << 4;
 			dest >>= 1;
 		},
 
-#define BIT_OP_IMP(n) [](unsigned char& dest, unsigned char& flags) {\
+#define BIT_OP_IMP(n) [](uint8_t& dest, uint8_t& flags) {\
 						flags = (flags & CarryFlag) | HalfCarryFlag | (dest & (0x1 << n) ? NoFlags : ZeroFlag);\
 					  }
 		// BIT
@@ -161,7 +161,7 @@ Cpu::Cpu(MemoryMap& memory) :
 		BIT_OP_IMP(7),
 
 
-#define RES_OP_IMP(n) [](unsigned char& dest, unsigned char& flags) { dest &= ~(0x1 << n); }
+#define RES_OP_IMP(n) [](uint8_t& dest, uint8_t& flags) { dest &= ~(0x1 << n); }
 
 		// RES
 		RES_OP_IMP(0),
@@ -174,7 +174,7 @@ Cpu::Cpu(MemoryMap& memory) :
 		RES_OP_IMP(7),
 
 
-#define SET_OP_IMP(n) [](unsigned char& dest, unsigned char& flags) { dest |= 0x1 << n; }
+#define SET_OP_IMP(n) [](uint8_t& dest, uint8_t& flags) { dest |= 0x1 << n; }
 
 		// SET
 		SET_OP_IMP(0),
@@ -242,9 +242,9 @@ Cpu::Cpu(MemoryMap& memory) :
 {
 }
 
-bool Cpu::ConditionMet(unsigned char opcode) const
+bool Cpu::ConditionMet(uint8_t opcode) const
 {
-	unsigned char condition = opcode & 0x10 ? CarryFlag : ZeroFlag;
+	uint8_t condition = opcode & 0x10 ? CarryFlag : ZeroFlag;
 	auto invert = (opcode & 0x8) == 0;
 
 	return ((_registers.F & condition) != 0) ^ invert;
@@ -260,7 +260,7 @@ bool Cpu::InterruptTriggered()
 		_interruptsEnabled = false;
 
 		auto entry = std::find_if(_intVectors.begin(), _intVectors.end(), [pendingInterrupts]
-					(const std::pair<InterruptFlags, unsigned char>& e){ return pendingInterrupts & e.first; });
+					(const std::pair<InterruptFlags, uint8_t>& e){ return pendingInterrupts & e.first; });
 
 		_waitingInterrupts ^= entry->first;
 
@@ -271,18 +271,18 @@ bool Cpu::InterruptTriggered()
 	return interruptTriggered;
 }
 
-int Cpu::Nop(unsigned char opcode)
+int Cpu::Nop(uint8_t opcode)
 {
 	return OneCycle;
 }
 
-int Cpu::Ld16RegImm(unsigned char opcode)
+int Cpu::Ld16RegImm(uint8_t opcode)
 {
 	GetReg16Ref1(opcode) = GetWordOperand();
 	return ThreeCycles;
 }
 
-int Cpu::St8MemRegAcc(unsigned char opcode)
+int Cpu::St8MemRegAcc(uint8_t opcode)
 {
 	auto& ref = GetReg16Ref2(opcode);
 	WriteByte(ref, _registers.A);
@@ -300,24 +300,24 @@ int Cpu::St8MemRegAcc(unsigned char opcode)
 	return TwoCycles;
 }
 
-int Cpu::Inc16Reg(unsigned char opcode)
+int Cpu::Inc16Reg(uint8_t opcode)
 {
 	GetReg16Ref1(opcode)++;
 	return TwoCycles;
 }
 
-int Cpu::Dec16Reg(unsigned char opcode)
+int Cpu::Dec16Reg(uint8_t opcode)
 {
 	GetReg16Ref1(opcode)--;
 	return TwoCycles;
 }
 
-int Cpu::IncDec8RegOrMem(unsigned char opcode)
+int Cpu::IncDec8RegOrMem(uint8_t opcode)
 {
 	auto inc = !(opcode & 1);
 	auto cycleCount = OneCycle;
-	unsigned char flags = _registers.F & CarryFlag;
-	unsigned char newData;
+	uint8_t flags = _registers.F & CarryFlag;
+	uint8_t newData;
 
 	if ((opcode & 0x38) != 0x30)
 	{
@@ -338,7 +338,7 @@ int Cpu::IncDec8RegOrMem(unsigned char opcode)
 	return cycleCount;
 }
 
-int Cpu::Ld8RegOrMemImm(unsigned char opcode)
+int Cpu::Ld8RegOrMemImm(uint8_t opcode)
 {
 	auto operand = GetByteOperand();
 
@@ -352,7 +352,7 @@ int Cpu::Ld8RegOrMemImm(unsigned char opcode)
 	return ThreeCycles;
 }
 
-int Cpu::Rlca(unsigned char opcode)
+int Cpu::Rlca(uint8_t opcode)
 {
 	auto newAcc = _rotl8(_registers.A, 1);
 	_registers.A = newAcc;
@@ -360,15 +360,15 @@ int Cpu::Rlca(unsigned char opcode)
 	return OneCycle;
 }
 
-int Cpu::Rla(unsigned char opcode)
+int Cpu::Rla(uint8_t opcode)
 {
 	auto newAcc = _registers.A << 1;
-	_registers.A = static_cast<unsigned char>(newAcc | (_registers.F & 0x10) >> 4);
+	_registers.A = static_cast<uint8_t>(newAcc | (_registers.F & 0x10) >> 4);
 	_registers.F = (newAcc & 0x100) >> 4;
 	return OneCycle;
 }
 
-int Cpu::Rrca(unsigned char opcode)
+int Cpu::Rrca(uint8_t opcode)
 {
 	auto newVal = _rotr8(_registers.A, 1);
 	_registers.A = newVal;
@@ -376,15 +376,15 @@ int Cpu::Rrca(unsigned char opcode)
 	return OneCycle;
 }
 
-int Cpu::Rra(unsigned char opcode)
+int Cpu::Rra(uint8_t opcode)
 {
 	auto newFlags = (_registers.A & 1) << 4;
-	_registers.A = static_cast<unsigned char>(_registers.A >> 1 | (_registers.F & 0x10) << 3);
+	_registers.A = static_cast<uint8_t>(_registers.A >> 1 | (_registers.F & 0x10) << 3);
 	_registers.F = newFlags;
 	return OneCycle;
 }
 
-int Cpu::St16MemSp(unsigned char opcode)
+int Cpu::St16MemSp(uint8_t opcode)
 {
 	auto address = GetWordOperand();
 	WriteByte(address++, _registers.SP & 0xff);
@@ -392,21 +392,21 @@ int Cpu::St16MemSp(unsigned char opcode)
 	return FiveCycles;
 }
 
-int Cpu::Add16RegReg(unsigned char opcode)
+int Cpu::Add16RegReg(uint8_t opcode)
 {
 	auto& regRef = GetReg16Ref1(opcode);
 	auto res = _registers.HL + regRef;
 
-	unsigned char flags = _registers.F & ZeroFlag | (res & 0x10000 ? CarryFlag : NoFlags);
+	uint8_t flags = _registers.F & ZeroFlag | (res & 0x10000 ? CarryFlag : NoFlags);
 	flags |= (_registers.HL & 0xfff) + (regRef & 0xfff) & 0x1000 ? HalfCarryFlag : NoFlags;
 
-	_registers.HL = static_cast<unsigned short>(res);
+	_registers.HL = static_cast<uint16_t>(res);
 	_registers.F = flags;
 
 	return TwoCycles;
 }
 
-int Cpu::Ld8AccMem(unsigned char opcode)
+int Cpu::Ld8AccMem(uint8_t opcode)
 {
 	auto& ref = GetReg16Ref2(opcode);
 	_registers.A = ReadByte(ref);
@@ -424,17 +424,17 @@ int Cpu::Ld8AccMem(unsigned char opcode)
 	return TwoCycles;
 }
 
-int Cpu::Stop(unsigned char opcode)
+int Cpu::Stop(uint8_t opcode)
 {
 	//_state = CpuState::Stopped;
 	return OneCycle;
 }
 
-int Cpu::Jr(unsigned char opcode)
+int Cpu::Jr(uint8_t opcode)
 {
 	auto condition = (opcode & 0x10) != 0 ? CarryFlag : ZeroFlag;
 	auto invert = (opcode & 0x8) == 0;
-	auto offset = static_cast<char>(GetByteOperand());
+	auto offset = static_cast<int8_t>(GetByteOperand());
 	auto cycleCount = TwoCycles;
 
 	if (opcode == 0x18 || ((_registers.F & condition) != 0) ^ invert)
@@ -446,7 +446,7 @@ int Cpu::Jr(unsigned char opcode)
 	return cycleCount;
 }
 
-int Cpu::Daa(unsigned char opcode)
+int Cpu::Daa(uint8_t opcode)
 {
 	int accValue = _registers.A;
 	auto flags = _registers.F & SubFlag;
@@ -474,7 +474,7 @@ int Cpu::Daa(unsigned char opcode)
 	return OneCycle;
 }
 
-int Cpu::Cpl(unsigned char opcode)
+int Cpu::Cpl(uint8_t opcode)
 {
 	_registers.A = ~_registers.A;
 	_registers.F |= SubFlag | HalfCarryFlag;
@@ -482,21 +482,21 @@ int Cpu::Cpl(unsigned char opcode)
 	return OneCycle;
 }
 
-int Cpu::Scf(unsigned char opcode)
+int Cpu::Scf(uint8_t opcode)
 {
 	_registers.F = _registers.F & ZeroFlag | CarryFlag;
 	return OneCycle;
 }
 
-int Cpu::Ccf(unsigned char opcode)
+int Cpu::Ccf(uint8_t opcode)
 {
 	_registers.F = _registers.F & (ZeroFlag | CarryFlag) ^ CarryFlag;
 	return OneCycle;
 }
 
-int Cpu::Ld8RegOrMemRegOrMem(unsigned char opcode)
+int Cpu::Ld8RegOrMemRegOrMem(uint8_t opcode)
 {
-	unsigned char val;
+	uint8_t val;
 	auto cycleCount = OneCycle;
 
 	if ((opcode & 0x7) != 0x6)
@@ -522,7 +522,7 @@ int Cpu::Ld8RegOrMemRegOrMem(unsigned char opcode)
 	return cycleCount;
 }
 
-int Cpu::Halt(unsigned char opcode)
+int Cpu::Halt(uint8_t opcode)
 {
 	// Hardware bug that causes no halt and next PC increment to be skipped
 	if (!_interruptsEnabled & (_waitingInterrupts & _enabledInterrupts)) _skipNextPCIncrement = true;
@@ -531,10 +531,10 @@ int Cpu::Halt(unsigned char opcode)
 	return OneCycle;
 }
 
-int Cpu::AluOp8AccRegOrMem(unsigned char opcode)
+int Cpu::AluOp8AccRegOrMem(uint8_t opcode)
 {
 	auto cycleCount = OneCycle;
-	unsigned char operand1;
+	uint8_t operand1;
 
 	if ((opcode & 0x7) != 0x6)
 	{
@@ -551,13 +551,13 @@ int Cpu::AluOp8AccRegOrMem(unsigned char opcode)
 	return cycleCount;
 }
 
-int Cpu::Di(unsigned char opcode)
+int Cpu::Di(uint8_t opcode)
 {
 	_interruptsEnabled = false;
 	return OneCycle;
 }
 
-int Cpu::Ei(unsigned char opcode)
+int Cpu::Ei(uint8_t opcode)
 {
 	// TODO: GB CPU enables interrupts after the instruction following this one
 	_interruptsEnabled = true;
@@ -566,7 +566,7 @@ int Cpu::Ei(unsigned char opcode)
 	return OneCycle;
 }
 
-int Cpu::Ret(unsigned char opcode)
+int Cpu::Ret(uint8_t opcode)
 {
 	auto cycleCount = TwoCycles;
 
@@ -584,13 +584,13 @@ int Cpu::Ret(unsigned char opcode)
 	return cycleCount;
 }
 
-int Cpu::Push16Reg(unsigned char opcode)
+int Cpu::Push16Reg(uint8_t opcode)
 {
 	PushWord(GetReg16Ref3(opcode));
 	return FourCycles;
 }
 
-int Cpu::Pop16Reg(unsigned char opcode)
+int Cpu::Pop16Reg(uint8_t opcode)
 {
 	GetReg16Ref3(opcode) = PopWord();
 
@@ -600,7 +600,7 @@ int Cpu::Pop16Reg(unsigned char opcode)
 	return ThreeCycles;
 }
 
-int Cpu::Jp(unsigned char opcode)
+int Cpu::Jp(uint8_t opcode)
 {
 	auto address = GetWordOperand();
 	auto cycleCount = ThreeCycles;
@@ -614,7 +614,7 @@ int Cpu::Jp(unsigned char opcode)
 	return cycleCount;
 }
 
-int Cpu::Call(unsigned char opcode)
+int Cpu::Call(uint8_t opcode)
 {
 	auto address = GetWordOperand();
 	auto cycleCount = ThreeCycles;
@@ -629,7 +629,7 @@ int Cpu::Call(unsigned char opcode)
 	return cycleCount;
 }
 
-int Cpu::AluOp8AccImm(unsigned char opcode)
+int Cpu::AluOp8AccImm(uint8_t opcode)
 {
 	auto operand = GetByteOperand();
 	_registers.F = _aluOps[(opcode & 0x38) >> 3](_registers.A, operand, (_registers.F & CarryFlag) != 0);
@@ -637,7 +637,7 @@ int Cpu::AluOp8AccImm(unsigned char opcode)
 	return TwoCycles;
 }
 
-int Cpu::Rst(unsigned char opcode)
+int Cpu::Rst(uint8_t opcode)
 {
 	PushWord(_registers.PC);
 	_registers.PC = opcode - 0xc7;
@@ -645,71 +645,71 @@ int Cpu::Rst(unsigned char opcode)
 	return FourCycles;
 }
 
-int Cpu::St8HiMemImmAcc(unsigned char opcode)
+int Cpu::St8HiMemImmAcc(uint8_t opcode)
 {
 	WriteByte(HiMemBaseAddress + GetByteOperand(), _registers.A);
 	return ThreeCycles;
 }
 
-int Cpu::St8HiMemCAcc(unsigned char opcode)
+int Cpu::St8HiMemCAcc(uint8_t opcode)
 {
 	WriteByte(HiMemBaseAddress + _registers.C, _registers.A);
 	return TwoCycles;
 }
 
-int Cpu::Ld8AccHiMemImm(unsigned char opcode)
+int Cpu::Ld8AccHiMemImm(uint8_t opcode)
 {
 	_registers.A = ReadByte(HiMemBaseAddress + GetByteOperand());
 	return ThreeCycles;
 }
 
-int Cpu::Ld8AccHiMemC(unsigned char opcode)
+int Cpu::Ld8AccHiMemC(uint8_t opcode)
 {
 	_registers.A = ReadByte(HiMemBaseAddress + _registers.C);
 	return ThreeCycles;
 }
 
-int Cpu::Add8SpImm(unsigned char opcode)
+int Cpu::Add8SpImm(uint8_t opcode)
 {
 	_registers.SP = AddSpImm();
 	return FourCycles;
 }
 
-int Cpu::Ld16HlSpImm(unsigned char opcode)
+int Cpu::Ld16HlSpImm(uint8_t opcode)
 {
 	_registers.HL = AddSpImm();
 	return ThreeCycles;
 }
 
-int Cpu::JpHl(unsigned char opcode)
+int Cpu::JpHl(uint8_t opcode)
 {
 	_registers.PC = _registers.HL;
 	return OneCycle;
 }
 
-int Cpu::Ld8AccMemImm(unsigned char opcode)
+int Cpu::Ld8AccMemImm(uint8_t opcode)
 {
 	_registers.A = ReadByte(GetWordOperand());
 	return FourCycles;
 }
 
-int Cpu::St8MemImmAcc(unsigned char opcode)
+int Cpu::St8MemImmAcc(uint8_t opcode)
 {
 	WriteByte(GetWordOperand(), _registers.A);
 	return FourCycles;
 }
 
-int Cpu::Ld16SpHl(unsigned char opcode)
+int Cpu::Ld16SpHl(uint8_t opcode)
 {
 	_registers.SP = _registers.HL;
 	return TwoCycles;
 }
 
-int Cpu::PrefixCb(unsigned char opcode)
+int Cpu::PrefixCb(uint8_t opcode)
 {
 	auto nextOpcode = GetNextProgramByte();
 
-	unsigned char val;
+	uint8_t val;
 	auto cycleCount = TwoCycles;
 	auto isReg = (nextOpcode & 0x7) != 0x6;
 
@@ -748,7 +748,7 @@ int Cpu::PrefixCb(unsigned char opcode)
 	return cycleCount;
 }
 
-int Cpu::InvalidOp(unsigned char opcode)
+int Cpu::InvalidOp(uint8_t opcode)
 {
 	std::cout << "Invalid opcode " << std::hex << opcode << " encountered" << std::endl;
 	throw std::exception("Invalid operation");

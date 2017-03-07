@@ -1,4 +1,5 @@
 #pragma once
+#include <cstdint>
 
 enum JoypadKey
 {
@@ -21,7 +22,7 @@ class InputJoypad
 	Cpu* _cpu;
 
 	JoypadKey _keysDown;
-	unsigned char _register;
+	uint8_t _register;
 
 public:
 	InputJoypad();
@@ -30,9 +31,9 @@ public:
 
 	void SetKeysDown(JoypadKey keys);
 
-	void WriteRegister(unsigned char value) { _register = value; }
+	void WriteRegister(uint8_t value) { _register = value; }
 
-	unsigned char ReadRegister() const
+	uint8_t ReadRegister() const
 	{
 		return 0xc0 | _register & 0x30 | 0xf & ~((~_register & 0x10 ? _keysDown & 0xf : 0) |
 												 (~_register & 0x20 ? (_keysDown & 0xf0) >> 4 : 0));

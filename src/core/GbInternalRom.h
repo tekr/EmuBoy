@@ -1,11 +1,12 @@
 #pragma once
+#include <cstdint>
 
 class GbInternalRom
 {
-	static const unsigned char _data[];
+	static const uint8_t _data[];
 
 public:
-	static unsigned char ReadByte(unsigned short address)
+	static uint8_t ReadByte(uint16_t address)
 	{
 		return _data[address];
 	}

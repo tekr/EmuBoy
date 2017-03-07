@@ -11,7 +11,7 @@ using namespace boost::multi_index;
 
 using VisibleSpriteContainer = multi_index_container<SpriteData*, indexed_by<
 	ordered_unique<composite_key<SpriteData,
-		member<SpriteData, unsigned char, &SpriteData::XPos>,
+		member<SpriteData, uint8_t, &SpriteData::XPos>,
 		const_mem_fun<SpriteData, uintptr_t, &SpriteData::OrderedSpriteId>
 	>>,
 	hashed_unique<const_mem_fun<SpriteData, uintptr_t, &SpriteData::OrderedSpriteId>>
@@ -22,12 +22,12 @@ class SpriteManager
 	VisibleSpriteContainer _visibleSprites;
 
 	multi_index_container<SpriteData*, indexed_by<
-		ordered_non_unique<member<SpriteData, unsigned char, &SpriteData::YPos>>,
+		ordered_non_unique<member<SpriteData, uint8_t, &SpriteData::YPos>>,
 		hashed_unique<const_mem_fun<SpriteData, uintptr_t, &SpriteData::OrderedSpriteId>>
 	>> _yOrderedSprites;
 
-	unsigned char _currentScanline;
-	unsigned char _spriteHeight;
+	uint8_t _currentScanline;
+	uint8_t _spriteHeight;
 
 public:
 
@@ -48,12 +48,12 @@ public:
 
 	const VisibleSpriteContainer& GetVisibleSprites() const { return _visibleSprites; }
 
-	void SetScanline(unsigned char scanline);
+	void SetScanline(uint8_t scanline);
 
 	void NextScanline()	{ SetScanline(_currentScanline + 1); }
 
 	void SpriteMoved(SpriteData& spriteData);
 
-	unsigned char GetSpriteColour(SpriteData& spriteData, int x, int y, unsigned char* vram) const;
+	uint8_t GetSpriteColour(SpriteData& spriteData, int x, int y, uint8_t* vram) const;
 };
 

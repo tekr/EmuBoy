@@ -11,16 +11,16 @@ const int FourCycles = OneCycle * 4;
 const int FiveCycles = OneCycle * 5;
 const int SixCycles = OneCycle * 6;
 
-typedef std::function<unsigned char&(Registers& registers, TestMemoryMap& tm)> RegMem8Selector;
-typedef std::function<unsigned short&(Registers& registers)> Reg16Selector;
+typedef std::function<uint8_t&(Registers& registers, TestMemoryMap& tm)> RegMem8Selector;
+typedef std::function<uint16_t&(Registers& registers)> Reg16Selector;
 
 struct TestData8Reg
 {
 	RegMem8Selector Selector;
-	unsigned char IncOpcode;
-	unsigned char DecOpcode;
+	uint8_t IncOpcode;
+	uint8_t DecOpcode;
 	int IncDecCycleCount;
-	unsigned char LdImmOpcode;
+	uint8_t LdImmOpcode;
 	int LdCycleCount;
 };
 
@@ -39,10 +39,10 @@ const std::vector<TestData8Reg> Reg8TestCases
 struct TestData16Reg1
 {
 	Reg16Selector Selector;
-	unsigned char LdImmOpcode;
-	unsigned char IncOpcode;
-	unsigned char DecOpcode;
-	unsigned char AddHlOpcode;
+	uint8_t LdImmOpcode;
+	uint8_t IncOpcode;
+	uint8_t DecOpcode;
+	uint8_t AddHlOpcode;
 };
 
 const std::vector<TestData16Reg1> Reg16TestCases1
@@ -56,8 +56,8 @@ const std::vector<TestData16Reg1> Reg16TestCases1
 struct TestData16Reg2
 {
 	Reg16Selector Selector;
-	unsigned char StMemAccOpcode;
-	unsigned char LdAccMemOpcode;
+	uint8_t StMemAccOpcode;
+	uint8_t LdAccMemOpcode;
 };
 
 const std::vector<TestData16Reg2> Reg16TestCases2
@@ -106,7 +106,7 @@ TEST_F(CpuTestFixture, Ld16RegImm)
 
 TEST_F(CpuTestFixture, St8MemAcc)
 {
-	int address = MemoryMap::RamFixed;
+	uint16_t address = MemoryMap::RamFixed;
 
 	for (unsigned i = 0; i < Reg16TestCases2.size(); i++)
 	{
@@ -140,7 +140,7 @@ TEST_F(CpuTestFixture, St8MemAcc)
 
 TEST_F(CpuTestFixture, Ld8AccMem)
 {
-	int address = MemoryMap::RamFixed;
+	uint16_t address = MemoryMap::RamFixed;
 
 	for (unsigned i = 0; i < Reg16TestCases2.size(); i++)
 	{
@@ -362,7 +362,7 @@ TEST_F(CpuTestFixture, Ld8RegOrMemImm)
 
 TEST_F(CpuTestFixture, Rlca)
 {
-	const std::vector<std::vector<unsigned char>> tests =
+	const std::vector<std::vector<uint8_t>> tests =
 	{
 		// Accum,		Flags,									Result,		Result flags
 		{ 0xff,			SubFlag | HalfCarryFlag,				0xff,		CarryFlag },
@@ -394,7 +394,7 @@ TEST_F(CpuTestFixture, Rlca)
 
 TEST_F(CpuTestFixture, Rla)
 {
-	const std::vector<std::vector<unsigned char>> tests =
+	const std::vector<std::vector<uint8_t>> tests =
 	{
 		// Accum,		Flags,									Result,		Result flags
 		{ 0xff,			SubFlag | HalfCarryFlag | CarryFlag,	0xff,		CarryFlag },
@@ -426,7 +426,7 @@ TEST_F(CpuTestFixture, Rla)
 
 TEST_F(CpuTestFixture, Rrca)
 {
-	const std::vector<std::vector<unsigned char>> tests =
+	const std::vector<std::vector<uint8_t>> tests =
 	{
 		// Accum,		Flags,									Result,		Result flags
 		{ 0xff,			SubFlag | HalfCarryFlag,				0xff,		CarryFlag },
@@ -458,7 +458,7 @@ TEST_F(CpuTestFixture, Rrca)
 
 TEST_F(CpuTestFixture, Rra)
 {
-	const std::vector<std::vector<unsigned char>> tests =
+	const std::vector<std::vector<uint8_t>> tests =
 	{
 		// Accum,		Flags,									Result,		Result flags
 		{ 0xff,			SubFlag | HalfCarryFlag | CarryFlag,	0xff,		CarryFlag },
@@ -561,7 +561,7 @@ TEST_F(CpuTestFixture, Add16RegHl)
 
 TEST_F(CpuTestFixture, Daa)
 {
-	const std::vector<std::vector<unsigned char>> tests =
+	const std::vector<std::vector<uint8_t>> tests =
 	{
 		// Accum,		Flags,									Result,		Result flags
 		{ 0x49 + 0x19,	HalfCarryFlag,							0x68,		NoFlags },
@@ -595,7 +595,7 @@ TEST_F(CpuTestFixture, Daa)
 
 TEST_F(CpuTestFixture, Cpl)
 {
-	const std::vector<std::vector<unsigned char>> tests =
+	const std::vector<std::vector<uint8_t>> tests =
 	{
 		// Accum,	Flags,						Result
 		{ 0x37,		ZeroFlag | CarryFlag,		0xc8 },
@@ -631,7 +631,7 @@ TEST_F(CpuTestFixture, Cpl)
 
 TEST_F(CpuTestFixture, Scf)
 {
-	const std::vector<std::vector<unsigned char>> tests =
+	const std::vector<std::vector<uint8_t>> tests =
 	{
 		// Flags,					Result Flags
 		{ ZeroFlag | CarryFlag,		ZeroFlag | CarryFlag },
@@ -663,7 +663,7 @@ TEST_F(CpuTestFixture, Scf)
 
 TEST_F(CpuTestFixture, Ccf)
 {
-	const std::vector<std::vector<unsigned char>> tests =
+	const std::vector<std::vector<uint8_t>> tests =
 	{
 		// Flags,					Result Flags
 		{ ZeroFlag | CarryFlag,		ZeroFlag },
@@ -695,33 +695,33 @@ TEST_F(CpuTestFixture, Ccf)
 
 TEST_F(CpuTestFixture, Ld8RegOrMemRegOrMem)
 {
-	const std::vector<std::tuple<unsigned char, int, std::function<void(Registers&, unsigned char)>, std::function<unsigned char(Registers&)>>> tests =
+	const std::vector<std::tuple<uint8_t, int, std::function<void(Registers&, uint8_t)>, std::function<uint8_t(Registers&)>>> tests =
 	{
 		// Opcode	Cycle count		Set source fn																Get Dest fn
-		{ 0x50,		OneCycle,		[](Registers& r, unsigned char val) { r.B = val; },							 [](Registers& r) { return r.D; } },
-		{ 0x41,		OneCycle,		[](Registers& r, unsigned char val) { r.C = val; },							 [](Registers& r) { return r.B; } },
-		{ 0x62,		OneCycle,		[](Registers& r, unsigned char val) { r.D = val; },							 [](Registers& r) { return r.H; } },
-		{ 0x73,		TwoCycles,		[](Registers& r, unsigned char val) { r.E = val; },							 [&](Registers& r) { return MemoryMap.ReadByte(r.HL); } },
-		{ 0x44,		OneCycle,		[](Registers& r, unsigned char val) { r.H = val; },							 [](Registers& r) { return r.B; } },
-		{ 0x55,		OneCycle,		[](Registers& r, unsigned char val) { r.L = val; },							 [](Registers& r) { return r.D; } },
-		{ 0x66,		TwoCycles,		[&](Registers& r, unsigned char val) { this->MemoryMap.WriteByte(r.HL, val); }, [](Registers& r) { return r.H; } },
-		{ 0x77,		TwoCycles,		[](Registers& r, unsigned char val) { r.A = val; },							 [&](Registers& r) { return MemoryMap.ReadByte(r.HL); } },
+		{ 0x50,		OneCycle,		[](Registers& r, uint8_t val) { r.B = val; },							 [](Registers& r) { return r.D; } },
+		{ 0x41,		OneCycle,		[](Registers& r, uint8_t val) { r.C = val; },							 [](Registers& r) { return r.B; } },
+		{ 0x62,		OneCycle,		[](Registers& r, uint8_t val) { r.D = val; },							 [](Registers& r) { return r.H; } },
+		{ 0x73,		TwoCycles,		[](Registers& r, uint8_t val) { r.E = val; },							 [&](Registers& r) { return MemoryMap.ReadByte(r.HL); } },
+		{ 0x44,		OneCycle,		[](Registers& r, uint8_t val) { r.H = val; },							 [](Registers& r) { return r.B; } },
+		{ 0x55,		OneCycle,		[](Registers& r, uint8_t val) { r.L = val; },							 [](Registers& r) { return r.D; } },
+		{ 0x66,		TwoCycles,		[&](Registers& r, uint8_t val) { this->MemoryMap.WriteByte(r.HL, val); }, [](Registers& r) { return r.H; } },
+		{ 0x77,		TwoCycles,		[](Registers& r, uint8_t val) { r.A = val; },							 [&](Registers& r) { return MemoryMap.ReadByte(r.HL); } },
 
-		{ 0x48,		OneCycle,		[](Registers& r, unsigned char val) { r.B = val; },							 [](Registers& r) { return r.C; } },
-		{ 0x59,		OneCycle,		[](Registers& r, unsigned char val) { r.C = val; },							 [](Registers& r) { return r.E; } },
-		{ 0x6a,		OneCycle,		[](Registers& r, unsigned char val) { r.D = val; },							 [](Registers& r) { return r.L; } },
-		{ 0x7b,		OneCycle,		[](Registers& r, unsigned char val) { r.E = val; },							 [](Registers& r) { return r.A; } },
-		{ 0x4c,		OneCycle,		[](Registers& r, unsigned char val) { r.H = val; },							 [](Registers& r) { return r.C; } },
-		{ 0x5d,		OneCycle,		[](Registers& r, unsigned char val) { r.L = val; },							 [](Registers& r) { return r.E; } },
-		{ 0x7e,		TwoCycles,		[&](Registers& r, unsigned char val) { this->MemoryMap.WriteByte(r.HL, val); }, [](Registers& r) { return r.A; } },
-		{ 0x6f,		OneCycle,		[](Registers& r, unsigned char val) { r.A = val; },							 [](Registers& r) { return r.L; } },
+		{ 0x48,		OneCycle,		[](Registers& r, uint8_t val) { r.B = val; },							 [](Registers& r) { return r.C; } },
+		{ 0x59,		OneCycle,		[](Registers& r, uint8_t val) { r.C = val; },							 [](Registers& r) { return r.E; } },
+		{ 0x6a,		OneCycle,		[](Registers& r, uint8_t val) { r.D = val; },							 [](Registers& r) { return r.L; } },
+		{ 0x7b,		OneCycle,		[](Registers& r, uint8_t val) { r.E = val; },							 [](Registers& r) { return r.A; } },
+		{ 0x4c,		OneCycle,		[](Registers& r, uint8_t val) { r.H = val; },							 [](Registers& r) { return r.C; } },
+		{ 0x5d,		OneCycle,		[](Registers& r, uint8_t val) { r.L = val; },							 [](Registers& r) { return r.E; } },
+		{ 0x7e,		TwoCycles,		[&](Registers& r, uint8_t val) { this->MemoryMap.WriteByte(r.HL, val); }, [](Registers& r) { return r.A; } },
+		{ 0x6f,		OneCycle,		[](Registers& r, uint8_t val) { r.A = val; },							 [](Registers& r) { return r.L; } },
 	};
 
 	for (auto& test : tests)
 	{
 		MemoryMap.SetBytes(MemoryMap::RomFixed, { std::get<0>(test) });
 		
-		for (unsigned char testVal : { 0xaa, 0x33 })
+		for (uint8_t testVal : { 0xaa, 0x33 })
 		{
 			auto& reg = Cpu.Registers();
 
@@ -741,20 +741,20 @@ TEST_F(CpuTestFixture, Ld8RegOrMemRegOrMem)
 
 TEST_F(CpuTestFixture, AluOp8AccRegOrMem)
 {
-	const std::vector<std::tuple<int, std::function<void(Registers&, unsigned char)>>> sources =
+	const std::vector<std::tuple<int, std::function<void(Registers&, uint8_t)>>> sources =
 	{
 		// Cycle count	Set source fn
-		{ OneCycle,		[](Registers& r, unsigned char val) { r.B = val; } },
-		{ OneCycle,		[](Registers& r, unsigned char val) { r.C = val; } },
-		{ OneCycle,		[](Registers& r, unsigned char val) { r.D = val; } },
-		{ OneCycle,		[](Registers& r, unsigned char val) { r.E = val; } },
-		{ OneCycle,		[](Registers& r, unsigned char val) { r.H = val; } },
-		{ OneCycle,		[](Registers& r, unsigned char val) { r.L = val; } },
-		{ TwoCycles,	[&](Registers& r, unsigned char val) { this->MemoryMap.WriteByte(r.HL, val); } },
-		{ OneCycle,		[](Registers& r, unsigned char val) { r.A = val; } }
+		{ OneCycle,		[](Registers& r, uint8_t val) { r.B = val; } },
+		{ OneCycle,		[](Registers& r, uint8_t val) { r.C = val; } },
+		{ OneCycle,		[](Registers& r, uint8_t val) { r.D = val; } },
+		{ OneCycle,		[](Registers& r, uint8_t val) { r.E = val; } },
+		{ OneCycle,		[](Registers& r, uint8_t val) { r.H = val; } },
+		{ OneCycle,		[](Registers& r, uint8_t val) { r.L = val; } },
+		{ TwoCycles,	[&](Registers& r, uint8_t val) { this->MemoryMap.WriteByte(r.HL, val); } },
+		{ OneCycle,		[](Registers& r, uint8_t val) { r.A = val; } }
 	};
 
-	enum Operation : unsigned char
+	enum Operation : uint8_t
 	{
 		Add = 0x80, Adc = 0x88,
 		Sub = 0x90,	Sbc = 0x98,
@@ -762,7 +762,7 @@ TEST_F(CpuTestFixture, AluOp8AccRegOrMem)
 		Or  = 0xb0,	Cp  = 0xb8
 	};
 
-	const std::vector<std::vector<unsigned char>> tests =
+	const std::vector<std::vector<uint8_t>> tests =
 	{
 		// Opcode	Operand1	Operand2	Flags in	Result	Flags out
 		{ Add,		0x0,		0x0,		CarryFlag,	0x0,	ZeroFlag },
@@ -836,7 +836,7 @@ TEST_F(CpuTestFixture, AluOp8AccRegOrMem)
 			// Only use A as source if both operands are identical
 			if (i != 7 || test[1] == test[2])
 			{
-				MemoryMap.SetBytes(MemoryMap::RomFixed, { static_cast<unsigned char>(test[0] | i) });
+				MemoryMap.SetBytes(MemoryMap::RomFixed, { static_cast<uint8_t>(test[0] | i) });
 
 				auto& reg = Cpu.Registers();
 
@@ -858,7 +858,7 @@ TEST_F(CpuTestFixture, AluOp8AccRegOrMem)
 
 TEST_F(CpuTestFixture, AluOp8AccImm)
 {
-	enum Operation : unsigned char
+	enum Operation : uint8_t
 	{
 		Add = 0xc6, Adc = 0xce,
 		Sub = 0xd6, Sbc = 0xde,
@@ -866,7 +866,7 @@ TEST_F(CpuTestFixture, AluOp8AccImm)
 		Or  = 0xf6, Cp  = 0xfe
 	};
 
-	const std::vector<std::vector<unsigned char>> tests =
+	const std::vector<std::vector<uint8_t>> tests =
 	{
 		// Opcode	Operand1	Operand2	Flags in	Result	Flags out
 		{ Add,		0x0,		0x0,		CarryFlag,	0x0,	ZeroFlag },
@@ -953,7 +953,7 @@ TEST_F(CpuTestFixture, AluOp8AccImm)
 
 TEST_F(CpuTestFixture, Ret)
 {
-	const std::vector<std::tuple<unsigned char, unsigned char, bool, int>> tests =
+	const std::vector<std::tuple<uint8_t, uint8_t, bool, int>> tests =
 	{
 		// Opcode	Flags		Taken	Cycle count
 		// RET NZ
@@ -1035,7 +1035,7 @@ TEST_F(CpuTestFixture, Ret)
 
 TEST_F(CpuTestFixture, Pop)
 {
-	const std::vector<std::tuple<unsigned char, unsigned short&(*)(Registers&), unsigned short>> scenarios
+	const std::vector<std::tuple<uint8_t, uint16_t&(*)(Registers&), uint16_t>> scenarios
 	{
 		{ 0xc1, [](Registers& r) -> auto& { return r.BC; }, 0xffff },
 		{ 0xd1, [](Registers& r) -> auto& { return r.DE; }, 0xffff },
@@ -1047,11 +1047,11 @@ TEST_F(CpuTestFixture, Pop)
 	{
 		MemoryMap.SetBytes(MemoryMap::RomFixed, { std::get<0>(scenario) });
 
-		for (unsigned short testVal : { 0x1234, 0xa9f3, 0xfedc })
+		for (uint16_t testVal : { 0x1234, 0xa9f3, 0xfedc })
 		{
 			// Data to be popped stored on stack
-			MemoryMap.SetBytes(MemoryMap::RamFixed, { static_cast<unsigned char>(testVal & 0xff),
-												static_cast<unsigned char>(testVal >> 8) });
+			MemoryMap.SetBytes(MemoryMap::RamFixed, { static_cast<uint8_t>(testVal & 0xff),
+												static_cast<uint8_t>(testVal >> 8) });
 
 			auto& registers = Cpu.Registers();
 			auto& destRegFn = std::get<1>(scenario);
@@ -1075,7 +1075,7 @@ TEST_F(CpuTestFixture, Pop)
 
 TEST_F(CpuTestFixture, Push)
 {
-	const std::vector<std::tuple<unsigned char, unsigned short&(*)(Registers&)>> scenarios
+	const std::vector<std::tuple<uint8_t, uint16_t&(*)(Registers&)>> scenarios
 	{
 		{ 0xc5, [](Registers& r) -> auto& { return r.BC; } },
 		{ 0xd5, [](Registers& r) -> auto& { return r.DE; } },
@@ -1087,7 +1087,7 @@ TEST_F(CpuTestFixture, Push)
 	{
 		MemoryMap.SetBytes(MemoryMap::RomFixed, { std::get<0>(scenario) });
 
-		for (unsigned short testVal : { 0x1234, 0xa9f3, 0xfedc })
+		for (uint16_t testVal : { 0x1234, 0xa9f3, 0xfedc })
 		{
 			// Clear stack
 			MemoryMap.SetBytes(MemoryMap::RamFixed, { 0, 0 });
@@ -1119,7 +1119,7 @@ TEST_F(CpuTestFixture, Push)
 
 TEST_F(CpuTestFixture, JpCall)
 {
-	const std::vector<std::tuple<unsigned char, unsigned char, bool, bool>> tests =
+	const std::vector<std::tuple<uint8_t, uint8_t, bool, bool>> tests =
 	{
 		// Opcode	Flags		Is call		Taken
 		// JP NZ
@@ -1189,7 +1189,7 @@ TEST_F(CpuTestFixture, JpCall)
 	{
 		MemoryMap.SetBytes(MemoryMap::RamFixed, { std::get<0>(test), 0x34, 0x12 });
 
-		const unsigned short stackStart = MemoryMap::RamFixed + 3;
+		const uint16_t stackStart = MemoryMap::RamFixed + 3;
 
 		// Clear stack
 		MemoryMap.SetBytes(stackStart, { 0, 0 });
@@ -1232,7 +1232,7 @@ TEST_F(CpuTestFixture, JpCall)
 
 TEST_F(CpuTestFixture, Rst)
 {
-	std::vector<std::vector<unsigned char>> tests =
+	std::vector<std::vector<uint8_t>> tests =
 	{
 		// Opcode	Dest. address
 		{ 0xc7,		0x0  },
@@ -1250,7 +1250,7 @@ TEST_F(CpuTestFixture, Rst)
 	{
 		MemoryMap.SetBytes(MemoryMap::RamFixed, { test[0] });
 
-		const unsigned short stackStart = MemoryMap::RamFixed + 1;
+		const uint16_t stackStart = MemoryMap::RamFixed + 1;
 
 		// Clear stack
 		MemoryMap.SetBytes(stackStart, { 0, 0 });
@@ -1278,20 +1278,20 @@ TEST_F(CpuTestFixture, Rst)
 
 TEST_F(CpuTestFixture, CbPrefixOpcodes)
 {
-	const std::vector<std::tuple<int, std::function<unsigned char(Registers&)>, std::function<void(Registers&, unsigned char)>>> sources =
+	const std::vector<std::tuple<int, std::function<uint8_t(Registers&)>, std::function<void(Registers&, uint8_t)>>> sources =
 	{
 		// Cycle count	Get function											Set function
-		{ TwoCycles,	[](Registers& r) { return r.B; },						[](Registers& r, unsigned char val) { r.B = val; } },
-		{ TwoCycles,	[](Registers& r) { return r.C; },						[](Registers& r, unsigned char val) { r.C = val; } },
-		{ TwoCycles,	[](Registers& r) { return r.D; },						[](Registers& r, unsigned char val) { r.D = val; } },
-		{ TwoCycles,	[](Registers& r) { return r.E; },						[](Registers& r, unsigned char val) { r.E = val; } },
-		{ TwoCycles,	[](Registers& r) { return r.H; },						[](Registers& r, unsigned char val) { r.H = val; } },
-		{ TwoCycles,	[](Registers& r) { return r.L; },						[](Registers& r, unsigned char val) { r.L = val; } },
-		{ FourCycles,	[&](Registers& r) { return MemoryMap.ReadByte(r.HL); },	[&](Registers& r, unsigned char val) { this->MemoryMap.WriteByte(r.HL, val); } },
-		{ TwoCycles,	[](Registers& r) { return r.A; },						[](Registers& r, unsigned char val) { r.A = val; } }
+		{ TwoCycles,	[](Registers& r) { return r.B; },						[](Registers& r, uint8_t val) { r.B = val; } },
+		{ TwoCycles,	[](Registers& r) { return r.C; },						[](Registers& r, uint8_t val) { r.C = val; } },
+		{ TwoCycles,	[](Registers& r) { return r.D; },						[](Registers& r, uint8_t val) { r.D = val; } },
+		{ TwoCycles,	[](Registers& r) { return r.E; },						[](Registers& r, uint8_t val) { r.E = val; } },
+		{ TwoCycles,	[](Registers& r) { return r.H; },						[](Registers& r, uint8_t val) { r.H = val; } },
+		{ TwoCycles,	[](Registers& r) { return r.L; },						[](Registers& r, uint8_t val) { r.L = val; } },
+		{ FourCycles,	[&](Registers& r) { return MemoryMap.ReadByte(r.HL); },	[&](Registers& r, uint8_t val) { this->MemoryMap.WriteByte(r.HL, val); } },
+		{ TwoCycles,	[](Registers& r) { return r.A; },						[](Registers& r, uint8_t val) { r.A = val; } }
 	};
 
-	enum Operation : unsigned char
+	enum Operation : uint8_t
 	{
 		Rlc  = 0x00, Rrc = 0x08,
 		Rl   = 0x10, Rr  = 0x18,
@@ -1302,7 +1302,7 @@ TEST_F(CpuTestFixture, CbPrefixOpcodes)
 		Set  = 0xc0
 	};
 
-	const std::vector<std::vector<unsigned char>> tests =
+	const std::vector<std::vector<uint8_t>> tests =
 	{
 		// Input	Flags in	Operation	[Bit no.]	Result	Flags out
 		{ 0x0,		CarryFlag,	Rlc,		0,			0x0,	ZeroFlag },
@@ -1424,7 +1424,7 @@ TEST_F(CpuTestFixture, CbPrefixOpcodes)
 		for (auto& test : tests)
 		{
 			// Apply operand source and bit offset to base operation to get final opcode
-			auto opcode = static_cast<unsigned char>(test[2] + (test[3] << 3) + i);
+			auto opcode = static_cast<uint8_t>(test[2] + (test[3] << 3) + i);
 
 			MemoryMap.SetBytes(MemoryMap::RomFixed, { 0xcb, opcode });
 

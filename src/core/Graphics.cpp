@@ -4,7 +4,7 @@
 #include "Cpu.h"
 #include "SpriteManager.h"
 
-unsigned char Graphics::GetBgOrWinColour(int x, int y, TileType tileType) const
+uint8_t Graphics::GetBgOrWinColour(int x, int y, TileType tileType) const
 {
 	auto tileMapBase = _registers[RegLcdControl] & (tileType == TileType::Window ? 0x40 : 0x8)
 		                   ? TileMapBase2
@@ -12,7 +12,7 @@ unsigned char Graphics::GetBgOrWinColour(int x, int y, TileType tileType) const
 
 	auto tileNumber = _vram[tileMapBase + GetTileOffset(x, y)];
 
-	unsigned short tileDataBase;
+	uint16_t tileDataBase;
 
 	if (_registers[RegLcdControl] & 0x10)
 	{
@@ -30,7 +30,7 @@ unsigned char Graphics::GetBgOrWinColour(int x, int y, TileType tileType) const
 	return _vram[baseByte] >> bitShift & 0x1 | (_vram[baseByte + 1] >> bitShift & 0x1) << 1;
 }
 
-int Graphics::MapColour(unsigned char colour, Palette palette)
+int Graphics::MapColour(uint8_t colour, Palette palette)
 {
 	auto paletteData = _registers[palette == Palette::BgAndWindow
 		                              ? RegBgWinPalette
@@ -63,7 +63,7 @@ Graphics::Graphics(Cpu& cpu, MemoryMap& memoryMap, SpriteManager& spriteManager)
 	_registers[RegSprite1Palette] = 0xff;
 }
 
-void Graphics::WriteOam(unsigned short address, unsigned char value)
+void Graphics::WriteOam(uint16_t address, uint8_t value)
 {
 	if (_status != LcdcStatus::OamReadMode && _status != LcdcStatus::OamAndVramReadMode)
 	{
@@ -78,7 +78,7 @@ void Graphics::WriteOam(unsigned short address, unsigned char value)
 	}
 }
 
-void Graphics::WriteRegister(unsigned short address, unsigned char value)
+void Graphics::WriteRegister(uint16_t address, uint8_t value)
 {
 	// Writing to the line count register resets it
 	if (address == RegLineCount) value = 0;
@@ -91,8 +91,8 @@ void Graphics::WriteRegister(unsigned short address, unsigned char value)
 	}
 	else if (address == RegDmaTransfer)
 	{
-		unsigned short sourceAddress = value << 8;
-		unsigned short destAddress = 0;
+		uint16_t sourceAddress = value << 8;
+		uint16_t destAddress = 0;
 
 		// Emulate DMA transfer
 		for (auto i = 0; i < OamSize; i++)
@@ -149,7 +149,7 @@ int Graphics::RenderLine()
 
 			for (auto x = 0; x < HozPixels;x++)
 			{
-				unsigned char colour = 0;
+				uint8_t colour = 0;
 				auto windowX = x - _registers[RegWindowX] + 7;
 
 				if (windowVisibleThisLine && windowX >= 0)
@@ -229,7 +229,7 @@ void Graphics::SetLcdcStatus(LcdcStatus status)
 
 	if (!DisplayEnabled()) return;
 
-	unsigned char interruptMask = 0;
+	uint8_t interruptMask = 0;
 
 	switch (status)
 	{
