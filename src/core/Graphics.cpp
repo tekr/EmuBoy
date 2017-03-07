@@ -83,7 +83,7 @@ void Graphics::WriteRegister(unsigned short address, unsigned char value)
 	if (address == RegLineCount) value = 0;
 	else if (address == RegLcdControl)
 	{
-		_spriteManager.SetUseTallSprites(value & 0x4);
+		_spriteManager.SetUseTallSprites((value & 0x4) != 0);
 
 		// Per GB programming manual p.56, turning off the display immediately resets the line count
 		if (!(value & 0x80) && _registers[RegLcdControl] & 0x80) _registers[RegLineCount] = 0;

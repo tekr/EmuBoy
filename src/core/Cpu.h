@@ -239,6 +239,25 @@ protected:
 		}
 	}
 
+	static uint8_t rotl8(uint8_t num, unsigned int n)
+	{
+		const unsigned int mask = 7;
+
+		// Avoid undefined behaviour
+		n &= mask;
+
+#pragma warning(push)
+#pragma warning(disable:4146)
+		// Unary minus on unsigned -> unsigned is intentional here
+		return num << n | num >> (-n & mask);
+#pragma warning(pop)
+	}
+
+	static uint8_t rotr8(uint8_t num, unsigned int n)
+	{
+		return rotl8(num, 8 - n);
+	}
+
 	// Returns true if condition for conditional instruction is met
 	bool ConditionMet(unsigned char opcode) const;
 

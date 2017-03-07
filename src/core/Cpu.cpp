@@ -91,14 +91,14 @@ Cpu::Cpu(MemoryMap& memory) :
 		// RLC
 		[](unsigned char& dest, unsigned char& flags)
 		{
-			dest = _rotl8(dest, 1);
+			dest = rotl8(dest, 1);
 			flags = dest & 0x1 ? CarryFlag : NoFlags;
 		},
 
 		// RRC
 		[](unsigned char& dest, unsigned char& flags)
 		{
-			dest = _rotr8(dest, 1);
+			dest = rotr8(dest, 1);
 			flags = dest & 0x80 ? CarryFlag : NoFlags;
 		},
 
@@ -135,7 +135,7 @@ Cpu::Cpu(MemoryMap& memory) :
 		// SWAP
 		[](unsigned char& dest, unsigned char& flags)
 		{
-			dest = _rotl8(dest, 4);
+			dest = rotl8(dest, 4);
 			flags = NoFlags;
 		},
 
@@ -353,7 +353,7 @@ int Cpu::Ld8RegOrMemImm(unsigned char opcode)
 
 int Cpu::Rlca(unsigned char opcode)
 {
-	auto newAcc = _rotl8(_registers.A, 1);
+	auto newAcc = rotl8(_registers.A, 1);
 	_registers.A = newAcc;
 	_registers.F = newAcc & 1 ? CarryFlag : NoFlags;
 	return OneCycle;
@@ -369,7 +369,7 @@ int Cpu::Rla(unsigned char opcode)
 
 int Cpu::Rrca(unsigned char opcode)
 {
-	auto newVal = _rotr8(_registers.A, 1);
+	auto newVal = rotr8(_registers.A, 1);
 	_registers.A = newVal;
 	_registers.F = newVal & 0x80 ? CarryFlag : NoFlags;
 	return OneCycle;
