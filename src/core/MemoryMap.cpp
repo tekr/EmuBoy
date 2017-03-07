@@ -1,7 +1,7 @@
 #include "stdafx.h"
 #include "MemoryMap.h"
 
-MemoryMap::MemoryMap(InputJoypad& joypad) : _graphics(nullptr), _timer(nullptr), _joypad(joypad)
+MemoryMap::MemoryMap(InputJoypad& joypad) : _cartridge(nullptr), _graphics(nullptr), _timer(nullptr), _joypad(joypad)
 {
 }
 
@@ -90,7 +90,7 @@ void MemoryMap::WriteByte(uint16_t address, uint8_t value)
 	}
 	else if (address < RamFixed)
 	{
-		_cartridge->RamWriteByte(address - RamFixed, value);
+		_cartridge->RamWriteByte(address - RamSwitched, value);
 	}
 	// Includes near-complete repeat of fixed RAM from 0xe000 to OAM RAM start
 	else if (address < RamOam)
