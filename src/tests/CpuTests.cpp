@@ -1493,8 +1493,8 @@ TEST_F(CpuTestFixture, VBlankInterrupt)
 
 	Cpu.RequestInterrupt(InterruptFlags::VBlankInt);
 
-	// Pushing PC and jumping to int vector takes four cycles
-	EXPECT_EQ(FourCycles, Cpu.DoNextInstruction());
+	// Pushing PC and jumping to int vector takes five cycles
+	EXPECT_EQ(FiveCycles, Cpu.DoNextInstruction());
 
 	// Should be at int vector now
 	EXPECT_EQ(0x40, reg.PC);

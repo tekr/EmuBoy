@@ -18,14 +18,14 @@ public:
 
 class TestMemoryMap : public MemoryMap
 {
-	std::shared_ptr<TestCartridge> _testCartridge;
+	TestCartridge _testCartridge;
 
 public:
 	const int TestRamSize = 0x20;
 
-	explicit TestMemoryMap(InputJoypad& joypad) : MemoryMap(joypad), _testCartridge{ std::make_shared<TestCartridge>() }
+	explicit TestMemoryMap(InputJoypad& joypad) : MemoryMap(joypad), _testCartridge{}
 	{
-		SetCartridge(_testCartridge);
+		SetCartridge(&_testCartridge);
 		SetInternalRomEnabled(false);
 	}
 

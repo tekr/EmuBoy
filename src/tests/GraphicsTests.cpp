@@ -24,7 +24,7 @@ TEST_F(GraphicsTestFixture, RunInternalRom)
 	MemoryMap.SetInternalRomEnabled(true);
 
 	auto cartridge = CartridgeFactory::LoadFromFile("../../ROMs/gb-snake.gb", 0);
-	MemoryMap.SetCartridge(cartridge);
+	MemoryMap.SetCartridge(cartridge.get());
 
 	auto frameCounter = 0;
 

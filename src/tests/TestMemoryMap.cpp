@@ -25,7 +25,7 @@ void TestMemoryMap::SetBytes(unsigned short address, std::vector<unsigned char>&
 {
 	if (address < RamVideo)
 	{
-		_testCartridge->SetBytes(address, std::move(bytes));
+		_testCartridge.SetBytes(address, std::move(bytes));
 	}
 	else
 	{
