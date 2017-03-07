@@ -180,8 +180,8 @@ int Graphics::RenderLine()
 					//  * Hit a non-transparent sprite pixel above the BG/Window
 					//  * Hit a sprite that is behind the BG/Window, at which point we use BG/Window pixel (regardless of lower-priority sprite settings)
 					//  * Run out of overlapping sprites
-					while ((sprite != firstSpriteBelowY && (*sprite)->XPos - SpriteManager::SpriteXOffset <= x && spritesThisLine <= SpriteManager::MaxSpritesPerLine &&
-						(!((*sprite)->Flags & SpriteFlags::ZPriority) || colour == 0)))
+					while (sprite != firstSpriteBelowY && (*sprite)->XPos - SpriteManager::SpriteXOffset <= x && spritesThisLine <= SpriteManager::MaxSpritesPerLine &&
+						(!((*sprite)->Flags & SpriteFlags::ZPriority) || colour == 0))
 					{
 						auto spriteColour = _spriteManager.GetSpriteColour(**sprite, x, _currentScanline, _vram);
 						spritePixelOnTop = spriteColour != 0;
