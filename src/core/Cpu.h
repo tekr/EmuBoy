@@ -174,7 +174,7 @@ protected:
 		}
 	}
 
-	unsigned short Cpu::AddSpImm()
+	unsigned short AddSpImm()
 	{
 		auto offset = GetByteOperand();
 

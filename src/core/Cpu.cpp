@@ -750,7 +750,7 @@ int Cpu::PrefixCb(unsigned char opcode)
 int Cpu::InvalidOp(unsigned char opcode)
 {
 	std::cout << "Invalid opcode " << std::hex << opcode << " encountered" << std::endl;
-	throw std::exception("Invalid operation");
+	throw std::exception{ "Invalid operation" };
 }
 
 void Cpu::RequestInterrupt(InterruptFlags interruptFlags)

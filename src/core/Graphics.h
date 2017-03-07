@@ -30,7 +30,7 @@ struct SpriteData
 	unsigned char PatternNum;
 	SpriteFlags Flags;
 
-	uintptr_t SpriteData::OrderedSpriteId() const
+	uintptr_t OrderedSpriteId() const
 	{
 		return reinterpret_cast<uintptr_t>(this);
 	}
