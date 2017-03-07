@@ -1,4 +1,3 @@
-#include "stdafx.h"
 #include "SFML/Graphics.hpp"
 #include "../core/Emulator.h"
 #include "../core/CartridgeFactory.h"

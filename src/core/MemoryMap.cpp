@@ -1,4 +1,3 @@
-#include "stdafx.h"
 #include "MemoryMap.h"
 
 MemoryMap::MemoryMap(InputJoypad& joypad) : _graphics(nullptr), _timer(nullptr), _joypad(joypad)

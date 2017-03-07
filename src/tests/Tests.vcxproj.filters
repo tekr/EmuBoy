@@ -24,9 +24,6 @@
     <ClCompile Include="Tests.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="stdafx.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="TestCpu.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -45,12 +42,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="CpuTestFixture.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="stdafx.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="targetver.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="TestCpu.h">

@@ -1,4 +1,3 @@
-#include "stdafx.h"
 #include "Graphics.h"
 #include "MemoryMap.h"
 #include "Cpu.h"

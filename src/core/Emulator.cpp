@@ -1,4 +1,3 @@
-#include "stdafx.h"
 #include "Emulator.h"
 #include "CartridgeFactory.h"
 

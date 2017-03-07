@@ -1,5 +1,4 @@
 
-#include "stdafx.h"
 #include <gtest/gtest.h>
 #include "GraphicsTestFixture.h"
 #include "../core/CartridgeFactory.h"

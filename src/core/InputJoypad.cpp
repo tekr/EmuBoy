@@ -1,4 +1,3 @@
-#include "stdafx.h"
 #include "InputJoypad.h"
 #include "Cpu.h"
 

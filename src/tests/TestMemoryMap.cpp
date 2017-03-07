@@ -1,4 +1,3 @@
-#include "stdafx.h"
 #include "TestMemoryMap.h"
 
 unsigned char& TestMemoryMap::operator[](unsigned short address)

@@ -1,4 +1,3 @@
-#include "stdafx.h"
 #include "GbInternalRom.h"
 
 const unsigned char GbInternalRom::_data[] =

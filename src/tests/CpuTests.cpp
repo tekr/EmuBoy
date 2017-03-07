@@ -1,5 +1,4 @@
 
-#include "stdafx.h"
 #include <functional>
 #include <gtest/gtest.h>
 #include "CpuTestFixture.h"
