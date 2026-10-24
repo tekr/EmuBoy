@@ -3,6 +3,7 @@
 #include "../core/Emulator.h"
 #include "../core/CartridgeFactory.h"
 #include "../core/InputJoypad.h"
+#include "AudioOutput.h"
 #include <fstream>
 #include <string>
 #include <cstdlib>
@@ -57,6 +58,8 @@ int main(int argc, char* argv[])
 	if (cartridge != nullptr)
 	{
 		Emulator emulator{ cartridge };
+		AudioOutput audio{ emulator.GetAudioSampleRate() };
+		std::vector<short> samples;
 		std::ofstream record;
 		if (argc > 2) record.open(argv[2], std::ios::binary);
 
@@ -81,6 +84,10 @@ int main(int argc, char* argv[])
 			auto frame = emulator.GetFrame();
 			texture.update(reinterpret_cast<sf::Uint8*>(frame));
 			if (record) record.write(reinterpret_cast<char*>(frame), Graphics::HozPixels * Graphics::VertPixels * 4);
+
+			emulator.TakeAudioSamples(samples);
+			audio.Push(samples);
+			if (audio.getStatus() != sf::SoundStream::Playing) audio.play();
 
 			window.draw(sprite);
 			window.display();

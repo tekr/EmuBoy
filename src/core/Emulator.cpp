@@ -9,7 +9,12 @@ void Emulator::Run(int& currentCycle, int cycleTarget)
 		auto cyclesToRun = std::min(cycleTarget - currentCycle, EmuTimer.GetCyclesToNextEvent());
 		auto cyclesRun = 0;
 
-		while (cyclesRun < cyclesToRun) cyclesRun += EmuCpu.DoNextInstruction();
+		while (cyclesRun < cyclesToRun)
+		{
+			auto cycles = EmuCpu.DoNextInstruction();
+			cyclesRun += cycles;
+			EmuApu.RunCycles(cycles);
+		}
 
 		EmuTimer.RunCycles(cyclesRun);
 		currentCycle += cyclesRun;
@@ -22,6 +27,7 @@ Emulator::Emulator(std::shared_ptr<Cartridge> cartridge)
 {
 	EmuTimer.SetCpu(&EmuCpu);
 	EmuMemoryMap.SetTimer(&EmuTimer);
+	EmuMemoryMap.SetApu(&EmuApu);
 	EmuMemoryMap.SetCartridge(cartridge);
 	EmuJoypad.SetCpu(&EmuCpu);
 }
