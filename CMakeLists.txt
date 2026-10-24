@@ -18,3 +18,14 @@ target_link_libraries(core PUBLIC Boost::boost)
 
 add_executable(EmuBoy src/ui/main.cpp)
 target_link_libraries(EmuBoy PRIVATE core sfml-graphics sfml-window sfml-system)
+
+# Unit tests (Google Test). Run with ctest, or run Tests from src/tests, which the tests' file paths are relative to
+find_package(GTest)
+if(GTest_FOUND)
+	enable_testing()
+	file(GLOB TEST_SOURCES src/tests/*.cpp)
+	list(FILTER TEST_SOURCES EXCLUDE REGEX "stdafx\\.cpp$")
+	add_executable(Tests ${TEST_SOURCES})
+	target_link_libraries(Tests PRIVATE core GTest::gtest)
+	add_test(NAME Tests COMMAND Tests WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/src/tests)
+endif()

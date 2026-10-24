@@ -1,12 +1,13 @@
 #pragma once
 #include <vector>
+#include <cstring>
 #include "../core/Cartridge.h"
 #include "../core/MemoryMap.h"
 
 class TestCartridge : public Cartridge
 {
 public:
-	TestCartridge::TestCartridge() : Cartridge(std::vector<unsigned char>(MemoryMap::RomBankSize), 1)
+	TestCartridge() : Cartridge(std::vector<unsigned char>(MemoryMap::RomBankSize), 1)
 	{
 	}
 
