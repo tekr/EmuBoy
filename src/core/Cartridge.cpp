@@ -36,7 +36,7 @@ void Cartridge::RomWriteByte(unsigned short address, unsigned char value)
 {
 	if (address < 0x2000)
 	{
-		_ramEnabled = (value & 0xa) == 0xa;
+		_ramEnabled = (value & 0xf) == 0xa;
 	}
 	else if (address >= 0x2000 && address < 0x4000)
 	{

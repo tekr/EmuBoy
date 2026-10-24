@@ -90,7 +90,7 @@ void MemoryMap::WriteByte(unsigned short address, unsigned char value)
 	}
 	else if (address < RamFixed)
 	{
-		_cartridge->RamWriteByte(address - RamFixed, value);
+		_cartridge->RamWriteByte(address - RamSwitched, value);
 	}
 	// Includes near-complete repeat of fixed RAM from 0xe000 to OAM RAM start
 	else if (address < RamOam)
