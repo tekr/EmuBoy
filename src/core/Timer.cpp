@@ -4,7 +4,7 @@
 
 const int Timer::ModeFreqs[] = { 4096, 262144, 65536, 16384 };
 
-Timer::Timer(): _cpu(nullptr), _isRunning(false), _divisorMode(0), _cyclesToNextCounterInc(0)
+Timer::Timer(): _cpu(nullptr), _registers{}, _isRunning(false), _divisorMode(0), _cyclesToNextCounterInc(0)
 {
 }
 
