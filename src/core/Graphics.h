@@ -64,7 +64,7 @@ public:
 	static const unsigned short SpriteDataTableBase = 0;
 
 protected:
-	static const unsigned int RegisterBlockSize = 0xb;
+	static const unsigned int RegisterBlockSize = 0xc;
 
 	static const unsigned short TileDataTableBase1 = 0;
 	static const unsigned short TileDataTableBase2 = 0x800;
