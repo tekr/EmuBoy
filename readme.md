@@ -24,6 +24,21 @@ The repo includes a binary of [GBSnake](https://github.com/brovador/GBsnake).
 Emu Boy uses [SFML](http://www.sfml-dev.org) for outputting video & audio, and [Google Test](https://github.com/google/googletest) for unit testing.
 
 
+## Building on macOS
+Install the dependencies with [Homebrew](https://brew.sh), then build with CMake:
+
+```sh
+brew install cmake boost sfml@2
+cmake -S . -B build -DSFML_DIR="$(brew --prefix sfml@2)/lib/cmake/SFML" -DCMAKE_PREFIX_PATH="$(brew --prefix boost)"
+cmake --build build
+./build/EmuBoy ROMs/gb-snake.gb
+```
+
+`EmuBoy [rom] [record-file] [scale]`: `scale` sets the window size as a multiple of the Game Boy's 160x144 screen
+(default 4). If `record-file` is given, every frame is appended to it as raw 160x144 RGBA, which is useful for making
+screen captures.
+
+
 ## Current status
 As of now Emu Boy is still in its early stages and is very much a work in progress. It currently supports the following:
 
@@ -31,7 +46,7 @@ As of now Emu Boy is still in its early stages and is very much a work in progre
 * Full graphics implementation (sprites + background + window support)
 * Runs (at least) the included snake and Super Mario Land
 * Unit testing of most CPU instructions
-* Windows-only (Visual Studio 2015 solution)
+* Windows (Visual Studio 2015 solution) and macOS (CMake)
 * Simulates the slow response-time of the Game Boy LCD screen and smoothes upsized jagged pixels
 * Keyboard input
 
