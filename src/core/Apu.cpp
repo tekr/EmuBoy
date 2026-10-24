@@ -525,9 +525,11 @@ void Apu::OutputSample()
 		_capacitorRight = inRight - right * _chargeFactor;
 	}
 
+	// After the high-pass filter the signal swings up to twice the DAC range (a full-scale step from one extreme
+	// to the other), so scale by twice the maximum to leave that headroom
 	for (auto value : { left, right })
 	{
-		auto pcm = std::lround(value * 32767 / MaxAmplitude);
+		auto pcm = std::lround(value * 32767 / (2 * MaxAmplitude));
 		_samples.push_back(static_cast<short>(std::max(-32768L, std::min(32767L, pcm))));
 	}
 
