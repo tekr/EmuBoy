@@ -3,6 +3,22 @@
 #include "MemoryMap.h"
 #include <iostream>
 #include <algorithm>
+#include <stdexcept>
+
+#ifndef _MSC_VER
+// MSVC intrinsics used by the rotate instructions
+static unsigned char _rotl8(unsigned char value, unsigned char shift)
+{
+	shift &= 7;
+	return static_cast<unsigned char>(value << shift | value >> (8 - shift) % 8);
+}
+
+static unsigned char _rotr8(unsigned char value, unsigned char shift)
+{
+	shift &= 7;
+	return static_cast<unsigned char>(value >> shift | value << (8 - shift) % 8);
+}
+#endif
 
 Cpu::Cpu(MemoryMap& memory) :
 	_memoryMap(memory), _state(CpuState::Running), _totalCycles(0), _extraCyclesConsumed(0), _skipNextPCIncrement(false),
@@ -751,7 +767,7 @@ int Cpu::PrefixCb(unsigned char opcode)
 int Cpu::InvalidOp(unsigned char opcode)
 {
 	std::cout << "Invalid opcode " << std::hex << opcode << " encountered" << std::endl;
-	throw std::exception("Invalid operation");
+	throw std::runtime_error("Invalid operation");
 }
 
 void Cpu::RequestInterrupt(InterruptFlags interruptFlags)
