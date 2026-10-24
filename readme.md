@@ -29,7 +29,7 @@ As of now Emu Boy is still in its early stages and is very much a work in progre
 
 * Fairly cycle-accurate emulation of the LR35902 CPU (all documented instructions + interrupts)
 * Full graphics implementation (sprites + background + window support)
-* Runs (at least) the included snake and Super Mario World, though the latter has some graphical glitches
+* Runs (at least) the included snake and Super Mario Land
 * Unit testing of most CPU instructions
 * Windows-only (Visual Studio 2015 solution)
 * Simulates the slow response-time of the Game Boy LCD screen and smoothes upsized jagged pixels
