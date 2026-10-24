@@ -292,9 +292,10 @@ void Apu::TriggerSquare(int index)
 
 void Apu::TriggerWave()
 {
-	// DMG corrupts wave RAM when CH3 is retriggered just as it reads a sample (gbdev wiki, SameBoy): the first
-	// bytes are overwritten with the byte, or 4-byte block, being read
-	if (_wave.Active && _wave.Timer == 2)
+	// DMG corrupts wave RAM when CH3 is retriggered in the 2 MHz tick before it reads a sample (gbdev wiki;
+	// SameBoy's sample_countdown == 0, counted in 2 MHz ticks): the first bytes are overwritten with the byte, or
+	// 4-byte block, being read
+	if (_wave.Active && _wave.Timer <= 2)
 	{
 		auto offset = ((_wave.Position + 1) >> 1) & 15;
 		auto wave = _registers + (WaveRam - FirstRegister);
