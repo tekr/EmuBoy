@@ -110,24 +110,24 @@ TEST_P(ApuEnvelopeDelayTests, PeriodOneFirstChangeComesAtTheSecondEnvelopeClock)
 {
 	ApuHarness h;
 	int channel = GetParam();
-	h.RunTo(7 * 8192 + 100);
+	h.RunTo(FrameSequencerEvent(7) + 100);
 	StartEnvelopeChannel(h, channel, 0xf1); // volume 15, decrease, period 1
 
-	EXPECT_EQ(15, VolumeAt(h, channel, 65536 + 100));      // a normal trigger would already be 14 here
-	EXPECT_EQ(15, VolumeAt(h, channel, 2 * 65536 - 2100));
-	EXPECT_EQ(14, VolumeAt(h, channel, 2 * 65536 + 100));
+	EXPECT_EQ(15, VolumeAt(h, channel, EnvelopeClock(1) + 100));      // a normal trigger would already be 14 here
+	EXPECT_EQ(15, VolumeAt(h, channel, EnvelopeClock(2) - 2100));
+	EXPECT_EQ(14, VolumeAt(h, channel, EnvelopeClock(2) + 100));
 }
 
 TEST_P(ApuEnvelopeDelayTests, PeriodTwoFirstChangeComesAtTheThirdEnvelopeClock)
 {
 	ApuHarness h;
 	int channel = GetParam();
-	h.RunTo(7 * 8192 + 100);
+	h.RunTo(FrameSequencerEvent(7) + 100);
 	StartEnvelopeChannel(h, channel, 0xf2); // volume 15, decrease, period 2
 
-	EXPECT_EQ(15, VolumeAt(h, channel, 2 * 65536 + 100));  // a normal trigger would already be 14 here
-	EXPECT_EQ(15, VolumeAt(h, channel, 3 * 65536 - 2100));
-	EXPECT_EQ(14, VolumeAt(h, channel, 3 * 65536 + 100));
+	EXPECT_EQ(15, VolumeAt(h, channel, EnvelopeClock(2) + 100));  // a normal trigger would already be 14 here
+	EXPECT_EQ(15, VolumeAt(h, channel, EnvelopeClock(3) - 2100));
+	EXPECT_EQ(14, VolumeAt(h, channel, EnvelopeClock(3) + 100));
 }
 
 TEST_P(ApuEnvelopeDelayTests, TriggerWhenTheNextStepIsNotSevenHasNoDelay)
@@ -135,11 +135,11 @@ TEST_P(ApuEnvelopeDelayTests, TriggerWhenTheNextStepIsNotSevenHasNoDelay)
 	// control: trigger at 49252 (after event 6, next step is 6)
 	ApuHarness h;
 	int channel = GetParam();
-	h.RunTo(6 * 8192 + 100);
+	h.RunTo(FrameSequencerEvent(6) + 100);
 	StartEnvelopeChannel(h, channel, 0xf1);
 
-	EXPECT_EQ(15, VolumeAt(h, channel, 65536 - 2100));
-	EXPECT_EQ(14, VolumeAt(h, channel, 65536 + 100));
+	EXPECT_EQ(15, VolumeAt(h, channel, EnvelopeClock(1) - 2100));
+	EXPECT_EQ(14, VolumeAt(h, channel, EnvelopeClock(1) + 100));
 }
 
 INSTANTIATE_TEST_CASE_P(ApuQuirks, ApuEnvelopeDelayTests, ::testing::Values(1, 2, 4));
@@ -161,8 +161,8 @@ TEST(ApuPowerOnGlitchTests, PowerOnWithBit12ClearUsesTheFirstEventAsStepZero)
 	h.Write(Nr10, 0x11);
 	h.StartSquare(1, 0, 0xf0, 1000);
 
-	// events at 8192 (step 0), 16384 (1), 24576 (2: first sweep clock)
-	h.ExpectTurnsOffAt(1, 24576);
+	// events 1 (step 0), 2 (step 1), 3 (step 2: first sweep clock)
+	h.ExpectTurnsOffAt(1, FrameSequencerEvent(3));
 }
 
 TEST(ApuPowerOnGlitchTests, PowerOnWithBit12SetSkipsTheFirstEvent)
@@ -173,10 +173,10 @@ TEST(ApuPowerOnGlitchTests, PowerOnWithBit12SetSkipsTheFirstEvent)
 	h.Write(Nr10, 0x11);
 	h.StartSquare(1, 0, 0xf0, 1000);
 
-	// events at 8192 (skipped), 16384 (step 0), 24576 (1), 32768 (2: first sweep clock)
-	h.RunTo(24576 + 1000);
+	// events 1 (skipped), 2 (step 0), 3 (step 1), 4 (step 2: first sweep clock)
+	h.RunTo(FrameSequencerEvent(3) + 1000);
 	EXPECT_TRUE(h.Active(1));
-	h.ExpectTurnsOffAt(1, 32768);
+	h.ExpectTurnsOffAt(1, FrameSequencerEvent(4));
 }
 
 // ---- Wave RAM access while CH3 plays (spec 10.1, DMG) ----

@@ -187,12 +187,12 @@ TEST(ApuSquareTests, HighPulseOfTheTwelvePointFivePercentDutyLastsOneTimerPeriod
 
 // ---- Sweep (spec 8) ----
 //
-// Sweep clock n is at 24576 + 32768 * (n - 1). With pace 7 the first frequency update is at 221184, with a
-// period of 229376 cycles after that, which leaves plenty of room for edge measurements before and after it.
+// With pace 7 the first frequency update is at sweep clock 7 and the next one 229376 cycles later, which leaves
+// plenty of room for edge measurements before and after it.
 
 namespace
 {
-	const long long FirstPace7Update = 24576 + 6 * 32768;
+	const long long FirstPace7Update = SweepClock(7);
 
 	void StartSweepChannel(ApuHarness& h, int nr10, int frequency)
 	{
@@ -299,7 +299,7 @@ TEST(ApuSweepTests, ShiftZeroWithFrequencyOf0x400OrMoreOverflowsAtTheFirstSweepC
 	StartSweepChannel(h, 0x10, 0x400);
 	ASSERT_TRUE(h.Active(1));
 
-	h.ExpectTurnsOffAt(1, 24576);
+	h.ExpectTurnsOffAt(1, SweepClock(1));
 }
 
 TEST(ApuSweepTests, ShiftZeroWithPeriodZeroNeverOverflows)
@@ -314,13 +314,13 @@ TEST(ApuSweepTests, ShiftZeroWithPeriodZeroNeverOverflows)
 
 TEST(ApuSweepTests, OverflowAtTheFirstSweepClockDisablesTheChannelForPaceOne)
 {
-	// f = 1000, shift 1: trigger calc 1500 is fine; the clock at 24576 updates to 1500, and the second
+	// f = 1000, shift 1: trigger calc 1500 is fine; sweep clock 1 updates to 1500, and the second
 	// calculation (1500 + 750 = 2250) overflows and disables the channel.
 	ApuHarness h;
 	StartSweepChannel(h, 0x11, 1000);
 	ASSERT_TRUE(h.Active(1));
 
-	h.ExpectTurnsOffAt(1, 24576);
+	h.ExpectTurnsOffAt(1, SweepClock(1));
 }
 
 TEST(ApuSweepTests, OverflowIsCheckedOnlyAtTheSecondSweepClockForPaceTwo)
@@ -328,22 +328,22 @@ TEST(ApuSweepTests, OverflowIsCheckedOnlyAtTheSecondSweepClockForPaceTwo)
 	ApuHarness h;
 	StartSweepChannel(h, 0x21, 1000);
 
-	h.ExpectTurnsOffAt(1, 57344);
+	h.ExpectTurnsOffAt(1, SweepClock(2));
 }
 
 TEST(ApuSweepTests, SecondCalculationAfterAnUpdateCanDisableTheChannel)
 {
-	// f = 700, shift 1, pace 1: clock 1 (24576) updates to 1050 (second calc 1575, fine); clock 2 (57344) updates
+	// f = 700, shift 1, pace 1: clock 1 updates to 1050 (second calc 1575, fine); clock 2 updates
 	// to 1575 and the second calculation (2362) overflows. blargg 04 #5.
 	ApuHarness h;
 	StartSweepChannel(h, 0x11, 700);
 
-	h.ExpectTurnsOffAt(1, 57344);
+	h.ExpectTurnsOffAt(1, SweepClock(2));
 }
 
 TEST(ApuSweepTests, PeriodZeroNeverChangesTheFrequencyNorOverflows)
 {
-	// shift 1, pace 0 at f = 1000: no sweep clocks do anything (an update would overflow at 24576)
+	// shift 1, pace 0 at f = 1000: no sweep clocks do anything (an update would overflow at sweep clock 1)
 	ApuHarness h;
 	StartSweepChannel(h, 0x01, 1000);
 
@@ -364,7 +364,7 @@ TEST(ApuSweepTests, AddModeUpdateRaisesTheFrequencyByShadowShiftedRight)
 	EXPECT_EQ(before, RisingEdgeInterval(h, 3 * before));
 	ASSERT_LT(h.Now, FirstPace7Update);
 
-	h.RunTo(FirstPace7Update + 8192);
+	h.RunTo(FirstPace7Update + FrameSequencerPeriod);
 	long long after = 8 * (2048 - 1280) * 4;
 	EXPECT_EQ(after, RisingEdgeInterval(h, 3 * after));
 	EXPECT_TRUE(h.Active(1));
@@ -376,7 +376,7 @@ TEST(ApuSweepTests, NegateModeUpdateLowersTheFrequency)
 	ApuHarness h;
 	StartSweepChannel(h, 0x7a, 1024);
 
-	h.RunTo(FirstPace7Update + 8192);
+	h.RunTo(FirstPace7Update + FrameSequencerPeriod);
 
 	long long after = 8 * (2048 - 768) * 4;
 	EXPECT_EQ(after, RisingEdgeInterval(h, 3 * after));
@@ -404,7 +404,7 @@ TEST(ApuSweepTests, SweepUsesItsPrivateShadowCopyNotLaterWritesToNr13AndNr14)
 	h.Write(Nr13, 100);
 	h.Write(Nr14, 0x00);
 
-	h.RunTo(FirstPace7Update + 16384);
+	h.RunTo(FirstPace7Update + 2 * FrameSequencerPeriod);
 
 	long long after = 8 * (2048 - 1280) * 4;
 	EXPECT_EQ(after, RisingEdgeInterval(h, 3 * after));
@@ -425,14 +425,14 @@ TEST(ApuSweepNegateTests, ClearingNegateAfterATriggerCalculationDisablesTheChann
 
 TEST(ApuSweepNegateTests, ClearingNegateAfterAClockCalculationDisablesTheChannel)
 {
-	// Trigger with shift 0 (no calculation), then raise the shift while staying in negate mode. The sweep clock
-	// at 24576 calculates in negate mode; leaving negate mode afterwards disables the channel.
+	// Trigger with shift 0 (no calculation), then raise the shift while staying in negate mode. Sweep clock 1
+	// calculates in negate mode; leaving negate mode afterwards disables the channel.
 	ApuHarness h;
 	StartSweepChannel(h, 0x18, 1000);
 	ASSERT_TRUE(h.Active(1));
 	h.Write(Nr10, 0x19);
 
-	h.RunTo(24576 + 1000);
+	h.RunTo(SweepClock(1) + 1000);
 	ASSERT_TRUE(h.Active(1));
 	h.Write(Nr10, 0x11);
 

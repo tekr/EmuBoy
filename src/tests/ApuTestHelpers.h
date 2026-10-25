@@ -40,7 +40,27 @@ namespace ApuTest
 	static const unsigned short Nr52 = 0xff26;
 	static const unsigned short WaveRam = 0xff30;
 
-	static const int FrameSequencerPeriod = 8192;
+	static const long long FrameSequencerPeriod = 8192;
+
+	inline long long FrameSequencerEvent(int k)
+	{
+		return FrameSequencerPeriod * k;
+	}
+
+	inline long long LengthClock(int n)
+	{
+		return FrameSequencerEvent(2 * n - 1);
+	}
+
+	inline long long SweepClock(int n)
+	{
+		return FrameSequencerEvent(4 * n - 1);
+	}
+
+	inline long long EnvelopeClock(int n)
+	{
+		return FrameSequencerEvent(8 * n);
+	}
 
 	// index 1-4 selects NRx1..NRx4 (for channel 3, NRx2 is NR32; its DAC switch is NR30)
 	inline unsigned short ChannelRegister(int channel, int index)
