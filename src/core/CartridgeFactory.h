@@ -9,8 +9,6 @@ class CartridgeFactory
 public:
 	static const size_t RamSizeHeaderOffset = 0x149;
 
-	static const int RamSizeFromHeader = -1;
-
 	static int RamBanksFromHeader(const std::vector<unsigned char>& rom)
 	{
 		// 8 KB banks per RAM size code. Code 1 (2 KB) still needs a whole bank, and code 5 (64 KB) is smaller than code 4 (128 KB)
@@ -22,21 +20,35 @@ public:
 		return sizeCode < ramBanksBySizeCode.size() ? ramBanksBySizeCode[sizeCode] : 0;
 	}
 
-	// A negative ramBanks, such as RamSizeFromHeader, sizes RAM from the cartridge header
+	static std::shared_ptr<Cartridge> LoadFromFile(std::string filePath)
+	{
+		std::vector<unsigned char> rom;
+		if (!ReadFile(filePath, rom)) return nullptr;
+
+		auto ramBanks = RamBanksFromHeader(rom);
+		return std::make_shared<Cartridge>(std::move(rom), ramBanks);
+	}
+
 	static std::shared_ptr<Cartridge> LoadFromFile(std::string filePath, int ramBanks)
 	{
+		std::vector<unsigned char> rom;
+		if (!ReadFile(filePath, rom)) return nullptr;
+
+		return std::make_shared<Cartridge>(std::move(rom), ramBanks);
+	}
+
+private:
+	static bool ReadFile(const std::string& filePath, std::vector<unsigned char>& contents)
+	{
 		std::ifstream ifs(filePath, std::ios::binary | std::ios::ate);
-		if (!ifs) return nullptr;
+		if (!ifs) return false;
 
 		auto pos = ifs.tellg();
 
-		auto buffer = std::vector<unsigned char>(static_cast<int>(pos));
+		contents = std::vector<unsigned char>(static_cast<int>(pos));
 
 		ifs.seekg(0, std::ios::beg);
-		ifs.read(reinterpret_cast<char*>(buffer.data()), pos);
-
-		if (ramBanks < 0) ramBanks = RamBanksFromHeader(buffer);
-
-		return std::make_shared<Cartridge>(std::move(buffer), ramBanks);
+		ifs.read(reinterpret_cast<char*>(contents.data()), pos);
+		return true;
 	}
 };
