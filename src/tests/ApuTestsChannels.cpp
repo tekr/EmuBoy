@@ -241,7 +241,7 @@ class ApuDacTests : public ::testing::TestWithParam<int>
 {
 };
 
-TEST_P(ApuDacTests, TriggerWithDacOnEnablesTheChannelWithOutputZero)
+TEST_P(ApuDacTests, TriggerWithDacOnEnablesTheChannelWithItsDacOutput)
 {
 	ApuHarness h;
 	int channel = GetParam();
