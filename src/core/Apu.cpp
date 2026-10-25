@@ -23,6 +23,9 @@ const unsigned char Apu::InitialWaveRam[16] =
 	0x84, 0x40, 0x43, 0xaa, 0x2d, 0x78, 0x92, 0x3c, 0x60, 0x59, 0x59, 0xb0, 0x34, 0xb8, 0x2e, 0xda
 };
 
+// CH3 output level (NR32 bits 5-6): mute, 100%, 50%, 25%
+const int Apu::WaveVolumeShifts[4] = { 4, 0, 1, 2 };
+
 void Envelope::Trigger(unsigned char nrx2, bool nextStepClocksEnvelope)
 {
 	Volume = nrx2 >> 4;
@@ -64,7 +67,7 @@ Apu::Apu(int sampleRate) : _sampleRate(sampleRate)
 	_chargeFactor = std::pow(0.999958, static_cast<double>(CpuClockHz) / sampleRate);
 
 	std::fill(std::begin(_registers), std::end(_registers), 0);
-	std::copy(std::begin(InitialWaveRam), std::end(InitialWaveRam), _registers + (WaveRam - FirstRegister));
+	std::copy(std::begin(InitialWaveRam), std::end(InitialWaveRam), _registers + WaveRam);
 	_cyclesToEvent = CyclesToNextEvent();
 }
 
@@ -72,10 +75,10 @@ Channel& Apu::GetChannel(int index)
 {
 	switch (index)
 	{
-	case 0:
-	case 1:
+	case Ch1:
+	case Ch2:
 		return _square[index];
-	case 2:
+	case Ch3:
 		return _wave;
 	default:
 		return _noise;
@@ -98,11 +101,11 @@ unsigned char Apu::ReadRegister(unsigned short address) const
 {
 	auto reg = address - FirstRegister;
 
-	if (address >= WaveRam)
+	if (reg >= WaveRam)
 	{
 		// While CH3 plays, the CPU sees the byte CH3 is reading, and on DMG only at the moment CH3 reads it
 		if (!_wave.Active) return _registers[reg];
-		return WaveRamAccessible() ? _registers[(WaveRam - FirstRegister) + (_wave.Position >> 1)] : 0xff;
+		return WaveRamAccessible() ? _registers[WaveRam + (_wave.Position >> 1)] : 0xff;
 	}
 
 	if (reg == Nr52)
@@ -123,10 +126,10 @@ void Apu::WriteRegister(unsigned short address, unsigned char value)
 
 void Apu::Write(int reg, unsigned char value)
 {
-	if (reg >= WaveRam - FirstRegister)
+	if (reg >= WaveRam)
 	{
 		if (!_wave.Active) _registers[reg] = value;
-		else if (WaveRamAccessible()) _registers[(WaveRam - FirstRegister) + (_wave.Position >> 1)] = value;
+		else if (WaveRamAccessible()) _registers[WaveRam + (_wave.Position >> 1)] = value;
 		return;
 	}
 
@@ -140,7 +143,7 @@ void Apu::Write(int reg, unsigned char value)
 			_frameStep = 0;
 
 			// SameBoy: powering on while DIV bit 4 is set skips the first frame sequencer event
-			_skipFrameEvent = (_divider & 0x1000) != 0;
+			_skipFrameEvent = (_divider & DivBit4) != 0;
 		}
 		UpdateMix();
 		return;
@@ -149,7 +152,7 @@ void Apu::Write(int reg, unsigned char value)
 	if (!_powered)
 	{
 		// DMG keeps its length counters writable while powered off (Pan Docs, gbdev wiki); nothing else is
-		if (reg == Nr11 || reg == Nr21 || reg == Nr41) GetChannel(reg / 5).Length.Counter = 64 - (value & 0x3f);
+		if (reg == Nr11 || reg == Nr21 || reg == Nr41) GetChannel(reg / RegistersPerChannel).Length.Counter = 64 - (value & 0x3f);
 		else if (reg == Nr31) _wave.Length.Counter = 256 - value;
 		return;
 	}
@@ -167,7 +170,7 @@ void Apu::Write(int reg, unsigned char value)
 	case Nr11:
 	case Nr21:
 	case Nr41:
-		GetChannel(reg / 5).Length.Counter = 64 - (value & 0x3f);
+		GetChannel(reg / RegistersPerChannel).Length.Counter = 64 - (value & 0x3f);
 		break;
 
 	case Nr31:
@@ -177,7 +180,7 @@ void Apu::Write(int reg, unsigned char value)
 	case Nr12:
 	case Nr22:
 	{
-		auto& square = _square[reg / 5];
+		auto& square = _square[reg / RegistersPerChannel];
 		if (!(value & 0xf8)) square.Active = false;
 		else if (square.Active) square.Env.ZombieWrite(old, value);
 		break;
@@ -195,7 +198,7 @@ void Apu::Write(int reg, unsigned char value)
 	case Nr13:
 	case Nr23:
 	{
-		auto& square = _square[reg / 5];
+		auto& square = _square[reg / RegistersPerChannel];
 		square.Frequency = (square.Frequency & 0x700) | value;
 		break;
 	}
@@ -203,9 +206,9 @@ void Apu::Write(int reg, unsigned char value)
 	case Nr14:
 	case Nr24:
 	{
-		auto& square = _square[reg / 5];
+		auto& square = _square[reg / RegistersPerChannel];
 		square.Frequency = (square.Frequency & 0xff) | (value & 7) << 8;
-		WriteNrx4(reg / 5, value);
+		WriteNrx4(reg / RegistersPerChannel, value);
 		break;
 	}
 
@@ -215,11 +218,11 @@ void Apu::Write(int reg, unsigned char value)
 
 	case Nr34:
 		_wave.Frequency = (_wave.Frequency & 0xff) | (value & 7) << 8;
-		WriteNrx4(2, value);
+		WriteNrx4(Ch3, value);
 		break;
 
 	case Nr44:
-		WriteNrx4(3, value);
+		WriteNrx4(Ch4, value);
 		break;
 
 	default:
@@ -233,7 +236,7 @@ void Apu::WriteNrx4(int channel, unsigned char value)
 {
 	auto& ch = GetChannel(channel);
 	auto trigger = (value & 0x80) != 0;
-	auto maxLength = channel == 2 ? 256 : 64;
+	auto maxLength = channel == Ch3 ? 256 : 64;
 
 	// In the first half of a length period (the next frame step doesn't clock length), enabling length clocks it
 	// once, and a trigger that reloads a zero length loads one less than the maximum (gbdev wiki, Obscure Behavior)
@@ -254,8 +257,8 @@ void Apu::WriteNrx4(int channel, unsigned char value)
 		if (firstHalf && ch.Length.Enabled) ch.Length.Counter--;
 	}
 
-	if (channel < 2) TriggerSquare(channel);
-	else if (channel == 2) TriggerWave();
+	if (channel <= Ch2) TriggerSquare(channel);
+	else if (channel == Ch3) TriggerWave();
 	else TriggerNoise();
 }
 
@@ -272,10 +275,10 @@ void Apu::TriggerSquare(int index)
 	auto reloaded = (square.Frequency & 0x7fc) | (counter & 3);
 	square.Timer = (2048 - reloaded) * 4;
 
-	auto nrx2 = _registers[Nr12 + index * 5];
-	square.Env.Trigger(nrx2, _frameStep == 7);
+	auto nrx2 = _registers[Nr12 + index * RegistersPerChannel];
+	square.Env.Trigger(nrx2, _frameStep == EnvelopeStep);
 
-	if (index == 0)
+	if (index == Ch1)
 	{
 		auto nr10 = _registers[Nr10];
 		auto pace = (nr10 >> 4) & 7;
@@ -298,7 +301,7 @@ void Apu::TriggerWave()
 	if (_wave.Active && _wave.Timer <= 2)
 	{
 		auto offset = ((_wave.Position + 1) >> 1) & 15;
-		auto wave = _registers + (WaveRam - FirstRegister);
+		auto wave = _registers + WaveRam;
 
 		if (offset < 4) wave[0] = wave[offset];
 		else std::copy(wave + (offset & ~3), wave + (offset & ~3) + 4, wave);
@@ -319,7 +322,7 @@ void Apu::TriggerNoise()
 	_noise.Active = true;
 	_noise.Lfsr = 0;
 	_noise.Timer = NoisePeriod();
-	_noise.Env.Trigger(_registers[Nr42], _frameStep == 7);
+	_noise.Env.Trigger(_registers[Nr42], _frameStep == EnvelopeStep);
 
 	if (!NoiseDacOn()) _noise.Active = false;
 }
@@ -337,7 +340,7 @@ int Apu::SweepCalculate()
 	}
 	else result = _sweepShadow + delta;
 
-	if (result > 2047) _square[0].Active = false;
+	if (result > MaxFrequency) _square[0].Active = false;
 	return result;
 }
 
@@ -352,7 +355,7 @@ void Apu::ClockSweep()
 	if (!_sweepEnabled || !pace) return;
 
 	auto result = SweepCalculate();
-	if (result <= 2047 && (nr10 & 7))
+	if (result <= MaxFrequency && (nr10 & 7))
 	{
 		_sweepShadow = result;
 		_square[0].Frequency = result;
@@ -374,7 +377,7 @@ void Apu::FrameSequencerEvent()
 
 	if ((_frameStep & 1) == 0)
 	{
-		for (auto i = 0; i < 4; i++)
+		for (auto i = 0; i < ChannelCount; i++)
 		{
 			auto& ch = GetChannel(i);
 			if (ch.Length.Clock()) ch.Active = false;
@@ -383,7 +386,7 @@ void Apu::FrameSequencerEvent()
 
 	if (_frameStep == 2 || _frameStep == 6) ClockSweep();
 
-	if (_frameStep == 7)
+	if (_frameStep == EnvelopeStep)
 	{
 		if (_square[0].Active) _square[0].Env.Clock();
 		if (_square[1].Active) _square[1].Env.Clock();
@@ -399,7 +402,7 @@ void Apu::ResetDivider()
 	CatchUp();
 
 	// Resetting DIV while its bit 4 is set is a falling edge, so the frame sequencer steps (Pan Docs, Audio Details)
-	if (_divider & 0x1000) FrameSequencerEvent();
+	if (_divider & DivBit4) FrameSequencerEvent();
 	_divider = 0;
 	_cyclesToEvent = CyclesToNextEvent();
 }
@@ -407,15 +410,15 @@ void Apu::ResetDivider()
 void Apu::PowerOff()
 {
 	// Powering off clears NR10-NR51 and all channel state, except that DMG keeps the length counters
-	int lengths[4];
-	for (auto i = 0; i < 4; i++) lengths[i] = GetChannel(i).Length.Counter;
+	int lengths[ChannelCount];
+	for (auto i = 0; i < ChannelCount; i++) lengths[i] = GetChannel(i).Length.Counter;
 
 	_square[0] = SquareChannel();
 	_square[1] = SquareChannel();
 	_wave = WaveChannel();
 	_noise = NoiseChannel();
 
-	for (auto i = 0; i < 4; i++) GetChannel(i).Length.Counter = lengths[i];
+	for (auto i = 0; i < ChannelCount; i++) GetChannel(i).Length.Counter = lengths[i];
 
 	std::fill(_registers, _registers + Nr52, 0);
 	_sweepTimer = 0;
@@ -436,7 +439,7 @@ void Apu::StepSquare(int index)
 void Apu::StepWave()
 {
 	_wave.Position = (_wave.Position + 1) & 31;
-	auto sample = _registers[(WaveRam - FirstRegister) + (_wave.Position >> 1)];
+	auto sample = _registers[WaveRam + (_wave.Position >> 1)];
 	_wave.SampleBuffer = _wave.Position & 1 ? sample & 0xf : sample >> 4;
 	_wave.JustRead = true;
 	_wave.Timer = _wave.Period();
@@ -463,7 +466,7 @@ int Apu::ChannelOutput(int channel) const
 		if (!SquareDacOn(index)) return -1;
 
 		auto& square = _square[index];
-		auto duty = _registers[Nr11 + index * 5] >> 6;
+		auto duty = _registers[Nr11 + index * RegistersPerChannel] >> 6;
 		auto high = square.Stepped && (DutyPatterns[duty] >> square.DutyPosition & 1);
 		return square.Active && high ? square.Env.Volume : 0;
 	}
@@ -472,8 +475,7 @@ int Apu::ChannelOutput(int channel) const
 	{
 		if (!WaveDacOn()) return -1;
 
-		static const int Shifts[4] = { 4, 0, 1, 2 };
-		return _wave.Active ? _wave.SampleBuffer >> Shifts[(_registers[Nr32] >> 5) & 3] : 0;
+		return _wave.Active ? _wave.SampleBuffer >> WaveVolumeShifts[(_registers[Nr32] >> 5) & 3] : 0;
 	}
 
 	case 4:
@@ -491,7 +493,7 @@ void Apu::UpdateMix()
 	auto left = 0;
 	auto right = 0;
 
-	for (auto i = 0; i < 4; i++)
+	for (auto i = 0; i < ChannelCount; i++)
 	{
 		auto digital = ChannelOutput(i + 1);
 		if (digital < 0) continue;
@@ -610,7 +612,7 @@ void Apu::RunEvents(int cycles)
 		cycles -= run;
 
 		auto changed = false;
-		for (auto i = 0; i < 2; i++)
+		for (auto i = Ch1; i <= Ch2; i++)
 		{
 			if (_square[i].Active && _square[i].Timer == 0)
 			{

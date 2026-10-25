@@ -2,7 +2,7 @@
 #include "AudioOutput.h"
 #include <algorithm>
 
-AudioOutput::AudioOutput(int sampleRate) : _chunk(ChunkFrames * Channels), _maxBuffered(sampleRate * Channels * 150 / 1000)
+AudioOutput::AudioOutput(int sampleRate) : _chunk(ChunkFrames * Channels), _maxBuffered(sampleRate * Channels * MaxLatencyMs / 1000)
 {
 	initialize(Channels, sampleRate);
 }
