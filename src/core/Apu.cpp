@@ -198,29 +198,22 @@ void Apu::Write(int reg, unsigned char value)
 
 	case Nr13:
 	case Nr23:
+	case Nr33:
 	{
-		auto& square = _square[reg / RegistersPerChannel];
-		square.Frequency = (square.Frequency & 0x700) | value;
+		auto& frequency = Frequency(reg / RegistersPerChannel);
+		frequency = (frequency & 0x700) | value;
 		break;
 	}
 
 	case Nr14:
 	case Nr24:
+	case Nr34:
 	{
-		auto& square = _square[reg / RegistersPerChannel];
-		square.Frequency = (square.Frequency & 0xff) | (value & 7) << 8;
+		auto& frequency = Frequency(reg / RegistersPerChannel);
+		frequency = (frequency & 0xff) | (value & 7) << 8;
 		WriteNrx4(reg / RegistersPerChannel, value);
 		break;
 	}
-
-	case Nr33:
-		_wave.Frequency = (_wave.Frequency & 0x700) | value;
-		break;
-
-	case Nr34:
-		_wave.Frequency = (_wave.Frequency & 0xff) | (value & 7) << 8;
-		WriteNrx4(Ch3, value);
-		break;
 
 	case Nr44:
 		WriteNrx4(Ch4, value);
