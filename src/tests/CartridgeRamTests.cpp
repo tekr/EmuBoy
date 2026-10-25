@@ -17,7 +17,7 @@ namespace
 	}
 }
 
-TEST(CartridgeRamTest, RamBanksFromHeader)
+TEST(CartridgeRamSizeTest, RamBanksFromHeader)
 {
 	EXPECT_EQ(0, CartridgeFactory::RamBanksFromHeader(RomWithRamSize(0)));
 	EXPECT_EQ(1, CartridgeFactory::RamBanksFromHeader(RomWithRamSize(1)));
@@ -27,14 +27,14 @@ TEST(CartridgeRamTest, RamBanksFromHeader)
 	EXPECT_EQ(8, CartridgeFactory::RamBanksFromHeader(RomWithRamSize(5)));
 }
 
-TEST(CartridgeRamTest, RamBanksFromInvalidHeaderIsZero)
+TEST(CartridgeRamSizeTest, RamBanksFromInvalidHeaderIsZero)
 {
 	EXPECT_EQ(0, CartridgeFactory::RamBanksFromHeader(RomWithRamSize(6)));
 	EXPECT_EQ(0, CartridgeFactory::RamBanksFromHeader(RomWithRamSize(0xff)));
 	EXPECT_EQ(0, CartridgeFactory::RamBanksFromHeader(std::vector<unsigned char>(0x100)));
 }
 
-TEST(CartridgeRamTest, CartridgeWithoutRamReadsFfAndIgnoresWrites)
+TEST(CartridgeRamSizeTest, CartridgeWithoutRamReadsFfAndIgnoresWrites)
 {
 	Cartridge cartridge{ RomWithRamSize(0), 0 };
 	EnableRam(cartridge);
@@ -46,7 +46,7 @@ TEST(CartridgeRamTest, CartridgeWithoutRamReadsFfAndIgnoresWrites)
 	EXPECT_EQ(0xff, cartridge.RamReadByte(0x1fff));
 }
 
-TEST(CartridgeRamTest, RamKeepsWrittenValues)
+TEST(CartridgeRamSizeTest, RamKeepsWrittenValues)
 {
 	Cartridge cartridge{ RomWithRamSize(2), 1 };
 	EnableRam(cartridge);
@@ -58,7 +58,7 @@ TEST(CartridgeRamTest, RamKeepsWrittenValues)
 	EXPECT_EQ(0x34, cartridge.RamReadByte(0x1fff));
 }
 
-TEST(CartridgeRamTest, BankBeyondCartridgeRamReadsFfAndIgnoresWrites)
+TEST(CartridgeRamSizeTest, BankBeyondCartridgeRamReadsFfAndIgnoresWrites)
 {
 	Cartridge cartridge{ RomWithRamSize(2), 1 };
 	EnableRam(cartridge);
