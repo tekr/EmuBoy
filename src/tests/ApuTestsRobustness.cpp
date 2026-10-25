@@ -123,6 +123,32 @@ namespace
 
 		EXPECT_LE(worst, 2);
 	}
+
+	// Runs the scenario in chunks of nextChunkSize() cycles (clipped to the end), comparing the state after each chunk
+	// and the whole sample stream with the single-cycle reference
+	template <typename ChunkSize>
+	void ExpectChunkedRunMatchesTheReference(ChunkSize nextChunkSize)
+	{
+		const Reference& reference = GetReference();
+		ApuHarness h;
+		ConfigureScenario(h);
+		h.Take();
+		std::vector<short> samples;
+		std::vector<short> chunk;
+
+		for (int t = 0; t < ScenarioCycles;)
+		{
+			int size = std::min(nextChunkSize(), ScenarioCycles - t);
+			h.Device.RunCycles(size);
+			t += size;
+			ExpectSameState(reference.States[t], Capture(h), t);
+
+			h.Device.TakeSamples(chunk);
+			samples.insert(samples.end(), chunk.begin(), chunk.end());
+		}
+
+		ExpectSameSamples(reference.Samples, samples);
+	}
 }
 
 TEST(ApuRobustnessTests, ScenarioActuallyExercisesTheChannels)
@@ -153,51 +179,19 @@ TEST(ApuRobustnessTests, ScenarioActuallyExercisesTheChannels)
 
 TEST(ApuRobustnessTests, MidSizedChunksMatchSingleCycleSteps)
 {
-	const Reference& reference = GetReference();
-	ApuHarness h;
-	ConfigureScenario(h);
-	h.Take();
-	std::vector<short> samples;
-	std::vector<short> chunk;
-
-	for (int t = 0; t < ScenarioCycles;)
-	{
-		int size = std::min(997, ScenarioCycles - t);
-		h.Device.RunCycles(size);
-		t += size;
-		ExpectSameState(reference.States[t], Capture(h), t);
-
-		h.Device.TakeSamples(chunk);
-		samples.insert(samples.end(), chunk.begin(), chunk.end());
-	}
-
-	ExpectSameSamples(reference.Samples, samples);
+	ExpectChunkedRunMatchesTheReference([] { return 997; });
 }
 
 TEST(ApuRobustnessTests, RandomChunkSizesMatchSingleCycleSteps)
 {
-	const Reference& reference = GetReference();
-	ApuHarness h;
-	ConfigureScenario(h);
-	h.Take();
-	std::vector<short> samples;
-	std::vector<short> chunk;
+	// A fixed LCG mixing runs of 1-3 cycles with runs of up to 9000
 	unsigned seed = 12345;
 
-	for (int t = 0; t < ScenarioCycles;)
+	ExpectChunkedRunMatchesTheReference([&seed]
 	{
 		seed = seed * 1103515245u + 12345u;
-		int size = 1 + static_cast<int>((seed >> 16) % ((seed & 0x100) ? 3 : 9000));
-		size = std::min(size, ScenarioCycles - t);
-		h.Device.RunCycles(size);
-		t += size;
-		ExpectSameState(reference.States[t], Capture(h), t);
-
-		h.Device.TakeSamples(chunk);
-		samples.insert(samples.end(), chunk.begin(), chunk.end());
-	}
-
-	ExpectSameSamples(reference.Samples, samples);
+		return 1 + static_cast<int>((seed >> 16) % ((seed & 0x100) ? 3 : 9000));
+	});
 }
 
 TEST(ApuRobustnessTests, OneVeryLargeChunkMatchesSingleCycleSteps)
@@ -250,7 +244,7 @@ TEST(ApuRobustnessTests, TakeSamplesReplacesPreviousContents)
 
 	apu.TakeSamples(samples);
 
-	EXPECT_NEAR(100000.0 * 44100.0 / 4194304.0, static_cast<double>(samples.size() / 2), 2);
+	EXPECT_NEAR(100000.0 * 44100.0 / Apu::CpuClockHz, static_cast<double>(samples.size() / 2), 2);
 }
 
 TEST(ApuRobustnessTests, SecondTakeWithoutRunningReturnsNothing)
@@ -278,7 +272,7 @@ TEST(ApuRobustnessTests, LongRunWithRegularTakesProducesBoundedBatches)
 
 	for (int i = 0; i < 1800; i++)
 	{
-		h.Device.RunCycles(4194304 / 60);
+		h.Device.RunCycles(Apu::CpuClockHz / 60);
 		h.Device.TakeSamples(samples);
 		largest = std::max(largest, samples.size());
 		total += static_cast<long long>(samples.size());
