@@ -38,12 +38,12 @@ TEST_P(ApuZombieTests, WritingEightRepeatedlyAddsOneToTheVolumeEachTime)
 	int channel = GetParam();
 	h.StartEnvelopeChannel(channel, 0x58); // volume 5, increase, period 0
 	h.RunTo(3000);
-	ASSERT_EQ(5, h.Volume(channel));
+	ASSERT_EQ(5, h.EnvelopeVolume(channel));
 
 	for (int writes = 1; writes <= 18; writes++)
 	{
 		h.Write(ChannelRegister(channel, 2), 0x08);
-		ASSERT_EQ((5 + writes) & 15, h.Volume(channel)) << "after " << writes << " writes";
+		ASSERT_EQ((5 + writes) & 15, h.EnvelopeVolume(channel)) << "after " << writes << " writes";
 	}
 }
 
@@ -56,7 +56,7 @@ TEST_P(ApuZombieTests, VolumeNibbleOfTheWrittenValueIsIgnored)
 
 	h.Write(ChannelRegister(channel, 2), 0x28);
 
-	EXPECT_EQ(10, h.Volume(channel));
+	EXPECT_EQ(10, h.EnvelopeVolume(channel));
 }
 
 TEST_P(ApuZombieTests, WrittenNrx2StillReadsBackAsWritten)
@@ -89,9 +89,9 @@ TEST_P(ApuEnvelopeDelayTests, PeriodOneFirstChangeComesAtTheSecondEnvelopeClock)
 	h.RunTo(FrameSequencerEvent(7) + 100);
 	h.StartEnvelopeChannel(channel, 0xf1); // volume 15, decrease, period 1
 
-	EXPECT_EQ(15, h.VolumeAfter(channel, EnvelopeClock(1))); // a normal trigger would already be 14 here
-	EXPECT_EQ(15, h.VolumeBefore(channel, EnvelopeClock(2)));
-	EXPECT_EQ(14, h.VolumeAfter(channel, EnvelopeClock(2)));
+	EXPECT_EQ(15, h.EnvelopeVolumeAfter(channel, EnvelopeClock(1))); // a normal trigger would already be 14 here
+	EXPECT_EQ(15, h.EnvelopeVolumeBefore(channel, EnvelopeClock(2)));
+	EXPECT_EQ(14, h.EnvelopeVolumeAfter(channel, EnvelopeClock(2)));
 }
 
 TEST_P(ApuEnvelopeDelayTests, PeriodTwoFirstChangeComesAtTheThirdEnvelopeClock)
@@ -101,9 +101,9 @@ TEST_P(ApuEnvelopeDelayTests, PeriodTwoFirstChangeComesAtTheThirdEnvelopeClock)
 	h.RunTo(FrameSequencerEvent(7) + 100);
 	h.StartEnvelopeChannel(channel, 0xf2); // volume 15, decrease, period 2
 
-	EXPECT_EQ(15, h.VolumeAfter(channel, EnvelopeClock(2))); // a normal trigger would already be 14 here
-	EXPECT_EQ(15, h.VolumeBefore(channel, EnvelopeClock(3)));
-	EXPECT_EQ(14, h.VolumeAfter(channel, EnvelopeClock(3)));
+	EXPECT_EQ(15, h.EnvelopeVolumeAfter(channel, EnvelopeClock(2))); // a normal trigger would already be 14 here
+	EXPECT_EQ(15, h.EnvelopeVolumeBefore(channel, EnvelopeClock(3)));
+	EXPECT_EQ(14, h.EnvelopeVolumeAfter(channel, EnvelopeClock(3)));
 }
 
 TEST_P(ApuEnvelopeDelayTests, TriggerWhenTheNextStepIsNotSevenHasNoDelay)
@@ -114,8 +114,8 @@ TEST_P(ApuEnvelopeDelayTests, TriggerWhenTheNextStepIsNotSevenHasNoDelay)
 	h.RunTo(FrameSequencerEvent(6) + 100);
 	h.StartEnvelopeChannel(channel, 0xf1);
 
-	EXPECT_EQ(15, h.VolumeBefore(channel, EnvelopeClock(1)));
-	EXPECT_EQ(14, h.VolumeAfter(channel, EnvelopeClock(1)));
+	EXPECT_EQ(15, h.EnvelopeVolumeBefore(channel, EnvelopeClock(1)));
+	EXPECT_EQ(14, h.EnvelopeVolumeAfter(channel, EnvelopeClock(1)));
 }
 
 INSTANTIATE_TEST_CASE_P(ApuQuirks, ApuEnvelopeDelayTests, ::testing::Values(1, 2, 4));
