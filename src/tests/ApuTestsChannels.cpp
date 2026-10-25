@@ -18,9 +18,7 @@ TEST_P(ApuLengthTests, ExpiryAfterLoadedLengthClocksDisablesTheChannel)
 {
 	ApuHarness h;
 	int channel = GetParam();
-	h.EnableDac(channel);
-	h.SetLength(channel, 3);
-	h.Trigger(channel, true);
+	h.StartWithLength(channel, 3, true);
 
 	h.ExpectTurnsOffAt(channel, LengthClock(3));
 }
@@ -29,9 +27,7 @@ TEST_P(ApuLengthTests, DoesNotExpireWhenLengthIsNotEnabled)
 {
 	ApuHarness h;
 	int channel = GetParam();
-	h.EnableDac(channel);
-	h.SetLength(channel, 2);
-	h.Trigger(channel, false);
+	h.StartWithLength(channel, 2, false);
 
 	h.RunTo(FrameSequencerEvent(600));
 	EXPECT_TRUE(h.Active(channel));
@@ -41,9 +37,7 @@ TEST_P(ApuLengthTests, DisablingLengthEnableStopsTheCountdown)
 {
 	ApuHarness h;
 	int channel = GetParam();
-	h.EnableDac(channel);
-	h.SetLength(channel, 2);
-	h.Trigger(channel, true);
+	h.StartWithLength(channel, 2, true);
 	h.RunTo(1000); // second half: next step clocks length, so disabling causes no extra clock
 	h.SetLengthEnable(channel, false);
 
@@ -55,9 +49,7 @@ TEST_P(ApuLengthTests, ExpiryDoesNotTurnTheDacOff)
 {
 	ApuHarness h;
 	int channel = GetParam();
-	h.EnableDac(channel);
-	h.SetLength(channel, 1);
-	h.Trigger(channel, true);
+	h.StartWithLength(channel, 1, true);
 	h.RunTo(LengthClock(1));
 	ASSERT_FALSE(h.Active(channel));
 
@@ -70,9 +62,7 @@ TEST_P(ApuLengthTests, ReloadingLengthWhilePlayingRestartsTheCount)
 	// events 3, 5, 7.
 	ApuHarness h;
 	int channel = GetParam();
-	h.EnableDac(channel);
-	h.SetLength(channel, 2);
-	h.Trigger(channel, true);
+	h.StartWithLength(channel, 2, true);
 	h.RunTo(20000);
 	ASSERT_TRUE(h.Active(channel));
 	h.SetLength(channel, 3);
@@ -84,9 +74,7 @@ TEST_P(ApuLengthTests, ReloadingLengthDoesNotReEnableAnExpiredChannel)
 {
 	ApuHarness h;
 	int channel = GetParam();
-	h.EnableDac(channel);
-	h.SetLength(channel, 1);
-	h.Trigger(channel, true);
+	h.StartWithLength(channel, 1, true);
 	h.RunTo(LengthClock(1));
 	ASSERT_FALSE(h.Active(channel));
 
@@ -112,9 +100,7 @@ TEST_P(ApuLengthTests, TriggerDoesNotReloadANonZeroLength)
 	// Length 3 (expiry at event 5). Retriggering at 3000 (second half) must not restore it to the maximum.
 	ApuHarness h;
 	int channel = GetParam();
-	h.EnableDac(channel);
-	h.SetLength(channel, 3);
-	h.Trigger(channel, true);
+	h.StartWithLength(channel, 3, true);
 	h.RunTo(3000);
 	h.Trigger(channel, true);
 
@@ -128,9 +114,7 @@ TEST_P(ApuLengthTests, TriggerWithLengthZeroReloadsTheMaximumEvenWithLengthDisab
 	// starting with event 5.
 	ApuHarness h;
 	int channel = GetParam();
-	h.EnableDac(channel);
-	h.SetLength(channel, 1);
-	h.Trigger(channel, true);
+	h.StartWithLength(channel, 1, true);
 	h.RunTo(20000);
 	ASSERT_FALSE(h.Active(channel));
 	h.Trigger(channel, false);
@@ -150,9 +134,7 @@ TEST_P(ApuLengthTests, EnablingLengthInTheFirstHalfClocksItOnce)
 	// immediate clock (-> 1), so the first real clock (event 3) expires it.
 	ApuHarness h;
 	int channel = GetParam();
-	h.EnableDac(channel);
-	h.SetLength(channel, 2);
-	h.Trigger(channel, false);
+	h.StartWithLength(channel, 2, false);
 	h.RunTo(8292);
 	h.SetLengthEnable(channel, true);
 	ASSERT_TRUE(h.Active(channel));
@@ -166,9 +148,7 @@ TEST_P(ApuLengthTests, EnablingLengthInTheSecondHalfDoesNotClockIt)
 	// second clock after that: events 3 and 5.
 	ApuHarness h;
 	int channel = GetParam();
-	h.EnableDac(channel);
-	h.SetLength(channel, 2);
-	h.Trigger(channel, false);
+	h.StartWithLength(channel, 2, false);
 	h.RunTo(17000);
 	h.SetLengthEnable(channel, true);
 
@@ -181,9 +161,7 @@ TEST_P(ApuLengthTests, ExtraClockThatReachesZeroDisablesTheChannelImmediately)
 {
 	ApuHarness h;
 	int channel = GetParam();
-	h.EnableDac(channel);
-	h.SetLength(channel, 1);
-	h.Trigger(channel, false);
+	h.StartWithLength(channel, 1, false);
 	h.RunTo(8292);
 	ASSERT_TRUE(h.Active(channel));
 
@@ -197,9 +175,7 @@ TEST_P(ApuLengthTests, RewritingAnAlreadySetLengthEnableDoesNotClockAgain)
 	// Only a disabled -> enabled change clocks (blargg 03 #4)
 	ApuHarness h;
 	int channel = GetParam();
-	h.EnableDac(channel);
-	h.SetLength(channel, 2);
-	h.Trigger(channel, true);
+	h.StartWithLength(channel, 2, true);
 	h.RunTo(8292);
 	ASSERT_TRUE(h.Active(channel)); // event 1 clocked the counter from 2 to 1
 
@@ -216,9 +192,7 @@ TEST_P(ApuLengthTests, TriggerWithZeroLengthInTheFirstHalfLoadsMaxMinusOne)
 	// Clock n is at event 2n + 1, so expiry is at clock Max - 1: event 2 * Max - 1.
 	ApuHarness h;
 	int channel = GetParam();
-	h.EnableDac(channel);
-	h.SetLength(channel, 1);
-	h.Trigger(channel, true);
+	h.StartWithLength(channel, 1, true);
 	h.RunTo(8292);
 	ASSERT_FALSE(h.Active(channel));
 
@@ -234,9 +208,7 @@ TEST_P(ApuLengthTests, TriggerWithZeroLengthInTheSecondHalfLoadsTheFullMaximum)
 	// so expiry is event 2 * Max + 1.
 	ApuHarness h;
 	int channel = GetParam();
-	h.EnableDac(channel);
-	h.SetLength(channel, 1);
-	h.Trigger(channel, true);
+	h.StartWithLength(channel, 1, true);
 	h.RunTo(20000);
 	ASSERT_FALSE(h.Active(channel));
 
@@ -252,9 +224,7 @@ TEST_P(ApuLengthTests, TriggerThatClocksLengthOfOneClocksTwiceAndDoesNotFreeze)
 	// result is Max - 1 and the channel stays on.
 	ApuHarness h;
 	int channel = GetParam();
-	h.EnableDac(channel);
-	h.SetLength(channel, 1);
-	h.Trigger(channel, false);
+	h.StartWithLength(channel, 1, false);
 	h.RunTo(8292);
 
 	h.Trigger(channel, true);
@@ -348,9 +318,7 @@ TEST_P(ApuDacTests, LengthIsStillReloadedByATriggerWhileTheDacIsOff)
 	// 0 would have been reloaded here and expired 20 events later.)
 	ApuHarness h;
 	int channel = GetParam();
-	h.EnableDac(channel);
-	h.SetLength(channel, 1);
-	h.Trigger(channel, true);
+	h.StartWithLength(channel, 1, true);
 	h.RunTo(8300);
 	ASSERT_FALSE(h.Active(channel));
 
