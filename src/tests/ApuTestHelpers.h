@@ -80,6 +80,14 @@ namespace ApuTest
 		return channel == 3 ? 256 : 64;
 	}
 
+	enum EnvelopeDirection { Decrease, Increase };
+
+	// The NRx2 value for an envelope
+	inline int EnvelopeRegister(int volume, EnvelopeDirection direction, int period)
+	{
+		return (volume << 4) | (direction == Increase ? 0x08 : 0) | period;
+	}
+
 	// Duty patterns, position 0 first (spec 4.1)
 	inline int DutyBit(int duty, int position)
 	{

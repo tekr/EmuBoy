@@ -418,7 +418,7 @@ TEST_P(ApuEnvelopeTests, DecreasesByOneEveryEnvelopeClockWithPeriodOne)
 {
 	ApuHarness h;
 	int channel = GetParam();
-	h.StartEnvelopeChannel(channel, 0xf1); // volume 15, decrease, period 1
+	h.StartEnvelopeChannel(channel, EnvelopeRegister(15, Decrease, 1));
 
 	EXPECT_EQ(15, h.EnvelopeVolumeBefore(channel, EnvelopeClock(1)));
 	EXPECT_EQ(14, h.EnvelopeVolumeAfter(channel, EnvelopeClock(1)));
@@ -430,7 +430,7 @@ TEST_P(ApuEnvelopeTests, IncreasesByOneEveryEnvelopeClockWithPeriodOne)
 {
 	ApuHarness h;
 	int channel = GetParam();
-	h.StartEnvelopeChannel(channel, 0x79); // volume 7, increase, period 1
+	h.StartEnvelopeChannel(channel, EnvelopeRegister(7, Increase, 1));
 
 	EXPECT_EQ(7, h.EnvelopeVolumeBefore(channel, EnvelopeClock(1)));
 	EXPECT_EQ(8, h.EnvelopeVolumeAfter(channel, EnvelopeClock(1)));
@@ -441,7 +441,7 @@ TEST_P(ApuEnvelopeTests, PeriodThreeChangesVolumeEveryThirdEnvelopeClock)
 {
 	ApuHarness h;
 	int channel = GetParam();
-	h.StartEnvelopeChannel(channel, 0xf3); // volume 15, decrease, period 3
+	h.StartEnvelopeChannel(channel, EnvelopeRegister(15, Decrease, 3));
 
 	EXPECT_EQ(15, h.EnvelopeVolumeBefore(channel, EnvelopeClock(3)));
 	EXPECT_EQ(14, h.EnvelopeVolumeAfter(channel, EnvelopeClock(3)));
@@ -453,7 +453,7 @@ TEST_P(ApuEnvelopeTests, StopsAtFifteenWhenIncreasing)
 {
 	ApuHarness h;
 	int channel = GetParam();
-	h.StartEnvelopeChannel(channel, 0xd9); // volume 13, increase, period 1
+	h.StartEnvelopeChannel(channel, EnvelopeRegister(13, Increase, 1));
 
 	EXPECT_EQ(14, h.EnvelopeVolumeAfter(channel, EnvelopeClock(1)));
 	EXPECT_EQ(15, h.EnvelopeVolumeAfter(channel, EnvelopeClock(2)));
@@ -465,7 +465,7 @@ TEST_P(ApuEnvelopeTests, StopsAtZeroWhenDecreasingAndTheChannelStaysEnabled)
 {
 	ApuHarness h;
 	int channel = GetParam();
-	h.StartEnvelopeChannel(channel, 0x21); // volume 2, decrease, period 1
+	h.StartEnvelopeChannel(channel, EnvelopeRegister(2, Decrease, 1));
 
 	EXPECT_EQ(1, h.EnvelopeVolumeAfter(channel, EnvelopeClock(1)));
 	EXPECT_EQ(0, h.EnvelopeVolumeAfter(channel, EnvelopeClock(2)));
@@ -481,7 +481,7 @@ TEST_P(ApuEnvelopeTests, PeriodZeroNeverChangesTheVolumeWhenDecreasing)
 {
 	ApuHarness h;
 	int channel = GetParam();
-	h.StartEnvelopeChannel(channel, 0x90); // volume 9, decrease, period 0
+	h.StartEnvelopeChannel(channel, EnvelopeRegister(9, Decrease, 0));
 
 	EXPECT_EQ(9, h.EnvelopeVolumeAfter(channel, EnvelopeClock(12)));
 }
@@ -490,7 +490,7 @@ TEST_P(ApuEnvelopeTests, PeriodZeroNeverChangesTheVolumeWhenIncreasing)
 {
 	ApuHarness h;
 	int channel = GetParam();
-	h.StartEnvelopeChannel(channel, 0x58); // volume 5, increase, period 0
+	h.StartEnvelopeChannel(channel, EnvelopeRegister(5, Increase, 0));
 
 	EXPECT_EQ(5, h.EnvelopeVolumeAfter(channel, EnvelopeClock(12)));
 }
@@ -499,11 +499,11 @@ TEST_P(ApuEnvelopeTests, RetriggerReloadsTheInitialVolume)
 {
 	ApuHarness h;
 	int channel = GetParam();
-	h.StartEnvelopeChannel(channel, 0xf1); // volume 15, decrease, period 1
+	h.StartEnvelopeChannel(channel, EnvelopeRegister(15, Decrease, 1));
 	ASSERT_EQ(12, h.EnvelopeVolumeAfter(channel, EnvelopeClock(3)));
 
 	h.RunTo(200000); // next step is 0, not the envelope step
-	h.StartEnvelopeChannel(channel, 0xf1);
+	h.StartEnvelopeChannel(channel, EnvelopeRegister(15, Decrease, 1));
 	h.RunTo(201000);
 
 	EXPECT_EQ(15, h.EnvelopeVolume(channel));

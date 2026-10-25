@@ -36,7 +36,7 @@ TEST_P(ApuZombieTests, WritingEightRepeatedlyAddsOneToTheVolumeEachTime)
 {
 	ApuHarness h;
 	int channel = GetParam();
-	h.StartEnvelopeChannel(channel, 0x58); // volume 5, increase, period 0
+	h.StartEnvelopeChannel(channel, EnvelopeRegister(5, Increase, 0));
 	h.RunTo(3000);
 	ASSERT_EQ(5, h.EnvelopeVolume(channel));
 
@@ -51,7 +51,7 @@ TEST_P(ApuZombieTests, VolumeNibbleOfTheWrittenValueIsIgnored)
 {
 	ApuHarness h;
 	int channel = GetParam();
-	h.StartEnvelopeChannel(channel, 0x98); // volume 9, increase, period 0
+	h.StartEnvelopeChannel(channel, EnvelopeRegister(9, Increase, 0));
 	h.RunTo(3000);
 
 	h.Write(ChannelRegister(channel, 2), 0x28);
@@ -63,7 +63,7 @@ TEST_P(ApuZombieTests, WrittenNrx2StillReadsBackAsWritten)
 {
 	ApuHarness h;
 	int channel = GetParam();
-	h.StartEnvelopeChannel(channel, 0x58);
+	h.StartEnvelopeChannel(channel, EnvelopeRegister(5, Increase, 0));
 	h.Write(ChannelRegister(channel, 2), 0x08);
 
 	EXPECT_EQ(0x08, h.Read(ChannelRegister(channel, 2)));
@@ -87,7 +87,7 @@ TEST_P(ApuEnvelopeDelayTests, PeriodOneFirstChangeComesAtTheSecondEnvelopeClock)
 	ApuHarness h;
 	int channel = GetParam();
 	h.RunTo(FrameSequencerEvent(7) + 100);
-	h.StartEnvelopeChannel(channel, 0xf1); // volume 15, decrease, period 1
+	h.StartEnvelopeChannel(channel, EnvelopeRegister(15, Decrease, 1));
 
 	EXPECT_EQ(15, h.EnvelopeVolumeAfter(channel, EnvelopeClock(1))); // a normal trigger would already be 14 here
 	EXPECT_EQ(15, h.EnvelopeVolumeBefore(channel, EnvelopeClock(2)));
@@ -99,7 +99,7 @@ TEST_P(ApuEnvelopeDelayTests, PeriodTwoFirstChangeComesAtTheThirdEnvelopeClock)
 	ApuHarness h;
 	int channel = GetParam();
 	h.RunTo(FrameSequencerEvent(7) + 100);
-	h.StartEnvelopeChannel(channel, 0xf2); // volume 15, decrease, period 2
+	h.StartEnvelopeChannel(channel, EnvelopeRegister(15, Decrease, 2));
 
 	EXPECT_EQ(15, h.EnvelopeVolumeAfter(channel, EnvelopeClock(2))); // a normal trigger would already be 14 here
 	EXPECT_EQ(15, h.EnvelopeVolumeBefore(channel, EnvelopeClock(3)));
@@ -112,7 +112,7 @@ TEST_P(ApuEnvelopeDelayTests, TriggerWhenTheNextStepIsNotSevenHasNoDelay)
 	ApuHarness h;
 	int channel = GetParam();
 	h.RunTo(FrameSequencerEvent(6) + 100);
-	h.StartEnvelopeChannel(channel, 0xf1);
+	h.StartEnvelopeChannel(channel, EnvelopeRegister(15, Decrease, 1));
 
 	EXPECT_EQ(15, h.EnvelopeVolumeBefore(channel, EnvelopeClock(1)));
 	EXPECT_EQ(14, h.EnvelopeVolumeAfter(channel, EnvelopeClock(1)));
