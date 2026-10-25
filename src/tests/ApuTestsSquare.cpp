@@ -271,7 +271,7 @@ TEST(ApuSweepTests, ShiftZeroNeverUpdatesTheFrequencyAtSweepClocks)
 	ExpectChannel1Frequency(h, 500);
 }
 
-TEST(ApuSweepTests, ShiftZeroWithFrequencyBelow0x400SurvivesSweepClocksUnchanged)
+TEST(ApuSweepTests, ShiftZeroWithFrequencyBelow0x400SurvivesSweepClocks)
 {
 	ApuHarness h;
 	StartSweepChannel(h, 0x10, 0x3ff);
