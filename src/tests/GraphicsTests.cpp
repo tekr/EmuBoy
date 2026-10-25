@@ -67,6 +67,9 @@ TEST_F(GraphicsTestFixture, RunInternalRom)
 	}
 }
 
+static_assert(TestGraphics::RegisterBlockSize == MemoryMap::UnusableArea2 - MemoryMap::VramRegisters,
+	"Graphics must store every register that MemoryMap routes to it");
+
 TEST_F(GraphicsTestFixture, WindowXRegisterKeepsWrittenValue)
 {
 	const unsigned char windowX = 0x57;

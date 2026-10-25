@@ -19,6 +19,7 @@ public:
 	using Graphics::RegBgWinPalette;
 	using Graphics::RegWindowY;
 	using Graphics::RegWindowX;
+	using Graphics::RegisterBlockSize;
 
 	TestGraphics(Cpu& cpu, MemoryMap& memoryMap, SpriteManager& spriteManager) : Graphics(cpu, memoryMap, spriteManager)
 	{
