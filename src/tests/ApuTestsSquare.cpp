@@ -17,67 +17,74 @@ using namespace ApuTest;
 
 namespace
 {
-	const int SquarePeriod = 256;
+	long long SquareTimerPeriod(int frequency)
+	{
+		return (2048 - frequency) * 4;
+	}
+
 	const int SquareFrequency = 1984;
+	const long long SquarePeriod = SquareTimerPeriod(SquareFrequency);
+
+	// Call right after a trigger. Expects samples 2..`samples` to follow the duty pattern from position
+	// `startPosition` + 2 on, at `volume`.
+	void ExpectDutySequence(ApuHarness& h, int channel, int duty, int volume, int startPosition, int samples)
+	{
+		h.Run(SquarePeriod / 2);
+
+		for (int k = 1; k <= samples; k++)
+		{
+			h.Run(SquarePeriod);
+
+			if (k >= 2)
+			{
+				EXPECT_EQ(DutyBit(duty, startPosition + k) ? volume : 0, h.Out(channel)) << "sample " << k;
+			}
+		}
+	}
 }
 
+// Parameter = (channel - 1) * 4 + duty
 class ApuDutyTests : public ::testing::TestWithParam<int>
 {
+protected:
+	int Channel() const
+	{
+		return 1 + GetParam() / 4;
+	}
+
+	int Duty() const
+	{
+		return GetParam() % 4;
+	}
 };
 
 TEST_P(ApuDutyTests, StepsThroughTheDutyPatternOnePositionPerTimerPeriod)
 {
 	ApuHarness h;
-	int channel = 1 + GetParam() / 4;
-	int duty = GetParam() % 4;
-	h.StartSquare(channel, duty, 0xf0, SquareFrequency);
+	h.StartSquare(Channel(), Duty(), 0xf0, SquareFrequency);
 
-	h.Run(SquarePeriod / 2);
-
-	for (int k = 1; k <= 24; k++)
-	{
-		h.Run(SquarePeriod);
-
-		if (k >= 2)
-		{
-			EXPECT_EQ(DutyBit(duty, k) ? 15 : 0, h.Out(channel)) << "sample " << k;
-		}
-	}
+	ExpectDutySequence(h, Channel(), Duty(), 15, 0, 24);
 }
 
 TEST_P(ApuDutyTests, OutputsZeroBeforeTheFirstTimerExpiry)
 {
 	// spec 4.1: "A freshly started pulse channel always outputs digital 0 at first"
 	ApuHarness h;
-	int channel = 1 + GetParam() / 4;
-	int duty = GetParam() % 4;
-	h.StartSquare(channel, duty, 0xf0, SquareFrequency);
+	h.StartSquare(Channel(), Duty(), 0xf0, SquareFrequency);
 
 	h.Run(SquarePeriod / 2);
 
-	EXPECT_EQ(0, h.Out(channel));
+	EXPECT_EQ(0, h.Out(Channel()));
 }
 
 TEST_P(ApuDutyTests, ScalesTheHighLevelByTheEnvelopeVolume)
 {
 	ApuHarness h;
-	int channel = 1 + GetParam() / 4;
-	int duty = GetParam() % 4;
-	h.StartSquare(channel, duty, 0x70, SquareFrequency);
-	h.Run(SquarePeriod / 2);
+	h.StartSquare(Channel(), Duty(), 0x70, SquareFrequency);
 
-	for (int k = 1; k <= 12; k++)
-	{
-		h.Run(SquarePeriod);
-
-		if (k >= 2)
-		{
-			EXPECT_EQ(DutyBit(duty, k) ? 7 : 0, h.Out(channel)) << "sample " << k;
-		}
-	}
+	ExpectDutySequence(h, Channel(), Duty(), 7, 0, 12);
 }
 
-// Parameter = (channel - 1) * 4 + duty
 INSTANTIATE_TEST_CASE_P(ApuSquare, ApuDutyTests, ::testing::Range(0, 8));
 
 TEST(ApuSquareTests, RetriggerDoesNotResetTheDutyPosition)
@@ -89,17 +96,8 @@ TEST(ApuSquareTests, RetriggerDoesNotResetTheDutyPosition)
 	h.Run(3 * SquarePeriod + SquarePeriod / 2);
 
 	h.StartSquare(2, 2, 0xf0, SquareFrequency);
-	h.Run(SquarePeriod / 2);
 
-	for (int k = 1; k <= 12; k++)
-	{
-		h.Run(SquarePeriod);
-
-		if (k >= 2)
-		{
-			EXPECT_EQ(DutyBit(2, 3 + k) ? 15 : 0, h.Out(2)) << "sample " << k;
-		}
-	}
+	ExpectDutySequence(h, 2, 2, 15, 3, 12);
 }
 
 TEST(ApuSquareTests, PowerCycleResetsTheDutyPosition)
@@ -111,17 +109,8 @@ TEST(ApuSquareTests, PowerCycleResetsTheDutyPosition)
 	h.PowerOff();
 	h.PowerOn();
 	h.StartSquare(2, 2, 0xf0, SquareFrequency);
-	h.Run(SquarePeriod / 2);
 
-	for (int k = 1; k <= 12; k++)
-	{
-		h.Run(SquarePeriod);
-
-		if (k >= 2)
-		{
-			EXPECT_EQ(DutyBit(2, k) ? 15 : 0, h.Out(2)) << "sample " << k;
-		}
-	}
+	ExpectDutySequence(h, 2, 2, 15, 0, 12);
 }
 
 TEST(ApuSquareTests, DutyBitsReadBackAndTheLengthBitsStayMasked)
@@ -139,36 +128,34 @@ TEST(ApuSquareTests, DutyBitsReadBackAndTheLengthBitsStayMasked)
 // With the 12.5% duty only position 7 is high, so consecutive rising edges are exactly eight timer periods apart,
 // whatever the trigger delay.
 
+namespace
+{
+	void ExpectRisingEdgesEightTimerPeriodsApart(int channel, int frequency)
+	{
+		ApuHarness h;
+		long long period = SquareTimerPeriod(frequency);
+		h.StartSquare(channel, 0, 0xf0, frequency);
+
+		auto edges = h.RisingEdges(channel, 3, 40 * period + 100);
+
+		ASSERT_EQ(3u, edges.size());
+		EXPECT_EQ(8 * period, edges[1] - edges[0]);
+		EXPECT_EQ(8 * period, edges[2] - edges[1]);
+	}
+}
+
 class ApuSquarePeriodTests : public ::testing::TestWithParam<int>
 {
 };
 
 TEST_P(ApuSquarePeriodTests, RisingEdgesAreEightTimerPeriodsApartOnChannel2)
 {
-	ApuHarness h;
-	int frequency = GetParam();
-	long long period = (2048 - frequency) * 4;
-	h.StartSquare(2, 0, 0xf0, frequency);
-
-	auto edges = h.RisingEdges(2, 3, 40 * period + 100);
-
-	ASSERT_EQ(3u, edges.size());
-	EXPECT_EQ(8 * period, edges[1] - edges[0]);
-	EXPECT_EQ(8 * period, edges[2] - edges[1]);
+	ExpectRisingEdgesEightTimerPeriodsApart(2, GetParam());
 }
 
 TEST_P(ApuSquarePeriodTests, RisingEdgesAreEightTimerPeriodsApartOnChannel1)
 {
-	ApuHarness h;
-	int frequency = GetParam();
-	long long period = (2048 - frequency) * 4;
-	h.StartSquare(1, 0, 0xf0, frequency);
-
-	auto edges = h.RisingEdges(1, 3, 40 * period + 100);
-
-	ASSERT_EQ(3u, edges.size());
-	EXPECT_EQ(8 * period, edges[1] - edges[0]);
-	EXPECT_EQ(8 * period, edges[2] - edges[1]);
+	ExpectRisingEdgesEightTimerPeriodsApart(1, GetParam());
 }
 
 INSTANTIATE_TEST_CASE_P(ApuSquare, ApuSquarePeriodTests, ::testing::Values(0, 1, 1024, 1984, 2040, 2047));
@@ -177,7 +164,7 @@ TEST(ApuSquareTests, HighPulseOfTheTwelvePointFivePercentDutyLastsOneTimerPeriod
 {
 	ApuHarness h;
 	h.StartSquare(2, 0, 0xf0, 1500);
-	long long period = (2048 - 1500) * 4;
+	long long period = SquareTimerPeriod(1500);
 
 	auto changes = h.Changes(2, 20 * period);
 
@@ -200,11 +187,14 @@ namespace
 		h.StartSquare(1, 0, 0xf0, frequency);
 	}
 
-	long long RisingEdgeInterval(ApuHarness& h, long long limit)
+	// CH1 plays duty 12.5% (StartSweepChannel), so rising edges are eight timer periods apart
+	void ExpectChannel1Frequency(ApuHarness& h, int frequency)
 	{
-		auto edges = h.RisingEdges(1, 2, limit);
+		long long interval = 8 * SquareTimerPeriod(frequency);
+		auto edges = h.RisingEdges(1, 2, 3 * interval);
 
-		return edges.size() == 2 ? edges[1] - edges[0] : -1;
+		ASSERT_EQ(2u, edges.size()) << "frequency " << frequency;
+		EXPECT_EQ(interval, edges[1] - edges[0]) << "frequency " << frequency;
 	}
 }
 
@@ -278,8 +268,7 @@ TEST(ApuSweepTests, ShiftZeroNeverUpdatesTheFrequencyAtSweepClocks)
 	h.RunTo(300000);
 	ASSERT_TRUE(h.Active(1));
 
-	long long expected = 8 * (2048 - 500) * 4;
-	EXPECT_EQ(expected, RisingEdgeInterval(h, 3 * expected));
+	ExpectChannel1Frequency(h, 500);
 }
 
 TEST(ApuSweepTests, ShiftZeroWithFrequencyBelow0x400SurvivesSweepClocksUnchanged)
@@ -350,8 +339,7 @@ TEST(ApuSweepTests, PeriodZeroNeverChangesTheFrequencyNorOverflows)
 	h.RunTo(150000);
 	ASSERT_TRUE(h.Active(1));
 
-	long long expected = 8 * (2048 - 1000) * 4;
-	EXPECT_EQ(expected, RisingEdgeInterval(h, 3 * expected));
+	ExpectChannel1Frequency(h, 1000);
 }
 
 TEST(ApuSweepTests, AddModeUpdateRaisesTheFrequencyByShadowShiftedRight)
@@ -360,13 +348,11 @@ TEST(ApuSweepTests, AddModeUpdateRaisesTheFrequencyByShadowShiftedRight)
 	ApuHarness h;
 	StartSweepChannel(h, 0x72, 1024);
 
-	long long before = 8 * (2048 - 1024) * 4;
-	EXPECT_EQ(before, RisingEdgeInterval(h, 3 * before));
+	ExpectChannel1Frequency(h, 1024);
 	ASSERT_LT(h.Now, FirstPace7Update);
 
 	h.RunTo(FirstPace7Update + FrameSequencerPeriod);
-	long long after = 8 * (2048 - 1280) * 4;
-	EXPECT_EQ(after, RisingEdgeInterval(h, 3 * after));
+	ExpectChannel1Frequency(h, 1280);
 	EXPECT_TRUE(h.Active(1));
 }
 
@@ -378,8 +364,7 @@ TEST(ApuSweepTests, NegateModeUpdateLowersTheFrequency)
 
 	h.RunTo(FirstPace7Update + FrameSequencerPeriod);
 
-	long long after = 8 * (2048 - 768) * 4;
-	EXPECT_EQ(after, RisingEdgeInterval(h, 3 * after));
+	ExpectChannel1Frequency(h, 768);
 	EXPECT_TRUE(h.Active(1));
 }
 
@@ -390,9 +375,8 @@ TEST(ApuSweepTests, FrequencyIsNotChangedBeforeTheSweepTimerReloads)
 	StartSweepChannel(h, 0x72, 1024);
 
 	h.RunTo(FirstPace7Update - 100000);
-	long long before = 8 * (2048 - 1024) * 4;
 
-	EXPECT_EQ(before, RisingEdgeInterval(h, 3 * before));
+	ExpectChannel1Frequency(h, 1024);
 }
 
 TEST(ApuSweepTests, SweepUsesItsPrivateShadowCopyNotLaterWritesToNr13AndNr14)
@@ -406,8 +390,7 @@ TEST(ApuSweepTests, SweepUsesItsPrivateShadowCopyNotLaterWritesToNr13AndNr14)
 
 	h.RunTo(FirstPace7Update + 2 * FrameSequencerPeriod);
 
-	long long after = 8 * (2048 - 1280) * 4;
-	EXPECT_EQ(after, RisingEdgeInterval(h, 3 * after));
+	ExpectChannel1Frequency(h, 1280);
 }
 
 // ---- Negate-mode exit quirk (spec 8.4, blargg 05 #4-#6) ----
