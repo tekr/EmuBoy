@@ -186,9 +186,9 @@ void Apu::Write(int reg, unsigned char value)
 	{
 		auto channel = reg / RegistersPerChannel;
 		auto& envelope = channel == Ch4 ? _noise.Env : _square[channel].Env;
-		auto& ch = GetChannel(channel);
-		if (!DacOn(channel)) ch.Active = false;
-		else if (ch.Active) envelope.ZombieWrite(old, value);
+		auto& state = GetChannel(channel);
+		if (!DacOn(channel)) state.Active = false;
+		else if (state.Active) envelope.ZombieWrite(old, value);
 		break;
 	}
 
