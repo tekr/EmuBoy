@@ -4,8 +4,6 @@
 
 using namespace ApuTest;
 
-// Spec references are to gb-apu-spec.md.
-
 // ---- Square duty sequences (spec 4.1) ----
 //
 // Frequency 1984 gives a timer period of (2048 - 1984) * 4 = 256 T-cycles. The output is sampled in the middle of
@@ -344,7 +342,7 @@ TEST(ApuSweepTests, PeriodZeroNeverChangesTheFrequencyNorOverflows)
 
 TEST(ApuSweepTests, AddModeUpdateRaisesTheFrequencyByShadowShiftedRight)
 {
-	// f = 1024, shift 2, pace 7: first update at 221184 gives 1024 + 256 = 1280
+	// f = 1024, shift 2, pace 7: the first update gives 1024 + 256 = 1280
 	ApuHarness h;
 	StartSweepChannel(h, 0x72, 1024);
 

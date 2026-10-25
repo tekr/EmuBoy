@@ -5,15 +5,14 @@
 #include <vector>
 #include "../core/Apu.h"
 
-// Shared helpers for the ApuTests*.cpp files.
+// Shared helpers for the ApuTests*.cpp files. Spec references ("spec 4.1") in those files are to gb-apu-spec.md.
 //
 // Timing convention used by every test: ApuHarness resets the APU's divider and powers it on, so "Now" is the
 // number of T-cycles since a divider of 0 and a freshly powered frame sequencer (next step = 0). Frame sequencer
-// event number k (k = 1, 2, ...) then happens at T = 8192 * k and executes step (k - 1) % 8:
-//   length clocks   at events 1, 3, 5, ...   (steps 0, 2, 4, 6)  -> clock n is at T = 8192 * (2n - 1)
-//   sweep clocks    at events 3, 7, 11, ...  (steps 2, 6)         -> clock n is at T = 24576 + 32768 * (n - 1)
-//   envelope clocks at events 8, 16, ...     (step 7)             -> clock n is at T = 65536 * n
-// (gb-apu-spec.md sections 0 and 3.)
+// event number k (k = 1, 2, ...) then happens at T = 8192 * k and executes step (k - 1) % 8 (spec 0 and 3):
+//   length clocks   at events 1, 3, 5, ...   (steps 0, 2, 4, 6)  -> clock n is at LengthClock(n)
+//   sweep clocks    at events 3, 7, 11, ...  (steps 2, 6)         -> clock n is at SweepClock(n)
+//   envelope clocks at events 8, 16, ...     (step 7)             -> clock n is at EnvelopeClock(n)
 
 namespace ApuTest
 {

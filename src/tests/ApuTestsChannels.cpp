@@ -4,7 +4,7 @@
 
 using namespace ApuTest;
 
-// Spec references are to gb-apu-spec.md; timing helpers are in ApuTestHelpers.h. Phases used below:
+// Length phases used below:
 //   "second half": the next frame sequencer step clocks length (T in [0, 8192) or [16384, 24576), ...)
 //   "first half":  the next step does not clock length         (T in [8192, 16384) or [24576, 32768), ...)
 
