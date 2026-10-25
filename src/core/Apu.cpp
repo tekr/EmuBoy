@@ -170,7 +170,7 @@ void Apu::Write(int reg, unsigned char value)
 	{
 	case Nr10:
 		// Leaving negate mode after a sweep calculation used it disables CH1 (Pan Docs, Audio Details)
-		if (_sweepNegateUsed && (old & 8) && !(value & 8)) _square[Ch1].Active = false;
+		if (_sweepNegateUsed && (old & SweepNegateBit) && !SweepNegate()) _square[Ch1].Active = false;
 		break;
 
 	case Nr11:
@@ -332,7 +332,7 @@ int Apu::SweepCalculate()
 	auto delta = _sweepShadow >> SweepShift();
 	int result;
 
-	if (_registers[Nr10] & 8)
+	if (SweepNegate())
 	{
 		result = _sweepShadow - delta;
 		_sweepNegateUsed = true;

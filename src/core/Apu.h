@@ -88,6 +88,8 @@ private:
 	static const int FrameSequencerPeriod = 8192;
 	static const int EnvelopeStep = 7;
 
+	static const unsigned char SweepNegateBit = 0x08;
+
 	// Frequencies are 11 bits; a sweep calculation above this disables CH1
 	static const int MaxFrequency = 2047;
 
@@ -142,6 +144,7 @@ private:
 	int NoisePeriod() const;
 	int SweepPace() const { return (_registers[Nr10] >> 4) & 7; }
 	int SweepShift() const { return _registers[Nr10] & 7; }
+	bool SweepNegate() const { return (_registers[Nr10] & SweepNegateBit) != 0; }
 	int SweepTimerPeriod() const;
 	static int MaxLength(int channel) { return channel == Ch3 ? 256 : 64; }
 
