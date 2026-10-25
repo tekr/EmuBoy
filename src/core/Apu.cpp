@@ -435,7 +435,7 @@ void Apu::StepChannel(int channel)
 	case Ch3:
 		StepWave();
 		break;
-	default:
+	case Ch4:
 		StepNoise();
 		break;
 	}
