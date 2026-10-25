@@ -236,7 +236,7 @@ TEST(ApuMixingTests, SingleChannelAtMaximumLeavesHeadroomForTheOtherThree)
 
 // Loud music must not clip. After the DC-blocking high-pass filter, a full-scale jump between the DAC extremes
 // swings up to twice the DAC range, so the output needs that much headroom.
-TEST(ApuHeadroomTest, LoudFourChannelMusicNeverClips)
+TEST(ApuMixingTests, LoudFourChannelMusicNeverClips)
 {
 	Apu apu{ 44100 };
 	apu.WriteRegister(Nr52, 0x80);
