@@ -89,7 +89,7 @@ Channel& Apu::GetChannel(int index)
 bool Apu::DacOn(int channel) const
 {
 	if (channel == Ch3) return (_registers[Nr30] & 0x80) != 0;
-	return (_registers[Nr12 + channel * RegistersPerChannel] & 0xf8) != 0;
+	return (Nrx2(channel) & 0xf8) != 0;
 }
 
 int Apu::NoisePeriod() const
@@ -277,8 +277,7 @@ void Apu::TriggerSquare(int index)
 	auto reloaded = (square.Frequency & 0x7fc) | (counter & 3);
 	square.Timer = (2048 - reloaded) * 4;
 
-	auto nrx2 = _registers[Nr12 + index * RegistersPerChannel];
-	square.Env.Trigger(nrx2, _frameStep == EnvelopeStep);
+	square.Env.Trigger(Nrx2(index), _frameStep == EnvelopeStep);
 
 	if (index == Ch1)
 	{
@@ -317,7 +316,7 @@ void Apu::TriggerNoise()
 	_noise.Active = true;
 	_noise.Lfsr = 0;
 	_noise.Timer = NoisePeriod();
-	_noise.Env.Trigger(_registers[Nr42], _frameStep == EnvelopeStep);
+	_noise.Env.Trigger(Nrx2(Ch4), _frameStep == EnvelopeStep);
 }
 
 // A sweep pace of 0 counts as 8 for the timer, though the sweep then never changes the frequency

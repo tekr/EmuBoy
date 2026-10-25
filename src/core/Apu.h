@@ -135,6 +135,7 @@ private:
 	int _pendingCycles = 0;
 	int _cyclesToEvent = 0;
 
+	unsigned char Nrx2(int channel) const { return _registers[Nr12 + channel * RegistersPerChannel]; }
 	bool DacOn(int channel) const;
 	int PlayingWaveIndex() const { return WaveRam + (_wave.Position >> 1); }
 	bool WaveRamAccessible() const { return !_wave.Active || (_wave.JustRead && _pendingCycles == 0); }
