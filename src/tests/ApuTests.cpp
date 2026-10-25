@@ -365,9 +365,7 @@ TEST_P(ApuPowerLengthTests, LengthCountersAreNotClockedWhilePoweredOff)
 	// were clocked), then back on at a divider phase of 1696 so the next frame sequencer event is step 0.
 	ApuHarness h;
 	int channel = GetParam();
-	h.EnableDac(channel);
-	h.SetLength(channel, 2);
-	h.Trigger(channel, true);
+	h.StartWithLength(channel, 2, true);
 	h.RunTo(LengthClock(1));
 	ASSERT_TRUE(h.Active(channel));
 
@@ -391,9 +389,7 @@ INSTANTIATE_TEST_CASE_P(ApuChannels, ApuPowerLengthTests, ::testing::Range(1, 5)
 TEST(ApuDividerTests, FirstFrameSequencerEventIsOneFullPeriodAfterADividerReset)
 {
 	ApuHarness h;
-	h.EnableDac(1);
-	h.SetLength(1, 1);
-	h.Trigger(1, true);
+	h.StartWithLength(1, 1, true);
 
 	h.ExpectTurnsOffAt(1, FrameSequencerEvent(1));
 }
@@ -401,9 +397,7 @@ TEST(ApuDividerTests, FirstFrameSequencerEventIsOneFullPeriodAfterADividerReset)
 TEST(ApuDividerTests, ResettingTheDividerWithBit12ClearRestartsThePeriod)
 {
 	ApuHarness h;
-	h.EnableDac(1);
-	h.SetLength(1, 1);
-	h.Trigger(1, true);
+	h.StartWithLength(1, 1, true);
 	h.RunTo(2000); // divider is 2000: bit 12 is clear, so no falling edge
 	h.ResetDivider();
 
@@ -415,9 +409,7 @@ TEST(ApuDividerTests, ResettingTheDividerWithBit12SetClocksTheFrameSequencerImme
 {
 	// spec 3.1: a reset while the bit is set is a falling edge and gives an extra tick (step 0 = length clock)
 	ApuHarness h;
-	h.EnableDac(1);
-	h.SetLength(1, 1);
-	h.Trigger(1, true);
+	h.StartWithLength(1, 1, true);
 	h.RunTo(6000); // 6000 = 0x1770: bit 12 set
 	ASSERT_TRUE(h.Active(1));
 
@@ -431,9 +423,7 @@ TEST(ApuDividerTests, ExtraTickFromAResetAdvancesTheStepCounterAndTheNextTickIsA
 	// Counter 2. Reset at 6000 gives the step 0 clock (-> 1). Then step 1 is 8192 later (no length clock) and
 	// step 2 at 6000 + 2 * 8192 clocks it to 0.
 	ApuHarness h;
-	h.EnableDac(1);
-	h.SetLength(1, 2);
-	h.Trigger(1, true);
+	h.StartWithLength(1, 2, true);
 	h.RunTo(6000);
 	h.ResetDivider();
 	ASSERT_TRUE(h.Active(1));
@@ -448,9 +438,7 @@ TEST(ApuDividerTests, PoweringOnDoesNotRestartTheFreeRunningDivider)
 	ApuHarness h(false);
 	h.Run(3000);
 	h.PowerOn();
-	h.EnableDac(1);
-	h.SetLength(1, 1);
-	h.Trigger(1, true);
+	h.StartWithLength(1, 1, true);
 
 	h.ExpectTurnsOffAt(1, FrameSequencerEvent(1));
 }
@@ -463,9 +451,7 @@ TEST(ApuDividerTests, PoweringOnResetsTheStepCounterToZero)
 	h.RunTo(24676);
 	h.PowerOff();
 	h.PowerOn();
-	h.EnableDac(1);
-	h.SetLength(1, 1);
-	h.Trigger(1, true);
+	h.StartWithLength(1, 1, true);
 
 	h.ExpectTurnsOffAt(1, FrameSequencerEvent(4));
 }

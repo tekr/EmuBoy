@@ -319,6 +319,13 @@ namespace ApuTest
 			Write(ChannelRegister(channel, 4), lengthEnable ? 0x40 : 0);
 		}
 
+		void StartWithLength(int channel, int length, bool lengthEnable)
+		{
+			EnableDac(channel);
+			SetLength(channel, length);
+			Trigger(channel, lengthEnable);
+		}
+
 		// Square channel 1 or 2 (channel 1's sweep is whatever NR10 holds)
 		void StartSquare(int channel, int duty, int envelope, int frequency, bool lengthEnable = false)
 		{
