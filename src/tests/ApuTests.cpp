@@ -342,7 +342,7 @@ TEST_P(ApuPowerLengthTests, LengthWrittenWhilePoweredOffIsUsedAfterPowerOn)
 	h.Trigger(channel, true);
 	ASSERT_TRUE(h.Active(channel));
 
-	h.ExpectTurnsOffAt(channel, 8192);
+	h.ExpectTurnsOffAt(channel, LengthClock(1));
 }
 
 TEST_P(ApuPowerLengthTests, LengthLoadedBeforePowerOffSurvivesAPowerCycle)
@@ -356,19 +356,19 @@ TEST_P(ApuPowerLengthTests, LengthLoadedBeforePowerOffSurvivesAPowerCycle)
 	h.EnableDac(channel);
 	h.Trigger(channel, true);
 
-	h.ExpectTurnsOffAt(channel, 8192);
+	h.ExpectTurnsOffAt(channel, LengthClock(1));
 }
 
 TEST_P(ApuPowerLengthTests, LengthCountersAreNotClockedWhilePoweredOff)
 {
-	// Counter is 2, one clock happens at 8192 (-> 1). Power is off for a long time (that would expire it if it
+	// Counter is 2, length clock 1 takes it to 1. Power is off for a long time (that would expire it if it
 	// were clocked), then back on at a divider phase of 1696 so the next frame sequencer event is step 0.
 	ApuHarness h;
 	int channel = GetParam();
 	h.EnableDac(channel);
 	h.SetLength(channel, 2);
 	h.Trigger(channel, true);
-	h.RunTo(8192);
+	h.RunTo(LengthClock(1));
 	ASSERT_TRUE(h.Active(channel));
 
 	h.PowerOff();
@@ -380,7 +380,7 @@ TEST_P(ApuPowerLengthTests, LengthCountersAreNotClockedWhilePoweredOff)
 	ASSERT_TRUE(h.Active(channel));
 
 	// Next event is at the next multiple of 8192 after 108192 (= 13 * 8192 + 1696)
-	long long nextEvent = 14 * 8192;
+	long long nextEvent = FrameSequencerEvent(14);
 	h.ExpectTurnsOffAt(channel, nextEvent);
 }
 
@@ -395,7 +395,7 @@ TEST(ApuDividerTests, FirstFrameSequencerEventIsOneFullPeriodAfterADividerReset)
 	h.SetLength(1, 1);
 	h.Trigger(1, true);
 
-	h.ExpectTurnsOffAt(1, 8192);
+	h.ExpectTurnsOffAt(1, FrameSequencerEvent(1));
 }
 
 TEST(ApuDividerTests, ResettingTheDividerWithBit12ClearRestartsThePeriod)
@@ -408,7 +408,7 @@ TEST(ApuDividerTests, ResettingTheDividerWithBit12ClearRestartsThePeriod)
 	h.ResetDivider();
 
 	ASSERT_TRUE(h.Active(1));
-	h.ExpectTurnsOffAt(1, 8192);
+	h.ExpectTurnsOffAt(1, FrameSequencerEvent(1));
 }
 
 TEST(ApuDividerTests, ResettingTheDividerWithBit12SetClocksTheFrameSequencerImmediately)
@@ -438,8 +438,8 @@ TEST(ApuDividerTests, ExtraTickFromAResetAdvancesTheStepCounterAndTheNextTickIsA
 	h.ResetDivider();
 	ASSERT_TRUE(h.Active(1));
 
-	// Now was reset to 0 by the divider reset, so step 1 is at 8192 and step 2 at 16384
-	h.ExpectTurnsOffAt(1, 16384);
+	// Now restarted at 0 with the divider, so step 1 is event 1 and step 2 is event 2
+	h.ExpectTurnsOffAt(1, FrameSequencerEvent(2));
 }
 
 TEST(ApuDividerTests, PoweringOnDoesNotRestartTheFreeRunningDivider)
@@ -452,13 +452,13 @@ TEST(ApuDividerTests, PoweringOnDoesNotRestartTheFreeRunningDivider)
 	h.SetLength(1, 1);
 	h.Trigger(1, true);
 
-	h.ExpectTurnsOffAt(1, 8192);
+	h.ExpectTurnsOffAt(1, FrameSequencerEvent(1));
 }
 
 TEST(ApuDividerTests, PoweringOnResetsTheStepCounterToZero)
 {
 	// 24676 is just after step 2 (event 3), so the next step would be 3 (no length clock). After a power cycle the
-	// next step is 0 again, so the very next event (at 32768) clocks length.
+	// next step is 0 again, so the very next event (event 4) clocks length.
 	ApuHarness h;
 	h.RunTo(24676);
 	h.PowerOff();
@@ -467,5 +467,5 @@ TEST(ApuDividerTests, PoweringOnResetsTheStepCounterToZero)
 	h.SetLength(1, 1);
 	h.Trigger(1, true);
 
-	h.ExpectTurnsOffAt(1, 32768);
+	h.ExpectTurnsOffAt(1, FrameSequencerEvent(4));
 }

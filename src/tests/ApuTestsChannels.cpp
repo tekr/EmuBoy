@@ -4,8 +4,7 @@
 
 using namespace ApuTest;
 
-// Spec references are to gb-apu-spec.md. Timing notes are in ApuTestHelpers.h: length clock n is at
-// T = 8192 * (2n - 1). Phases used below:
+// Spec references are to gb-apu-spec.md; timing helpers are in ApuTestHelpers.h. Phases used below:
 //   "second half": the next frame sequencer step clocks length (T in [0, 8192) or [16384, 24576), ...)
 //   "first half":  the next step does not clock length         (T in [8192, 16384) or [24576, 32768), ...)
 
@@ -23,8 +22,7 @@ TEST_P(ApuLengthTests, ExpiryAfterLoadedLengthClocksDisablesTheChannel)
 	h.SetLength(channel, 3);
 	h.Trigger(channel, true);
 
-	// third length clock is event 5 = 5 * 8192
-	h.ExpectTurnsOffAt(channel, 5 * 8192);
+	h.ExpectTurnsOffAt(channel, LengthClock(3));
 }
 
 TEST_P(ApuLengthTests, DoesNotExpireWhenLengthIsNotEnabled)
@@ -35,7 +33,7 @@ TEST_P(ApuLengthTests, DoesNotExpireWhenLengthIsNotEnabled)
 	h.SetLength(channel, 2);
 	h.Trigger(channel, false);
 
-	h.RunTo(8192 * 600);
+	h.RunTo(FrameSequencerEvent(600));
 	EXPECT_TRUE(h.Active(channel));
 }
 
@@ -49,7 +47,7 @@ TEST_P(ApuLengthTests, DisablingLengthEnableStopsTheCountdown)
 	h.RunTo(1000); // second half: next step clocks length, so disabling causes no extra clock
 	h.SetLengthEnable(channel, false);
 
-	h.RunTo(8192 * 600);
+	h.RunTo(FrameSequencerEvent(600));
 	EXPECT_TRUE(h.Active(channel));
 }
 
@@ -60,7 +58,7 @@ TEST_P(ApuLengthTests, ExpiryDoesNotTurnTheDacOff)
 	h.EnableDac(channel);
 	h.SetLength(channel, 1);
 	h.Trigger(channel, true);
-	h.RunTo(8192);
+	h.RunTo(LengthClock(1));
 	ASSERT_FALSE(h.Active(channel));
 
 	EXPECT_EQ(0, h.Out(channel));
@@ -79,7 +77,7 @@ TEST_P(ApuLengthTests, ReloadingLengthWhilePlayingRestartsTheCount)
 	ASSERT_TRUE(h.Active(channel));
 	h.SetLength(channel, 3);
 
-	h.ExpectTurnsOffAt(channel, 7 * 8192);
+	h.ExpectTurnsOffAt(channel, FrameSequencerEvent(7));
 }
 
 TEST_P(ApuLengthTests, ReloadingLengthDoesNotReEnableAnExpiredChannel)
@@ -89,7 +87,7 @@ TEST_P(ApuLengthTests, ReloadingLengthDoesNotReEnableAnExpiredChannel)
 	h.EnableDac(channel);
 	h.SetLength(channel, 1);
 	h.Trigger(channel, true);
-	h.RunTo(8192);
+	h.RunTo(LengthClock(1));
 	ASSERT_FALSE(h.Active(channel));
 
 	h.SetLength(channel, 5);
@@ -106,8 +104,7 @@ TEST_P(ApuLengthTests, LoadingZeroMeansTheMaximumLength)
 	h.Write(ChannelRegister(channel, 1), 0);
 	h.Trigger(channel, true);
 
-	long long expiry = 8192LL * (2 * MaxLength(channel) - 1);
-	h.ExpectTurnsOffAt(channel, expiry);
+	h.ExpectTurnsOffAt(channel, LengthClock(MaxLength(channel)));
 }
 
 TEST_P(ApuLengthTests, TriggerDoesNotReloadANonZeroLength)
@@ -121,7 +118,7 @@ TEST_P(ApuLengthTests, TriggerDoesNotReloadANonZeroLength)
 	h.RunTo(3000);
 	h.Trigger(channel, true);
 
-	h.ExpectTurnsOffAt(channel, 5 * 8192);
+	h.ExpectTurnsOffAt(channel, LengthClock(3));
 }
 
 TEST_P(ApuLengthTests, TriggerWithLengthZeroReloadsTheMaximumEvenWithLengthDisabled)
@@ -138,12 +135,11 @@ TEST_P(ApuLengthTests, TriggerWithLengthZeroReloadsTheMaximumEvenWithLengthDisab
 	ASSERT_FALSE(h.Active(channel));
 	h.Trigger(channel, false);
 	ASSERT_TRUE(h.Active(channel));
-	h.RunTo(40000); // events 3 (24576) and 4 passed; next step is 4 -> still a second half; length is off
+	h.RunTo(40000); // events 3 and 4 passed; next step is 4 -> still a second half; length is off
 	h.SetLengthEnable(channel, true);
 
 	// clock 1 = event 5 (40960); clock Max = event 2 * Max + 3
-	long long expiry = 8192LL * (2 * MaxLength(channel) + 3);
-	h.ExpectTurnsOffAt(channel, expiry);
+	h.ExpectTurnsOffAt(channel, FrameSequencerEvent(2 * MaxLength(channel) + 3));
 }
 
 // ---- Extra length clocking (spec 7.3) ----
@@ -161,7 +157,7 @@ TEST_P(ApuLengthTests, EnablingLengthInTheFirstHalfClocksItOnce)
 	h.SetLengthEnable(channel, true);
 	ASSERT_TRUE(h.Active(channel));
 
-	h.ExpectTurnsOffAt(channel, 3 * 8192);
+	h.ExpectTurnsOffAt(channel, LengthClock(2));
 }
 
 TEST_P(ApuLengthTests, EnablingLengthInTheSecondHalfDoesNotClockIt)
@@ -176,9 +172,9 @@ TEST_P(ApuLengthTests, EnablingLengthInTheSecondHalfDoesNotClockIt)
 	h.RunTo(17000);
 	h.SetLengthEnable(channel, true);
 
-	h.RunTo(3 * 8192 + 1000);
+	h.RunTo(LengthClock(2) + 1000);
 	EXPECT_TRUE(h.Active(channel));
-	h.ExpectTurnsOffAt(channel, 5 * 8192);
+	h.ExpectTurnsOffAt(channel, LengthClock(3));
 }
 
 TEST_P(ApuLengthTests, ExtraClockThatReachesZeroDisablesTheChannelImmediately)
@@ -229,8 +225,7 @@ TEST_P(ApuLengthTests, TriggerWithZeroLengthInTheFirstHalfLoadsMaxMinusOne)
 	h.Trigger(channel, true);
 	ASSERT_TRUE(h.Active(channel));
 
-	long long expiry = 8192LL * (2 * MaxLength(channel) - 1);
-	h.ExpectTurnsOffAt(channel, expiry);
+	h.ExpectTurnsOffAt(channel, FrameSequencerEvent(2 * MaxLength(channel) - 1));
 }
 
 TEST_P(ApuLengthTests, TriggerWithZeroLengthInTheSecondHalfLoadsTheFullMaximum)
@@ -248,8 +243,7 @@ TEST_P(ApuLengthTests, TriggerWithZeroLengthInTheSecondHalfLoadsTheFullMaximum)
 	h.Trigger(channel, true);
 	ASSERT_TRUE(h.Active(channel));
 
-	long long expiry = 8192LL * (2 * MaxLength(channel) + 1);
-	h.ExpectTurnsOffAt(channel, expiry);
+	h.ExpectTurnsOffAt(channel, FrameSequencerEvent(2 * MaxLength(channel) + 1));
 }
 
 TEST_P(ApuLengthTests, TriggerThatClocksLengthOfOneClocksTwiceAndDoesNotFreeze)
@@ -266,8 +260,7 @@ TEST_P(ApuLengthTests, TriggerThatClocksLengthOfOneClocksTwiceAndDoesNotFreeze)
 	h.Trigger(channel, true);
 	EXPECT_TRUE(h.Active(channel));
 
-	long long expiry = 8192LL * (2 * MaxLength(channel) - 1);
-	h.ExpectTurnsOffAt(channel, expiry);
+	h.ExpectTurnsOffAt(channel, FrameSequencerEvent(2 * MaxLength(channel) - 1));
 }
 
 INSTANTIATE_TEST_CASE_P(ApuChannels, ApuLengthTests, ::testing::Range(1, 5));
@@ -367,12 +360,11 @@ TEST_P(ApuDacTests, LengthIsStillReloadedByATriggerWhileTheDacIsOff)
 	ASSERT_FALSE(h.Active(channel));
 
 	h.EnableDac(channel);
-	h.RunTo(22 * 8192 + 100);
+	h.RunTo(FrameSequencerEvent(22) + 100);
 	h.Trigger(channel, true);
 	ASSERT_TRUE(h.Active(channel));
 
-	long long expiry = 8192LL * (2 * MaxLength(channel) + 1);
-	h.ExpectTurnsOffAt(channel, expiry);
+	h.ExpectTurnsOffAt(channel, FrameSequencerEvent(2 * MaxLength(channel) + 1));
 }
 
 INSTANTIATE_TEST_CASE_P(ApuChannels, ApuDacTests, ::testing::Range(1, 5));
@@ -492,10 +484,10 @@ TEST_P(ApuEnvelopeTests, DecreasesByOneEveryEnvelopeClockWithPeriodOne)
 	int channel = GetParam();
 	Start(h, channel, 0xf1); // volume 15, decrease, period 1
 
-	EXPECT_EQ(15, VolumeBefore(h, channel, 65536));
-	EXPECT_EQ(14, VolumeAfter(h, channel, 65536));
-	EXPECT_EQ(14, VolumeBefore(h, channel, 2 * 65536));
-	EXPECT_EQ(13, VolumeAfter(h, channel, 2 * 65536));
+	EXPECT_EQ(15, VolumeBefore(h, channel, EnvelopeClock(1)));
+	EXPECT_EQ(14, VolumeAfter(h, channel, EnvelopeClock(1)));
+	EXPECT_EQ(14, VolumeBefore(h, channel, EnvelopeClock(2)));
+	EXPECT_EQ(13, VolumeAfter(h, channel, EnvelopeClock(2)));
 }
 
 TEST_P(ApuEnvelopeTests, IncreasesByOneEveryEnvelopeClockWithPeriodOne)
@@ -504,9 +496,9 @@ TEST_P(ApuEnvelopeTests, IncreasesByOneEveryEnvelopeClockWithPeriodOne)
 	int channel = GetParam();
 	Start(h, channel, 0x79); // volume 7, increase, period 1
 
-	EXPECT_EQ(7, VolumeBefore(h, channel, 65536));
-	EXPECT_EQ(8, VolumeAfter(h, channel, 65536));
-	EXPECT_EQ(9, VolumeAfter(h, channel, 2 * 65536));
+	EXPECT_EQ(7, VolumeBefore(h, channel, EnvelopeClock(1)));
+	EXPECT_EQ(8, VolumeAfter(h, channel, EnvelopeClock(1)));
+	EXPECT_EQ(9, VolumeAfter(h, channel, EnvelopeClock(2)));
 }
 
 TEST_P(ApuEnvelopeTests, PeriodThreeChangesVolumeEveryThirdEnvelopeClock)
@@ -515,10 +507,10 @@ TEST_P(ApuEnvelopeTests, PeriodThreeChangesVolumeEveryThirdEnvelopeClock)
 	int channel = GetParam();
 	Start(h, channel, 0xf3); // volume 15, decrease, period 3
 
-	EXPECT_EQ(15, VolumeBefore(h, channel, 3 * 65536));
-	EXPECT_EQ(14, VolumeAfter(h, channel, 3 * 65536));
-	EXPECT_EQ(14, VolumeBefore(h, channel, 6 * 65536));
-	EXPECT_EQ(13, VolumeAfter(h, channel, 6 * 65536));
+	EXPECT_EQ(15, VolumeBefore(h, channel, EnvelopeClock(3)));
+	EXPECT_EQ(14, VolumeAfter(h, channel, EnvelopeClock(3)));
+	EXPECT_EQ(14, VolumeBefore(h, channel, EnvelopeClock(6)));
+	EXPECT_EQ(13, VolumeAfter(h, channel, EnvelopeClock(6)));
 }
 
 TEST_P(ApuEnvelopeTests, StopsAtFifteenWhenIncreasing)
@@ -527,10 +519,10 @@ TEST_P(ApuEnvelopeTests, StopsAtFifteenWhenIncreasing)
 	int channel = GetParam();
 	Start(h, channel, 0xd9); // volume 13, increase, period 1
 
-	EXPECT_EQ(14, VolumeAfter(h, channel, 65536));
-	EXPECT_EQ(15, VolumeAfter(h, channel, 2 * 65536));
-	EXPECT_EQ(15, VolumeAfter(h, channel, 3 * 65536));
-	EXPECT_EQ(15, VolumeAfter(h, channel, 20 * 65536));
+	EXPECT_EQ(14, VolumeAfter(h, channel, EnvelopeClock(1)));
+	EXPECT_EQ(15, VolumeAfter(h, channel, EnvelopeClock(2)));
+	EXPECT_EQ(15, VolumeAfter(h, channel, EnvelopeClock(3)));
+	EXPECT_EQ(15, VolumeAfter(h, channel, EnvelopeClock(20)));
 }
 
 TEST_P(ApuEnvelopeTests, StopsAtZeroWhenDecreasingAndTheChannelStaysEnabled)
@@ -539,10 +531,10 @@ TEST_P(ApuEnvelopeTests, StopsAtZeroWhenDecreasingAndTheChannelStaysEnabled)
 	int channel = GetParam();
 	Start(h, channel, 0x21); // volume 2, decrease, period 1
 
-	EXPECT_EQ(1, VolumeAfter(h, channel, 65536));
-	EXPECT_EQ(0, VolumeAfter(h, channel, 2 * 65536));
-	EXPECT_EQ(0, VolumeAfter(h, channel, 3 * 65536));
-	EXPECT_EQ(0, VolumeAfter(h, channel, 20 * 65536));
+	EXPECT_EQ(1, VolumeAfter(h, channel, EnvelopeClock(1)));
+	EXPECT_EQ(0, VolumeAfter(h, channel, EnvelopeClock(2)));
+	EXPECT_EQ(0, VolumeAfter(h, channel, EnvelopeClock(3)));
+	EXPECT_EQ(0, VolumeAfter(h, channel, EnvelopeClock(20)));
 
 	// the DAC (NRx2) is unchanged and the status bit is not cleared by the envelope reaching 0
 	EXPECT_TRUE(h.Active(channel));
@@ -555,7 +547,7 @@ TEST_P(ApuEnvelopeTests, PeriodZeroNeverChangesTheVolumeWhenDecreasing)
 	int channel = GetParam();
 	Start(h, channel, 0x90); // volume 9, decrease, period 0
 
-	EXPECT_EQ(9, VolumeAfter(h, channel, 12 * 65536));
+	EXPECT_EQ(9, VolumeAfter(h, channel, EnvelopeClock(12)));
 }
 
 TEST_P(ApuEnvelopeTests, PeriodZeroNeverChangesTheVolumeWhenIncreasing)
@@ -564,7 +556,7 @@ TEST_P(ApuEnvelopeTests, PeriodZeroNeverChangesTheVolumeWhenIncreasing)
 	int channel = GetParam();
 	Start(h, channel, 0x58); // volume 5, increase, period 0
 
-	EXPECT_EQ(5, VolumeAfter(h, channel, 12 * 65536));
+	EXPECT_EQ(5, VolumeAfter(h, channel, EnvelopeClock(12)));
 }
 
 TEST_P(ApuEnvelopeTests, RetriggerReloadsTheInitialVolume)
@@ -572,7 +564,7 @@ TEST_P(ApuEnvelopeTests, RetriggerReloadsTheInitialVolume)
 	ApuHarness h;
 	int channel = GetParam();
 	Start(h, channel, 0xf1); // volume 15, decrease, period 1
-	ASSERT_EQ(12, VolumeAfter(h, channel, 3 * 65536));
+	ASSERT_EQ(12, VolumeAfter(h, channel, EnvelopeClock(3)));
 
 	h.RunTo(200000); // next step is 0, not the envelope step
 	Start(h, channel, 0xf1);
