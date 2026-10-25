@@ -200,6 +200,20 @@ namespace
 		h.LoadWave(QuirkWave);
 		h.StartWave(1, WaveAccessFrequency);
 	}
+
+	void RetriggerAccessTestWave(ApuHarness& h)
+	{
+		h.Write(Nr34, 0x80 | (WaveAccessFrequency >> 8));
+	}
+
+	// CH3 must be stopped first, or the reads are redirected
+	void ExpectWaveRam(ApuHarness& h, const unsigned char (&expected)[16])
+	{
+		for (int i = 0; i < 16; i++)
+		{
+			EXPECT_EQ(expected[i], h.Read(static_cast<unsigned short>(WaveRam + i))) << "byte " << i;
+		}
+	}
 }
 
 TEST(ApuWaveAccessTests, ReadOnTheCycleCh3ReadsReturnsTheByteBeingRead)
@@ -263,10 +277,7 @@ TEST(ApuWaveAccessTests, WriteOnAnyOtherCycleIsIgnored)
 
 	h.Write(Nr30, 0x00);
 
-	for (int i = 0; i < 16; i++)
-	{
-		EXPECT_EQ(QuirkWave[i], h.Read(static_cast<unsigned short>(WaveRam + i))) << "byte " << i;
-	}
+	ExpectWaveRam(h, QuirkWave);
 }
 
 TEST(ApuWaveAccessTests, WaveRamIsNormallyAccessibleAfterCh3IsStopped)
@@ -330,7 +341,7 @@ TEST_P(ApuWaveRetriggerTests, RetriggerOneCycleBeforeAReadCorruptsWaveRam)
 	ApuHarness h;
 	StartAccessTestWave(h);
 	h.RunTo(times[j - 1] - 1);
-	h.Write(Nr34, 0x80 | (WaveAccessFrequency >> 8));
+	RetriggerAccessTestWave(h);
 	h.Write(Nr30, 0x00);
 
 	unsigned char expected[16];
@@ -346,10 +357,7 @@ TEST_P(ApuWaveRetriggerTests, RetriggerOneCycleBeforeAReadCorruptsWaveRam)
 		std::memcpy(expected, QuirkWave + (offset & ~3), 4);
 	}
 
-	for (int i = 0; i < 16; i++)
-	{
-		EXPECT_EQ(expected[i], h.Read(static_cast<unsigned short>(WaveRam + i))) << "byte " << i << " read " << j;
-	}
+	ExpectWaveRam(h, expected);
 }
 
 // offsets 1, 4, 9 and 14: one byte copied, and block copies from bytes 4-7, 8-11 and 12-15
@@ -366,13 +374,10 @@ TEST(ApuWaveRetriggerTests, RetriggerAfterStoppingTheChannelDoesNotCorruptWaveRa
 	h.RunTo(times[8] - 1);
 	h.Write(Nr30, 0x00);
 	h.Write(Nr30, 0x80);
-	h.Write(Nr34, 0x80 | (WaveAccessFrequency >> 8));
+	RetriggerAccessTestWave(h);
 	h.Write(Nr30, 0x00);
 
-	for (int i = 0; i < 16; i++)
-	{
-		EXPECT_EQ(QuirkWave[i], h.Read(static_cast<unsigned short>(WaveRam + i))) << "byte " << i;
-	}
+	ExpectWaveRam(h, QuirkWave);
 }
 
 TEST(ApuWaveRetriggerTests, RetriggerAwayFromAReadDoesNotCorruptWaveRam)
@@ -383,11 +388,8 @@ TEST(ApuWaveRetriggerTests, RetriggerAwayFromAReadDoesNotCorruptWaveRam)
 	ApuHarness h;
 	StartAccessTestWave(h);
 	h.RunTo(times[8] - 40);
-	h.Write(Nr34, 0x80 | (WaveAccessFrequency >> 8));
+	RetriggerAccessTestWave(h);
 	h.Write(Nr30, 0x00);
 
-	for (int i = 0; i < 16; i++)
-	{
-		EXPECT_EQ(QuirkWave[i], h.Read(static_cast<unsigned short>(WaveRam + i))) << "byte " << i;
-	}
+	ExpectWaveRam(h, QuirkWave);
 }
