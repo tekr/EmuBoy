@@ -43,7 +43,7 @@ int main()
 	sprite.setTexture(texture);
 	sprite.scale(4, 4);
 
-	auto cartridge = CartridgeFactory::LoadFromFile("../../ROMs/gb-snake.gb", 0);
+	auto cartridge = CartridgeFactory::LoadFromFile("../../ROMs/gb-snake.gb", -1);
 	if (cartridge != nullptr)
 	{
 		Emulator emulator{ cartridge };
