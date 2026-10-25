@@ -112,7 +112,7 @@ unsigned char Apu::ReadRegister(unsigned short address) const
 	{
 		// While CH3 plays, the CPU sees the byte CH3 is reading, and on DMG only at the moment CH3 reads it
 		if (!_wave.Active) return _registers[reg];
-		return WaveRamAccessible() ? _registers[PlayingWaveByte()] : 0xff;
+		return WaveRamAccessible() ? _registers[PlayingWaveIndex()] : 0xff;
 	}
 
 	if (reg == Nr52)
@@ -136,7 +136,7 @@ void Apu::Write(int reg, unsigned char value)
 	if (reg >= WaveRam)
 	{
 		if (!_wave.Active) _registers[reg] = value;
-		else if (WaveRamAccessible()) _registers[PlayingWaveByte()] = value;
+		else if (WaveRamAccessible()) _registers[PlayingWaveIndex()] = value;
 		return;
 	}
 
@@ -436,7 +436,7 @@ void Apu::StepSquare(int index)
 void Apu::StepWave()
 {
 	_wave.Position = (_wave.Position + 1) & 31;
-	auto sample = _registers[PlayingWaveByte()];
+	auto sample = _registers[PlayingWaveIndex()];
 	_wave.SampleBuffer = _wave.Position & 1 ? sample & 0xf : sample >> 4;
 	_wave.JustRead = true;
 	_wave.Timer = _wave.Period();
