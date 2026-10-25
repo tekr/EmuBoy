@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include <gtest/gtest.h>
 #include <cstdlib>
+#include <iterator>
 #include "ApuTestHelpers.h"
 
 using namespace ApuTest;
@@ -15,16 +16,17 @@ using namespace ApuTest;
 
 namespace
 {
-	const int CyclesPerTenthOfASecond = 419430; // ~4410 frames at 44100 Hz
+	// ~4410 frames at 44100 Hz
+	std::vector<short> RunATenthOfASecond(ApuHarness& h)
+	{
+		h.Run(Apu::CpuClockHz / 10);
+		return h.Take();
+	}
 
 	void StartConstantChannel(ApuHarness& h, int nr50, int nr51)
 	{
 		unsigned char bytes[16];
-
-		for (int i = 0; i < 16; i++)
-		{
-			bytes[i] = 0xff;
-		}
+		std::fill(std::begin(bytes), std::end(bytes), 0xff);
 
 		h.LoadWave(bytes);
 		h.Write(Nr50, nr50);
@@ -66,9 +68,7 @@ namespace
 TEST(ApuMixingTests, ProducesSilenceWhilePoweredOff)
 {
 	ApuHarness h(false);
-	h.Run(CyclesPerTenthOfASecond);
-
-	auto samples = h.Take();
+	auto samples = RunATenthOfASecond(h);
 
 	ASSERT_GT(Frames(samples), 4000u);
 	EXPECT_TRUE(AllZeroFrom(samples, 0));
@@ -79,9 +79,7 @@ TEST(ApuMixingTests, ProducesSilenceWhenAllDacsAreOffEvenWithFullVolumeAndPannin
 	ApuHarness h;
 	h.Write(Nr50, 0x77);
 	h.Write(Nr51, 0xff);
-	h.Run(CyclesPerTenthOfASecond);
-
-	auto samples = h.Take();
+	auto samples = RunATenthOfASecond(h);
 
 	ASSERT_GT(Frames(samples), 4000u);
 	EXPECT_TRUE(AllZeroFrom(samples, 0));
@@ -95,8 +93,7 @@ TEST(ApuMixingTests, BecomesSilentAfterPoweringOff)
 	h.Take();
 
 	h.PowerOff();
-	h.Run(CyclesPerTenthOfASecond);
-	auto samples = h.Take();
+	auto samples = RunATenthOfASecond(h);
 
 	ASSERT_GT(Frames(samples), 4000u);
 	EXPECT_TRUE(AllZeroFrom(samples, 3));
@@ -110,8 +107,7 @@ TEST(ApuMixingTests, BecomesSilentAfterTheLastDacIsTurnedOff)
 	h.Write(Nr30, 0x00);
 	h.Take();
 
-	h.Run(CyclesPerTenthOfASecond);
-	auto samples = h.Take();
+	auto samples = RunATenthOfASecond(h);
 
 	ASSERT_GT(Frames(samples), 4000u);
 	EXPECT_TRUE(AllZeroFrom(samples, 3));
@@ -121,9 +117,7 @@ TEST(ApuMixingTests, ProducesSilenceWhenNr51RoutesNothing)
 {
 	ApuHarness h;
 	StartConstantChannel(h, 0x77, 0x00);
-	h.Run(CyclesPerTenthOfASecond);
-
-	auto samples = h.Take();
+	auto samples = RunATenthOfASecond(h);
 
 	ASSERT_GT(Frames(samples), 4000u);
 	EXPECT_LE(MaxAbs(samples, 0, Frames(samples), 0), 1);
@@ -142,9 +136,7 @@ TEST_P(ApuPanningTests, RoutesChannel3ToTheSidesSelectedInNr51)
 	int nr51 = GetParam();
 	ApuHarness h;
 	StartConstantChannel(h, 0x77, nr51);
-	h.Run(CyclesPerTenthOfASecond);
-
-	auto samples = h.Take();
+	auto samples = RunATenthOfASecond(h);
 	ASSERT_GT(Frames(samples), 4000u);
 
 	int left = MaxAbs(samples, 5, 100, 0);
@@ -174,51 +166,43 @@ INSTANTIATE_TEST_CASE_P(ApuMixing, ApuPanningTests, ::testing::Values(0x04, 0x40
 
 // ---- Master volume (spec 9.2: multiplier of volume + 1) ----
 
+namespace
+{
+	// side 0 = left (NR50 bits 6-4, NR51 bit 6), 1 = right (NR50 bits 2-0, NR51 bit 2)
+	void ExpectMasterVolumeScalesBy(int volume, int side)
+	{
+		int nr51 = side == 0 ? 0x40 : 0x04;
+		int nr50 = side == 0 ? volume << 4 : volume;
+
+		ApuHarness reference;
+		StartConstantChannel(reference, 0x00, nr51);
+		auto base = RunATenthOfASecond(reference);
+
+		ApuHarness h;
+		StartConstantChannel(h, nr50, nr51);
+		auto scaled = RunATenthOfASecond(h);
+
+		ASSERT_EQ(base.size(), scaled.size());
+		int unit = Sample(base, 20, side);
+		ASSERT_GT(std::abs(unit), 100);
+		EXPECT_NEAR((volume + 1) * unit, Sample(scaled, 20, side), 2 * (volume + 1) + 2);
+		EXPECT_NEAR((volume + 1) * Sample(base, 200, side), Sample(scaled, 200, side), 2 * (volume + 1) + 2);
+		EXPECT_EQ(0, MaxAbs(scaled, 0, Frames(scaled), 1 - side));
+	}
+}
+
 class ApuMasterVolumeTests : public ::testing::TestWithParam<int>
 {
 };
 
 TEST_P(ApuMasterVolumeTests, RightVolumeScalesTheOutputByVolumePlusOne)
 {
-	int volume = GetParam();
-
-	ApuHarness reference;
-	StartConstantChannel(reference, 0x00, 0x04);
-	reference.Run(CyclesPerTenthOfASecond);
-	auto base = reference.Take();
-
-	ApuHarness h;
-	StartConstantChannel(h, volume, 0x04);
-	h.Run(CyclesPerTenthOfASecond);
-	auto scaled = h.Take();
-
-	ASSERT_EQ(base.size(), scaled.size());
-	int unit = Sample(base, 20, 1);
-	ASSERT_GT(std::abs(unit), 100);
-	EXPECT_NEAR((volume + 1) * unit, Sample(scaled, 20, 1), 2 * (volume + 1) + 2);
-	EXPECT_NEAR((volume + 1) * Sample(base, 200, 1), Sample(scaled, 200, 1), 2 * (volume + 1) + 2);
-	EXPECT_EQ(0, MaxAbs(scaled, 0, Frames(scaled), 0));
+	ExpectMasterVolumeScalesBy(GetParam(), 1);
 }
 
 TEST_P(ApuMasterVolumeTests, LeftVolumeScalesTheOutputByVolumePlusOne)
 {
-	int volume = GetParam();
-
-	ApuHarness reference;
-	StartConstantChannel(reference, 0x00, 0x40);
-	reference.Run(CyclesPerTenthOfASecond);
-	auto base = reference.Take();
-
-	ApuHarness h;
-	StartConstantChannel(h, volume << 4, 0x40);
-	h.Run(CyclesPerTenthOfASecond);
-	auto scaled = h.Take();
-
-	ASSERT_EQ(base.size(), scaled.size());
-	int unit = Sample(base, 20, 0);
-	ASSERT_GT(std::abs(unit), 100);
-	EXPECT_NEAR((volume + 1) * unit, Sample(scaled, 20, 0), 2 * (volume + 1) + 2);
-	EXPECT_EQ(0, MaxAbs(scaled, 0, Frames(scaled), 1));
+	ExpectMasterVolumeScalesBy(GetParam(), 0);
 }
 
 INSTANTIATE_TEST_CASE_P(ApuMixing, ApuMasterVolumeTests, ::testing::Range(0, 8));
@@ -227,8 +211,7 @@ TEST(ApuMixingTests, LeftAndRightVolumesAreIndependent)
 {
 	ApuHarness h;
 	StartConstantChannel(h, 0x70, 0x44); // left x8, right x1
-	h.Run(CyclesPerTenthOfASecond);
-	auto samples = h.Take();
+	auto samples = RunATenthOfASecond(h);
 
 	int left = Sample(samples, 20, 0);
 	int right = Sample(samples, 20, 1);
@@ -243,8 +226,7 @@ TEST(ApuMixingTests, SingleChannelAtMaximumLeavesHeadroomForTheOtherThree)
 	// peak-to-peak range, i.e. a step from DC +1 to -1 is at most ~16384.
 	ApuHarness h;
 	StartConstantChannel(h, 0x77, 0x44);
-	h.Run(CyclesPerTenthOfASecond);
-	auto samples = h.Take();
+	auto samples = RunATenthOfASecond(h);
 
 	int peak = std::max(MaxAbs(samples, 0, Frames(samples), 0), MaxAbs(samples, 0, Frames(samples), 1));
 
@@ -258,7 +240,7 @@ TEST(ApuMixingTests, ConstantDacLevelDecaysToZeroThroughTheHighPassFilter)
 {
 	ApuHarness h;
 	StartConstantChannel(h, 0x07, 0x04);
-	h.Run(4194304);
+	h.Run(Apu::CpuClockHz);
 	auto samples = h.Take();
 	ASSERT_GT(Frames(samples), 44000u);
 
@@ -276,7 +258,7 @@ TEST(ApuMixingTests, DcLeftByAnExpiredChannelAlsoDecaysToZero)
 	StartConstantChannel(h, 0x77, 0x44);
 	h.SetLength(3, 1);
 	h.Trigger(3, true);
-	h.Run(4194304);
+	h.Run(Apu::CpuClockHz);
 	ASSERT_FALSE(h.Active(3));
 	auto samples = h.Take();
 	ASSERT_GT(Frames(samples), 44000u);
@@ -287,14 +269,23 @@ TEST(ApuMixingTests, DcLeftByAnExpiredChannelAlsoDecaysToZero)
 
 // ---- Sample production rate (spec section 0, design: TakeSamples) ----
 
+namespace
+{
+	std::vector<short> OneSecondOfSamples(int sampleRate, bool powerOn)
+	{
+		Apu apu{ sampleRate };
+		apu.WriteRegister(Nr52, powerOn ? 0x80 : 0x00);
+		apu.RunCycles(Apu::CpuClockHz);
+
+		std::vector<short> samples;
+		apu.TakeSamples(samples);
+		return samples;
+	}
+}
+
 TEST(ApuSampleRateTests, OneSecondOfCyclesGivesTheSampleRateAt44100)
 {
-	Apu apu{ 44100 };
-	apu.WriteRegister(Nr52, 0x80);
-	apu.RunCycles(4194304);
-
-	std::vector<short> samples;
-	apu.TakeSamples(samples);
+	auto samples = OneSecondOfSamples(44100, true);
 
 	EXPECT_EQ(0u, samples.size() % 2);
 	EXPECT_NEAR(44100, static_cast<double>(samples.size() / 2), 1);
@@ -302,12 +293,7 @@ TEST(ApuSampleRateTests, OneSecondOfCyclesGivesTheSampleRateAt44100)
 
 TEST(ApuSampleRateTests, OneSecondOfCyclesGivesTheSampleRateAt48000)
 {
-	Apu apu{ 48000 };
-	apu.WriteRegister(Nr52, 0x80);
-	apu.RunCycles(4194304);
-
-	std::vector<short> samples;
-	apu.TakeSamples(samples);
+	auto samples = OneSecondOfSamples(48000, true);
 
 	EXPECT_EQ(0u, samples.size() % 2);
 	EXPECT_NEAR(48000, static_cast<double>(samples.size() / 2), 1);
@@ -315,12 +301,7 @@ TEST(ApuSampleRateTests, OneSecondOfCyclesGivesTheSampleRateAt48000)
 
 TEST(ApuSampleRateTests, PoweredOffApuStillProducesSamplesAtTheSameRate)
 {
-	Apu apu{ 44100 };
-	apu.WriteRegister(Nr52, 0x00);
-	apu.RunCycles(4194304);
-
-	std::vector<short> samples;
-	apu.TakeSamples(samples);
+	auto samples = OneSecondOfSamples(44100, false);
 
 	EXPECT_NEAR(44100, static_cast<double>(samples.size() / 2), 1);
 }
@@ -342,7 +323,7 @@ TEST(ApuSampleRateTests, ManySmallRunsAddUpToTheSameNumberOfFrames)
 		frames += static_cast<long long>(samples.size() / 2);
 	}
 
-	double expected = static_cast<double>(cycles) * 44100.0 / 4194304.0;
+	double expected = static_cast<double>(cycles) * 44100.0 / Apu::CpuClockHz;
 	EXPECT_NEAR(expected, static_cast<double>(frames), 1.5);
 }
 
@@ -352,7 +333,7 @@ TEST(ApuSampleRateTests, SamplesAreDeliveredIncrementallyAsCyclesRun)
 	apu.WriteRegister(Nr52, 0x80);
 	std::vector<short> samples;
 
-	apu.RunCycles(4194304 / 60); // one video-frame's worth of cycles: ~735 audio frames
+	apu.RunCycles(Apu::CpuClockHz / 60); // one video-frame's worth of cycles: ~735 audio frames
 	apu.TakeSamples(samples);
 
 	EXPECT_NEAR(735, static_cast<double>(samples.size() / 2), 2);
