@@ -76,25 +76,33 @@ const unsigned short RegWindowX = 0xff4b;
 
 TEST_F(GraphicsTestFixture, WindowXRegisterKeepsWrittenValue)
 {
+	const unsigned char windowX = 0x57;
+
 	Graphics.ResetFrame();
-	MemoryMap.WriteByte(RegWindowX, 0x57);
+	MemoryMap.WriteByte(RegWindowX, windowX);
 
 	for (auto i = 0; i < 3; i++) Graphics.RenderLine();
 
-	EXPECT_EQ(0x57, MemoryMap.ReadByte(RegWindowX));
+	EXPECT_EQ(windowX, MemoryMap.ReadByte(RegWindowX));
 }
 
 TEST_F(GraphicsTestFixture, WindowDrawnFromWindowXPosition)
 {
-	// Background uses tile 0 (all colour 0) from map 0x9800. Window uses tile 1 (all colour 3) from map 0x9c00
-	for (unsigned short i = 0; i < 16; i++) MemoryMap.WriteByte(0x8010 + i, 0xff);
-	for (unsigned short i = 0; i < 0x400; i++) MemoryMap.WriteByte(0x9c00 + i, 1);
+	const unsigned short tileBytes = 16;
+	const unsigned short tileMapBytes = 32 * 32;
+	const unsigned short windowTileMap = 0x9c00;
+	const unsigned char identityPalette = 0xe4;
+	const auto windowLeftEdge = 80;
+
+	// Background uses tile 0 (all colour 0) from map 0x9800. Window uses tile 1 (all colour 3) from windowTileMap
+	for (unsigned short i = 0; i < tileBytes; i++) MemoryMap.WriteByte(MemoryMap::RamVideo + tileBytes + i, 0xff);
+	for (unsigned short i = 0; i < tileMapBytes; i++) MemoryMap.WriteByte(windowTileMap + i, 1);
 
 	MemoryMap.WriteByte(RegBgScrollY, 0);
 	MemoryMap.WriteByte(RegBgScrollX, 0);
-	MemoryMap.WriteByte(RegBgWinPalette, 0xe4);
+	MemoryMap.WriteByte(RegBgWinPalette, identityPalette);
 	MemoryMap.WriteByte(RegWindowY, 0);
-	MemoryMap.WriteByte(RegWindowX, 87);	// Window's left edge at x = WX - 7 = 80
+	MemoryMap.WriteByte(RegWindowX, windowLeftEdge + 7);	// WX is offset by 7 on the hardware
 
 	// Display, window (map 0x9c00), tile data at 0x8000, background
 	MemoryMap.WriteByte(RegLcdControl, 0x80 | 0x40 | 0x20 | 0x10 | 0x01);
@@ -109,6 +117,6 @@ TEST_F(GraphicsTestFixture, WindowDrawnFromWindowXPosition)
 
 	for (auto x = 0; x < Graphics::HozPixels; x++)
 	{
-		EXPECT_EQ(x < 80 ? background : window, Graphics.Bitmap[x]) << "at x = " << x;
+		EXPECT_EQ(x < windowLeftEdge ? background : window, Graphics.Bitmap[x]) << "at x = " << x;
 	}
 }
