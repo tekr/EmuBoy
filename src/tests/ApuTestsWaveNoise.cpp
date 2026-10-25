@@ -27,6 +27,20 @@ namespace
 
 		h.LoadWave(bytes);
 	}
+
+	// Timer period (2048 - 2016) * 2 = 64 T-cycles
+	const int PatternFrequency = 2016;
+
+	// Call half a timer period after a trigger. Sample k is taken after k expiries and must be pattern sample k % 32:
+	// the first expiry moves to position 1 (spec 4.2 "Trigger behaviour").
+	void ExpectPatternSamples(ApuHarness& h, int samples)
+	{
+		for (int k = 1; k <= samples; k++)
+		{
+			h.Run(64);
+			ASSERT_EQ(PatternSample(k % 32), h.Out(3)) << "sample " << k;
+		}
+	}
 }
 
 class ApuWavePeriodTests : public ::testing::TestWithParam<int>
@@ -54,20 +68,14 @@ INSTANTIATE_TEST_CASE_P(ApuWave, ApuWavePeriodTests, ::testing::Values(0, 1, 102
 
 TEST(ApuWaveTests, PlaysSamplesInOrderHighNibbleFirstFromPositionOne)
 {
-	// Frequency 2016 gives a period of (2048 - 2016) * 2 = 64 T-cycles. Sample k is taken after k expiries
-	// and must be sample (k % 32): the first expiry moves to position 1 (spec 4.2 "Trigger behaviour").
 	ApuHarness h;
 	LoadPatternWave(h);
-	h.StartWave(1, 2016);
+	h.StartWave(1, PatternFrequency);
 
 	h.Run(32);
 	EXPECT_EQ(0, h.Out(3)); // buffer is cleared by power-on and not refilled by the trigger
 
-	for (int k = 1; k <= 64; k++)
-	{
-		h.Run(64);
-		ASSERT_EQ(PatternSample(k % 32), h.Out(3)) << "sample " << k;
-	}
+	ExpectPatternSamples(h, 64);
 }
 
 TEST(ApuWaveTests, SampleZeroIsSkippedUntilThePositionWraps)
@@ -104,20 +112,16 @@ TEST(ApuWaveTests, RetriggerAfterStoppingRestartsFromPositionOne)
 {
 	ApuHarness h;
 	LoadPatternWave(h);
-	h.StartWave(1, 2016);
+	h.StartWave(1, PatternFrequency);
 	h.Run(32 + 5 * 64); // position 5
 	h.Write(Nr30, 0x00);
 	ASSERT_FALSE(h.Active(3));
 
-	h.StartWave(1, 2016);
+	h.StartWave(1, PatternFrequency);
 	ASSERT_TRUE(h.Active(3));
 	h.Run(32);
 
-	for (int k = 1; k <= 40; k++)
-	{
-		h.Run(64);
-		ASSERT_EQ(PatternSample(k % 32), h.Out(3)) << "sample " << k;
-	}
+	ExpectPatternSamples(h, 40);
 }
 
 class ApuWaveVolumeTests : public ::testing::TestWithParam<int>
@@ -227,6 +231,28 @@ namespace
 
 		return false;
 	}
+
+	// Divisor code 1 and shift 3 give an LFSR period of 128 T-cycles. Call right after a trigger: samples the middle
+	// of each period and expects the output to follow LfsrModel, with more than `minimumOnes` ones so the comparison
+	// is not vacuous.
+	void ExpectOutputFollowsTheLfsrModel(ApuHarness& h, bool narrow, int steps, int minimumOnes)
+	{
+		LfsrModel model(narrow);
+		int ones = 0;
+
+		h.Run(64);
+		ASSERT_EQ(0, h.Out(4));
+
+		for (int step = 1; step <= steps; step++)
+		{
+			h.Run(128);
+			model.Step();
+			ones += model.Output() > 0 ? 1 : 0;
+			ASSERT_EQ(model.Output(), h.Out(4)) << "step " << step;
+		}
+
+		ASSERT_GT(ones, minimumOnes);
+	}
 }
 
 class ApuNoiseDivisorTests : public ::testing::TestWithParam<int>
@@ -253,24 +279,10 @@ INSTANTIATE_TEST_CASE_P(ApuNoise, ApuNoiseShiftTests, ::testing::Values(0, 1, 3,
 
 TEST(ApuNoiseTests, FifteenBitLfsrFollowsTheSpecifiedSequence)
 {
-	// divisor code 1, shift 3 -> period 128; sample in the middle of each period
 	ApuHarness h;
 	h.StartNoise(3, false, 1);
-	LfsrModel model(false);
-	int ones = 0;
 
-	h.Run(64);
-	ASSERT_EQ(0, h.Out(4));
-
-	for (int step = 1; step <= 400; step++)
-	{
-		h.Run(128);
-		model.Step();
-		ones += model.Output() > 0 ? 1 : 0;
-		ASSERT_EQ(model.Output(), h.Out(4)) << "step " << step;
-	}
-
-	ASSERT_GT(ones, 20); // the comparison was not vacuous
+	ExpectOutputFollowsTheLfsrModel(h, false, 400, 20);
 }
 
 TEST(ApuNoiseTests, SevenBitLfsrFollowsTheSpecifiedSequence)
@@ -278,21 +290,8 @@ TEST(ApuNoiseTests, SevenBitLfsrFollowsTheSpecifiedSequence)
 	// 400 steps cover more than three full 127-step periods
 	ApuHarness h;
 	h.StartNoise(3, true, 1);
-	LfsrModel model(true);
-	int ones = 0;
 
-	h.Run(64);
-	ASSERT_EQ(0, h.Out(4));
-
-	for (int step = 1; step <= 400; step++)
-	{
-		h.Run(128);
-		model.Step();
-		ones += model.Output() > 0 ? 1 : 0;
-		ASSERT_EQ(model.Output(), h.Out(4)) << "step " << step;
-	}
-
-	ASSERT_GT(ones, 20);
+	ExpectOutputFollowsTheLfsrModel(h, true, 400, 20);
 }
 
 TEST(ApuNoiseTests, TriggerResetsTheLfsr)
@@ -302,16 +301,8 @@ TEST(ApuNoiseTests, TriggerResetsTheLfsr)
 	h.Run(64 + 100 * 128);
 
 	h.StartNoise(3, false, 1);
-	LfsrModel model(false);
-	h.Run(64);
-	ASSERT_EQ(0, h.Out(4));
 
-	for (int step = 1; step <= 80; step++)
-	{
-		h.Run(128);
-		model.Step();
-		ASSERT_EQ(model.Output(), h.Out(4)) << "step " << step;
-	}
+	ExpectOutputFollowsTheLfsrModel(h, false, 80, 0);
 }
 
 TEST(ApuNoiseTests, ClockShiftOf14ReceivesNoClocks)
