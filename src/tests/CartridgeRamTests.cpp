@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include <gtest/gtest.h>
 #include "../core/CartridgeFactory.h"
+#include <cstdio>
 
 namespace
 {
@@ -26,6 +27,22 @@ namespace
 		// MBC1 only switches RAM banks in its 4 Mb ROM mode
 		cartridge.RomWriteByte(0x6000, 0x01);
 		cartridge.RomWriteByte(0x4000, bank);
+	}
+
+	bool RamBankKeepsWrittenValue(Cartridge& cartridge, unsigned char bank)
+	{
+		EnableRam(cartridge);
+		SelectRamBank(cartridge, bank);
+		cartridge.RamWriteByte(0x0000, 0x56);
+		return cartridge.RamReadByte(0x0000) == 0x56;
+	}
+
+	const char* const RomFilePath = "CartridgeRamTests.gb";
+
+	void WriteRomFile(const std::vector<unsigned char>& rom)
+	{
+		std::ofstream ofs(RomFilePath, std::ios::binary);
+		ofs.write(reinterpret_cast<const char*>(rom.data()), rom.size());
 	}
 }
 
@@ -83,4 +100,30 @@ TEST(CartridgeRamSizeTest, BankBeyondCartridgeRamReadsFfAndIgnoresWrites)
 
 	SelectRamBank(cartridge, 0);
 	EXPECT_EQ(0x12, cartridge.RamReadByte(0x0000));
+}
+
+TEST(CartridgeRamSizeTest, LoadFromFileSizesRamFromHeader)
+{
+	WriteRomFile(RomWithRamSizeCode(3));
+	auto cartridge = CartridgeFactory::LoadFromFile(RomFilePath);
+	std::remove(RomFilePath);
+
+	ASSERT_NE(nullptr, cartridge);
+	EXPECT_TRUE(RamBankKeepsWrittenValue(*cartridge, 3));
+}
+
+TEST(CartridgeRamSizeTest, LoadFromFileWithRamBanksIgnoresHeader)
+{
+	WriteRomFile(RomWithRamSizeCode(3));
+	auto cartridge = CartridgeFactory::LoadFromFile(RomFilePath, 1);
+	std::remove(RomFilePath);
+
+	ASSERT_NE(nullptr, cartridge);
+	EXPECT_FALSE(RamBankKeepsWrittenValue(*cartridge, 3));
+}
+
+TEST(CartridgeRamSizeTest, LoadFromMissingFileIsNull)
+{
+	EXPECT_EQ(nullptr, CartridgeFactory::LoadFromFile("missing.gb"));
+	EXPECT_EQ(nullptr, CartridgeFactory::LoadFromFile("missing.gb", 1));
 }
