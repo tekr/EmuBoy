@@ -59,6 +59,7 @@ TEST_P(ApuRegisterMaskTests, ReadsOnlyTheMaskAfterPowerOff)
 
 TEST_P(ApuRegisterMaskTests, IgnoresWritesWhilePoweredOff)
 {
+	// e.g. NR11 = $FF while off still reads $3F (blargg 01-registers #6)
 	ApuHarness h(false);
 	auto address = static_cast<unsigned short>(GetParam());
 	int values[] = { 0xff, 0x55, 0xaa, 0x00 };
@@ -313,15 +314,6 @@ TEST(ApuPowerTests, WaveRamSurvivesAPowerCycle)
 	{
 		EXPECT_EQ((0x3c ^ (i * 17)) & 0xff, h.Read(static_cast<unsigned short>(WaveRam + i))) << "byte " << i;
 	}
-}
-
-TEST(ApuPowerTests, Nr11WrittenWhilePoweredOffKeepsOnlyTheLengthBits)
-{
-	// blargg 01-registers #6: writing $FF while off leaves NR11 reading $3F
-	ApuHarness h(false);
-	h.Write(Nr11, 0xff);
-
-	EXPECT_EQ(0x3f, h.Read(Nr11));
 }
 
 // Length counters are unaffected by power and writable while off on DMG (spec 2.1, 10.3; blargg 08, 11 #4).
