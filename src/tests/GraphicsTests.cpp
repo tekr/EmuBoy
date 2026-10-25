@@ -86,8 +86,8 @@ TEST_F(GraphicsTestFixture, WindowDrawnFromWindowXPosition)
 {
 	const unsigned short tileBytes = 16;
 	const unsigned short tileMapBytes = 32 * 32;
-	const unsigned short backgroundTileMap = 0x9800;
-	const unsigned short windowTileMap = 0x9c00;
+	const unsigned short backgroundTileMap = MemoryMap::RamVideo + TestGraphics::TileMapBase1;
+	const unsigned short windowTileMap = MemoryMap::RamVideo + TestGraphics::TileMapBase2;
 	const unsigned char identityPalette = 0xe4;
 	const unsigned char backgroundTile = 0;
 	const unsigned char windowTile = 1;

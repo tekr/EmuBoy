@@ -21,6 +21,9 @@ public:
 	using Graphics::RegWindowX;
 	using Graphics::RegisterBlockSize;
 
+	using Graphics::TileMapBase1;
+	using Graphics::TileMapBase2;
+
 	TestGraphics(Cpu& cpu, MemoryMap& memoryMap, SpriteManager& spriteManager) : Graphics(cpu, memoryMap, spriteManager)
 	{
 	}
