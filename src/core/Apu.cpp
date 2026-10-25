@@ -424,6 +424,23 @@ void Apu::PowerOff()
 	_powered = false;
 }
 
+void Apu::StepChannel(int channel)
+{
+	switch (channel)
+	{
+	case Ch1:
+	case Ch2:
+		StepSquare(channel);
+		break;
+	case Ch3:
+		StepWave();
+		break;
+	default:
+		StepNoise();
+		break;
+	}
+}
+
 void Apu::StepSquare(int index)
 {
 	auto& square = _square[index];
@@ -534,18 +551,12 @@ int Apu::CyclesToNextEvent()
 	auto cycles = std::min(FrameSequencerPeriod - (_divider & (FrameSequencerPeriod - 1)),
 		(CpuClockHz - _samplePhase + _sampleRate - 1) / _sampleRate);
 
-	for (auto& square : _square)
-	{
-		if (square.Active) cycles = std::min(cycles, square.Timer);
-	}
+	// NR43 may have moved the LFSR out of its stopped state since the timer was last loaded
+	if (NoiseRunning() && _noise.Timer <= 0) _noise.Timer = NoisePeriod();
 
-	if (_wave.Active) cycles = std::min(cycles, _wave.Timer);
-
-	if (NoiseRunning())
+	for (auto i = 0; i < ChannelCount; i++)
 	{
-		// NR43 may have moved the LFSR out of its stopped state since the timer was last loaded
-		if (_noise.Timer <= 0) _noise.Timer = NoisePeriod();
-		cycles = std::min(cycles, _noise.Timer);
+		if (TimerRunning(i)) cycles = std::min(cycles, GetChannel(i).Timer);
 	}
 
 	return cycles;
@@ -558,13 +569,10 @@ void Apu::Advance(int cycles)
 	_sumRight += static_cast<long long>(_mixRight) * cycles;
 	_sampleCycles += cycles;
 
-	for (auto& square : _square)
+	for (auto i = 0; i < ChannelCount; i++)
 	{
-		if (square.Active) square.Timer -= cycles;
+		if (TimerRunning(i)) GetChannel(i).Timer -= cycles;
 	}
-
-	if (_wave.Active) _wave.Timer -= cycles;
-	if (NoiseRunning()) _noise.Timer -= cycles;
 
 	_wave.JustRead = false;
 	_divider = static_cast<unsigned short>(_divider + cycles);
@@ -599,25 +607,13 @@ void Apu::RunEvents(int cycles)
 		cycles -= run;
 
 		auto changed = false;
-		for (auto i = Ch1; i <= Ch2; i++)
+		for (auto i = 0; i < ChannelCount; i++)
 		{
-			if (_square[i].Active && _square[i].Timer == 0)
+			if (TimerRunning(i) && GetChannel(i).Timer == 0)
 			{
-				StepSquare(i);
+				StepChannel(i);
 				changed = true;
 			}
-		}
-
-		if (_wave.Active && _wave.Timer == 0)
-		{
-			StepWave();
-			changed = true;
-		}
-
-		if (NoiseRunning() && _noise.Timer == 0)
-		{
-			StepNoise();
-			changed = true;
 		}
 
 		if ((_divider & (FrameSequencerPeriod - 1)) == 0) FrameSequencerEvent();

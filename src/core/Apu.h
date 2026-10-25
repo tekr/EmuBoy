@@ -141,6 +141,9 @@ private:
 	bool WaveRamAccessible() const { return !_wave.Active || (_wave.JustRead && _pendingCycles == 0); }
 	bool NoiseRunning() const { return _noise.Active && NoisePeriod() > 0; }
 	Channel& GetChannel(int index);
+
+	// Whether the channel's period timer is counting down; a stopped LFSR doesn't count
+	bool TimerRunning(int channel) { return channel == Ch4 ? NoiseRunning() : GetChannel(channel).Active; }
 	int& Frequency(int channel) { return channel == Ch3 ? _wave.Frequency : _square[channel].Frequency; }
 	int NoisePeriod() const;
 	int SweepPace() const { return (_registers[Nr10] >> 4) & 7; }
@@ -163,6 +166,7 @@ private:
 	int SweepCalculate();
 	void ClockSweep();
 	void FrameSequencerEvent();
+	void StepChannel(int channel);
 	void StepSquare(int index);
 	void StepWave();
 	void StepNoise();
