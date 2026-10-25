@@ -21,6 +21,9 @@ struct Envelope
 	bool Increase = false;
 	bool Running = false;
 
+	// A period of 0 counts as 8 for the timer, though the volume then never changes
+	int TimerPeriod() const { return Period ? Period : 8; }
+
 	void Trigger(unsigned char nrx2, bool nextStepClocksEnvelope);
 	void Clock();
 	void ZombieWrite(unsigned char oldNrx2, unsigned char newNrx2);
@@ -130,13 +133,16 @@ private:
 	int _pendingCycles = 0;
 	int _cyclesToEvent = 0;
 
-	bool SquareDacOn(int index) const { return (_registers[Nr12 + index * RegistersPerChannel] & 0xf8) != 0; }
-	bool WaveDacOn() const { return (_registers[Nr30] & 0x80) != 0; }
-	bool NoiseDacOn() const { return (_registers[Nr42] & 0xf8) != 0; }
+	bool DacOn(int channel) const;
+	int PlayingWaveByte() const { return WaveRam + (_wave.Position >> 1); }
 	bool WaveRamAccessible() const { return !_wave.Active || (_wave.JustRead && _pendingCycles == 0); }
 	bool NoiseRunning() const { return _noise.Active && NoisePeriod() > 0; }
 	Channel& GetChannel(int index);
 	int NoisePeriod() const;
+	int SweepPace() const { return (_registers[Nr10] >> 4) & 7; }
+	int SweepShift() const { return _registers[Nr10] & 7; }
+	int SweepTimerPeriod() const;
+	static int MaxLength(int channel) { return channel == Ch3 ? 256 : 64; }
 
 	int CyclesToNextEvent();
 	void Advance(int cycles);
@@ -144,6 +150,7 @@ private:
 	void RunEvents(int cycles);
 	void Write(int reg, unsigned char value);
 	void PowerOff();
+	void WriteLength(int channel, unsigned char value);
 	void WriteNrx4(int channel, unsigned char value);
 	void TriggerSquare(int index);
 	void TriggerWave();
