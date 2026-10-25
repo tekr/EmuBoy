@@ -9,7 +9,6 @@ class CartridgeFactory
 public:
 	static const size_t RamSizeHeaderOffset = 0x149;
 
-	// For LoadFromFile's ramBanks; any negative value means the same
 	static const int RamSizeFromHeader = -1;
 
 	static int RamBanksFromHeader(const std::vector<unsigned char>& rom)
@@ -23,6 +22,7 @@ public:
 		return sizeCode < ramBanksBySizeCode.size() ? ramBanksBySizeCode[sizeCode] : 0;
 	}
 
+	// A negative ramBanks, such as RamSizeFromHeader, sizes RAM from the cartridge header
 	static std::shared_ptr<Cartridge> LoadFromFile(std::string filePath, int ramBanks)
 	{
 		std::ifstream ifs(filePath, std::ios::binary | std::ios::ate);
