@@ -138,6 +138,7 @@ private:
 	bool WaveRamAccessible() const { return !_wave.Active || (_wave.JustRead && _pendingCycles == 0); }
 	bool NoiseRunning() const { return _noise.Active && NoisePeriod() > 0; }
 	Channel& GetChannel(int index);
+	int& Frequency(int channel) { return channel == Ch3 ? _wave.Frequency : _square[channel].Frequency; }
 	int NoisePeriod() const;
 	int SweepPace() const { return (_registers[Nr10] >> 4) & 7; }
 	int SweepShift() const { return _registers[Nr10] & 7; }
