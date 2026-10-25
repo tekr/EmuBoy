@@ -92,19 +92,22 @@ TEST_F(GraphicsTestFixture, WindowDrawnFromWindowXPosition)
 	const unsigned short tileMapBytes = 32 * 32;
 	const unsigned short windowTileMap = 0x9c00;
 	const unsigned char identityPalette = 0xe4;
+	const unsigned char windowTile = 1;
+	const unsigned char allPixelsColour3 = 0xff;
 	const auto windowLeftEdge = 80;
+	const auto windowXOffset = 7;
 
-	// Background uses tile 0 (all colour 0) from map 0x9800. Window uses tile 1 (all colour 3) from windowTileMap
-	for (unsigned short i = 0; i < tileBytes; i++) MemoryMap.WriteByte(MemoryMap::RamVideo + tileBytes + i, 0xff);
-	for (unsigned short i = 0; i < tileMapBytes; i++) MemoryMap.WriteByte(windowTileMap + i, 1);
+	// Background is left as tile 0 (all colour 0) in map 0x9800
+	for (unsigned short i = 0; i < tileBytes; i++) MemoryMap.WriteByte(MemoryMap::RamVideo + windowTile * tileBytes + i, allPixelsColour3);
+	for (unsigned short i = 0; i < tileMapBytes; i++) MemoryMap.WriteByte(windowTileMap + i, windowTile);
 
 	MemoryMap.WriteByte(RegBgScrollY, 0);
 	MemoryMap.WriteByte(RegBgScrollX, 0);
 	MemoryMap.WriteByte(RegBgWinPalette, identityPalette);
 	MemoryMap.WriteByte(RegWindowY, 0);
-	MemoryMap.WriteByte(RegWindowX, windowLeftEdge + 7);	// WX is offset by 7 on the hardware
+	MemoryMap.WriteByte(RegWindowX, windowLeftEdge + windowXOffset);
 
-	// Display, window (map 0x9c00), tile data at 0x8000, background
+	// Display, window (map at windowTileMap), tile data at RamVideo, background
 	MemoryMap.WriteByte(RegLcdControl, 0x80 | 0x40 | 0x20 | 0x10 | 0x01);
 
 	Graphics.ResetFrame();
