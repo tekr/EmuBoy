@@ -6,7 +6,7 @@
 
 using namespace ApuTest;
 
-// Spec references are to gb-apu-spec.md (section 9: mixing and output).
+// Mixing and output (spec 9).
 //
 // Most tests use channel 3 playing a constant maximum sample (all wave RAM nibbles 15, 100% volume, fastest
 // frequency), with channels 1, 2 and 4 off. That gives a constant DC level on whichever sides NR51 routes it to,

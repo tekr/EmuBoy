@@ -4,8 +4,6 @@
 
 using namespace ApuTest;
 
-// Spec references are to gb-apu-spec.md (sections "1.2", "2.1", ...).
-
 // ---- Register read-back masks (spec 1.2) ----
 
 namespace

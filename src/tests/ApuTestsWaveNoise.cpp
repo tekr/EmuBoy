@@ -4,8 +4,6 @@
 
 using namespace ApuTest;
 
-// Spec references are to gb-apu-spec.md.
-
 // ---- Wave channel (spec 4.2) ----
 
 namespace
