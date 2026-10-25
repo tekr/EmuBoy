@@ -21,7 +21,7 @@ TEST_P(BlarggSoundTest, Passes)
 	Emulator emulator{ cartridge };
 	auto& memory = emulator.GetMemoryMap();
 
-	const auto maxFrames = 60 * 60;
+	const auto maxFrames = 60 * 60; // a minute of emulated time
 
 	for (auto frame = 0; frame < maxFrames; frame++)
 	{
@@ -30,10 +30,10 @@ TEST_P(BlarggSoundTest, Passes)
 		// The ROM may leave cartridge RAM disabled; enable it so the results can be read
 		memory.WriteByte(0x0000, 0x0a);
 
-		auto signed_ = memory.ReadByte(0xa001) == 0xde && memory.ReadByte(0xa002) == 0xb0 && memory.ReadByte(0xa003) == 0x61;
+		auto hasSignature = memory.ReadByte(0xa001) == 0xde && memory.ReadByte(0xa002) == 0xb0 && memory.ReadByte(0xa003) == 0x61;
 		auto status = memory.ReadByte(0xa000);
 
-		if (signed_ && status != 0x80)
+		if (hasSignature && status != 0x80)
 		{
 			std::string text;
 			for (unsigned short address = 0xa004; address < 0xc000 && memory.ReadByte(address) != 0; address++)
