@@ -67,10 +67,10 @@ namespace ApuTest
 	{
 		static const unsigned short registers[4][4] =
 		{
-			{ 0xff11, 0xff12, 0xff13, 0xff14 },
-			{ 0xff16, 0xff17, 0xff18, 0xff19 },
-			{ 0xff1b, 0xff1c, 0xff1d, 0xff1e },
-			{ 0xff20, 0xff21, 0xff22, 0xff23 }
+			{ Nr11, Nr12, Nr13, Nr14 },
+			{ Nr21, Nr22, Nr23, Nr24 },
+			{ Nr31, Nr32, Nr33, Nr34 },
+			{ Nr41, Nr42, Nr43, Nr44 }
 		};
 
 		return registers[channel - 1][index - 1];
