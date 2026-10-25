@@ -13,6 +13,13 @@ public:
 	using Graphics::SpritesEnabled;
 	using Graphics::GetTileOffset;
 
+	using Graphics::RegLcdControl;
+	using Graphics::RegBgScrollY;
+	using Graphics::RegBgScrollX;
+	using Graphics::RegBgWinPalette;
+	using Graphics::RegWindowY;
+	using Graphics::RegWindowX;
+
 	TestGraphics(Cpu& cpu, MemoryMap& memoryMap, SpriteManager& spriteManager) : Graphics(cpu, memoryMap, spriteManager)
 	{
 	}

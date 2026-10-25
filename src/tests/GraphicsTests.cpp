@@ -2,6 +2,7 @@
 #include "stdafx.h"
 #include <gtest/gtest.h>
 #include "GraphicsTestFixture.h"
+#include "TestGraphics.h"
 #include "../core/CartridgeFactory.h"
 
 void RunCpu(Cpu& cpu, int& currentCycle, int cycleTarget)
@@ -66,24 +67,16 @@ TEST_F(GraphicsTestFixture, RunInternalRom)
 	}
 }
 
-// Graphics registers as mapped into memory
-const unsigned short RegLcdControl = 0xff40;
-const unsigned short RegBgScrollY = 0xff42;
-const unsigned short RegBgScrollX = 0xff43;
-const unsigned short RegBgWinPalette = 0xff47;
-const unsigned short RegWindowY = 0xff4a;
-const unsigned short RegWindowX = 0xff4b;
-
 TEST_F(GraphicsTestFixture, WindowXRegisterKeepsWrittenValue)
 {
 	const unsigned char windowX = 0x57;
 
 	Graphics.ResetFrame();
-	MemoryMap.WriteByte(RegWindowX, windowX);
+	MemoryMap.WriteByte(MemoryMap::VramRegisters + TestGraphics::RegWindowX, windowX);
 
 	for (auto i = 0; i < 3; i++) Graphics.RenderLine();
 
-	EXPECT_EQ(windowX, MemoryMap.ReadByte(RegWindowX));
+	EXPECT_EQ(windowX, MemoryMap.ReadByte(MemoryMap::VramRegisters + TestGraphics::RegWindowX));
 }
 
 TEST_F(GraphicsTestFixture, WindowDrawnFromWindowXPosition)
@@ -101,14 +94,14 @@ TEST_F(GraphicsTestFixture, WindowDrawnFromWindowXPosition)
 	for (unsigned short i = 0; i < tileBytes; i++) MemoryMap.WriteByte(MemoryMap::RamVideo + windowTile * tileBytes + i, allPixelsColour3);
 	for (unsigned short i = 0; i < tileMapBytes; i++) MemoryMap.WriteByte(windowTileMap + i, windowTile);
 
-	MemoryMap.WriteByte(RegBgScrollY, 0);
-	MemoryMap.WriteByte(RegBgScrollX, 0);
-	MemoryMap.WriteByte(RegBgWinPalette, identityPalette);
-	MemoryMap.WriteByte(RegWindowY, 0);
-	MemoryMap.WriteByte(RegWindowX, windowLeftEdge + windowXOffset);
+	MemoryMap.WriteByte(MemoryMap::VramRegisters + TestGraphics::RegBgScrollY, 0);
+	MemoryMap.WriteByte(MemoryMap::VramRegisters + TestGraphics::RegBgScrollX, 0);
+	MemoryMap.WriteByte(MemoryMap::VramRegisters + TestGraphics::RegBgWinPalette, identityPalette);
+	MemoryMap.WriteByte(MemoryMap::VramRegisters + TestGraphics::RegWindowY, 0);
+	MemoryMap.WriteByte(MemoryMap::VramRegisters + TestGraphics::RegWindowX, windowLeftEdge + windowXOffset);
 
 	// Display, window (map at windowTileMap), tile data at RamVideo, background
-	MemoryMap.WriteByte(RegLcdControl, 0x80 | 0x40 | 0x20 | 0x10 | 0x01);
+	MemoryMap.WriteByte(MemoryMap::VramRegisters + TestGraphics::RegLcdControl, 0x80 | 0x40 | 0x20 | 0x10 | 0x01);
 
 	Graphics.ResetFrame();
 	Graphics.RenderLine();
