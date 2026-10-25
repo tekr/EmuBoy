@@ -9,6 +9,9 @@ class CartridgeFactory
 public:
 	static const size_t RamSizeHeaderOffset = 0x149;
 
+	// For LoadFromFile's ramBanks; any negative value means the same
+	static const int RamSizeFromHeader = -1;
+
 	static int RamBanksFromHeader(const std::vector<unsigned char>& rom)
 	{
 		// 8 KB banks per RAM size code. Code 1 (2 KB) still needs a whole bank, and code 5 (64 KB) is smaller than code 4 (128 KB)
@@ -20,7 +23,6 @@ public:
 		return sizeCode < ramBanksBySizeCode.size() ? ramBanksBySizeCode[sizeCode] : 0;
 	}
 
-	// ramBanks < 0 takes the RAM size from the cartridge header
 	static std::shared_ptr<Cartridge> LoadFromFile(std::string filePath, int ramBanks)
 	{
 		std::ifstream ifs(filePath, std::ios::binary | std::ios::ate);
