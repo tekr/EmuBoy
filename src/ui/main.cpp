@@ -91,7 +91,7 @@ int main(int argc, char* argv[])
 			frameTexture.update(reinterpret_cast<sf::Uint8*>(frame));
 			screen.draw(frameSprite);
 			screen.display();
-			if (record) record.write(reinterpret_cast<char*>(frame), Graphics::HozPixels * Graphics::VertPixels * 4);
+			if (record) record.write(reinterpret_cast<char*>(frame), Graphics::HozPixels * Graphics::VertPixels * sizeof(*frame));
 
 			emulator.TakeAudioSamples(samples);
 			audio.Push(samples);
