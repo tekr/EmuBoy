@@ -237,13 +237,13 @@ void Apu::WriteNrx4(int channel, unsigned char value)
 	auto& ch = GetChannel(channel);
 	auto trigger = (value & 0x80) != 0;
 
-	// In the first half of a length period (the next frame step doesn't clock length), enabling length clocks it
-	// once, and a trigger that reloads a zero length loads one less than the maximum (gbdev wiki, Obscure Behavior)
-	auto firstHalf = (_frameStep & 1) != 0;
+	// When the next frame step doesn't clock length, enabling length clocks it once, and a trigger that reloads a
+	// zero length loads one less than the maximum (gbdev wiki, Obscure Behavior)
+	auto nextStepSkipsLength = (_frameStep & 1) != 0;
 	auto wasEnabled = ch.Length.Enabled;
 	ch.Length.Enabled = (value & 0x40) != 0;
 
-	if (firstHalf && !wasEnabled && ch.Length.Enabled && ch.Length.Counter > 0 && --ch.Length.Counter == 0 && !trigger)
+	if (nextStepSkipsLength && !wasEnabled && ch.Length.Enabled && ch.Length.Counter > 0 && --ch.Length.Counter == 0 && !trigger)
 	{
 		ch.Active = false;
 	}
@@ -253,7 +253,7 @@ void Apu::WriteNrx4(int channel, unsigned char value)
 	if (ch.Length.Counter == 0)
 	{
 		ch.Length.Counter = MaxLength(channel);
-		if (firstHalf && ch.Length.Enabled) ch.Length.Counter--;
+		if (nextStepSkipsLength && ch.Length.Enabled) ch.Length.Counter--;
 	}
 
 	if (channel <= Ch2) TriggerSquare(channel);
@@ -591,7 +591,6 @@ void Apu::RunEvents(int cycles)
 		auto run = CyclesToNextEvent();
 		if (cycles < run)
 		{
-			// The rest ends before the next event
 			_pendingCycles = cycles;
 			_cyclesToEvent = run;
 			return;

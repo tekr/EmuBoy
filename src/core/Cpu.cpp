@@ -6,7 +6,7 @@
 #include <stdexcept>
 
 #ifndef _MSC_VER
-// MSVC intrinsics used by the rotate instructions
+// Stand-ins for the MSVC intrinsics the rotate instructions use
 static unsigned char _rotl8(unsigned char value, unsigned char shift)
 {
 	shift &= 7;
