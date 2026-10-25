@@ -322,3 +322,65 @@ TEST(ApuNoiseTests, ClockShiftOf12DoesClockTheLfsr)
 	// control for the two tests above: shift 12 (period 32768) turns the output on at the 15th clock (~492k)
 	EXPECT_TRUE(EverNonZero(12, 700000, 4096));
 }
+
+// The tests above start with shift 14 or 15. Here the shift is changed while the channel is already running with a
+// fast, changing LFSR, and the output must freeze.
+
+namespace
+{
+	// Samples ChannelOutput(4) every 8 cycles for `count` samples; true if any differs from the first
+	bool OutputChanges(ApuHarness& h, int count)
+	{
+		int first = h.Out(4);
+
+		for (int i = 0; i < count; i++)
+		{
+			h.Run(8);
+
+			if (h.Out(4) != first)
+			{
+				return true;
+			}
+		}
+
+		return false;
+	}
+}
+
+TEST(ApuNoiseTests, FastLfsrKeepsChangingWithShiftZero)
+{
+	// control: the same scenario without the shift write
+	ApuHarness h;
+	h.StartNoise(0, false, 0);
+	h.Run(8 * 400);
+
+	EXPECT_TRUE(OutputChanges(h, 2000));
+}
+
+class ApuNoiseFreezeTests : public ::testing::TestWithParam<int>
+{
+};
+
+TEST_P(ApuNoiseFreezeTests, ChangingTheShiftTo14Or15StopsTheLfsr)
+{
+	ApuHarness h;
+	h.StartNoise(0, false, 0);
+	h.Run(8 * 400);
+
+	h.Write(Nr43, GetParam() << 4);
+	h.Run(64); // let any clock that was already due happen
+
+	EXPECT_FALSE(OutputChanges(h, 2000));
+}
+
+TEST_P(ApuNoiseFreezeTests, TheChannelStaysEnabledWhileFrozen)
+{
+	ApuHarness h;
+	h.StartNoise(0, false, 0);
+	h.Write(Nr43, GetParam() << 4);
+	h.Run(100000);
+
+	EXPECT_TRUE(h.Active(4));
+}
+
+INSTANTIATE_TEST_CASE_P(ApuNoise, ApuNoiseFreezeTests, ::testing::Values(14, 15));
