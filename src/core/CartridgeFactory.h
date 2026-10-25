@@ -1,16 +1,23 @@
 #pragma once
 #include "Cartridge.h"
+#include <array>
 #include <fstream>
 #include <memory>
 
 class CartridgeFactory
 {
 public:
-	// Number of 8 KB RAM banks for each value of the cartridge header's RAM size byte (0x149)
+	static const size_t RamSizeHeaderOffset = 0x149;
+
 	static int RamBanksFromHeader(const std::vector<unsigned char>& rom)
 	{
-		static const int banks[] = { 0, 1, 1, 4, 16, 8 };
-		return rom.size() > 0x149 && rom[0x149] < 6 ? banks[rom[0x149]] : 0;
+		// 8 KB banks per RAM size code. Code 1 (2 KB) still needs a whole bank, and code 5 (64 KB) is smaller than code 4 (128 KB)
+		static const std::array<int, 6> ramBanksBySizeCode{ { 0, 1, 1, 4, 16, 8 } };
+
+		if (rom.size() <= RamSizeHeaderOffset) return 0;
+
+		auto sizeCode = rom[RamSizeHeaderOffset];
+		return sizeCode < ramBanksBySizeCode.size() ? ramBanksBySizeCode[sizeCode] : 0;
 	}
 
 	// ramBanks < 0 takes the RAM size from the cartridge header
