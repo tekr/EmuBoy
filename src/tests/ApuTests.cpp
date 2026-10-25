@@ -342,10 +342,7 @@ TEST_P(ApuPowerLengthTests, LengthWrittenWhilePoweredOffIsUsedAfterPowerOn)
 	h.Trigger(channel, true);
 	ASSERT_TRUE(h.Active(channel));
 
-	h.RunTo(8191);
-	EXPECT_TRUE(h.Active(channel));
-	h.RunTo(8192);
-	EXPECT_FALSE(h.Active(channel));
+	h.ExpectTurnsOffAt(channel, 8192);
 }
 
 TEST_P(ApuPowerLengthTests, LengthLoadedBeforePowerOffSurvivesAPowerCycle)
@@ -359,10 +356,7 @@ TEST_P(ApuPowerLengthTests, LengthLoadedBeforePowerOffSurvivesAPowerCycle)
 	h.EnableDac(channel);
 	h.Trigger(channel, true);
 
-	h.RunTo(8191);
-	EXPECT_TRUE(h.Active(channel));
-	h.RunTo(8192);
-	EXPECT_FALSE(h.Active(channel));
+	h.ExpectTurnsOffAt(channel, 8192);
 }
 
 TEST_P(ApuPowerLengthTests, LengthCountersAreNotClockedWhilePoweredOff)
@@ -387,10 +381,7 @@ TEST_P(ApuPowerLengthTests, LengthCountersAreNotClockedWhilePoweredOff)
 
 	// Next event is at the next multiple of 8192 after 108192 (= 13 * 8192 + 1696)
 	long long nextEvent = 14 * 8192;
-	h.RunTo(nextEvent - 1);
-	EXPECT_TRUE(h.Active(channel));
-	h.RunTo(nextEvent);
-	EXPECT_FALSE(h.Active(channel));
+	h.ExpectTurnsOffAt(channel, nextEvent);
 }
 
 INSTANTIATE_TEST_CASE_P(ApuChannels, ApuPowerLengthTests, ::testing::Range(1, 5));
@@ -404,10 +395,7 @@ TEST(ApuDividerTests, FirstFrameSequencerEventIsOneFullPeriodAfterADividerReset)
 	h.SetLength(1, 1);
 	h.Trigger(1, true);
 
-	h.RunTo(8191);
-	EXPECT_TRUE(h.Active(1));
-	h.RunTo(8192);
-	EXPECT_FALSE(h.Active(1));
+	h.ExpectTurnsOffAt(1, 8192);
 }
 
 TEST(ApuDividerTests, ResettingTheDividerWithBit12ClearRestartsThePeriod)
@@ -420,10 +408,7 @@ TEST(ApuDividerTests, ResettingTheDividerWithBit12ClearRestartsThePeriod)
 	h.ResetDivider();
 
 	ASSERT_TRUE(h.Active(1));
-	h.RunTo(8191);
-	EXPECT_TRUE(h.Active(1));
-	h.RunTo(8192);
-	EXPECT_FALSE(h.Active(1));
+	h.ExpectTurnsOffAt(1, 8192);
 }
 
 TEST(ApuDividerTests, ResettingTheDividerWithBit12SetClocksTheFrameSequencerImmediately)
@@ -454,10 +439,7 @@ TEST(ApuDividerTests, ExtraTickFromAResetAdvancesTheStepCounterAndTheNextTickIsA
 	ASSERT_TRUE(h.Active(1));
 
 	// Now was reset to 0 by the divider reset, so step 1 is at 8192 and step 2 at 16384
-	h.RunTo(16383);
-	EXPECT_TRUE(h.Active(1));
-	h.RunTo(16384);
-	EXPECT_FALSE(h.Active(1));
+	h.ExpectTurnsOffAt(1, 16384);
 }
 
 TEST(ApuDividerTests, PoweringOnDoesNotRestartTheFreeRunningDivider)
@@ -470,10 +452,7 @@ TEST(ApuDividerTests, PoweringOnDoesNotRestartTheFreeRunningDivider)
 	h.SetLength(1, 1);
 	h.Trigger(1, true);
 
-	h.RunTo(8191);
-	EXPECT_TRUE(h.Active(1));
-	h.RunTo(8192);
-	EXPECT_FALSE(h.Active(1));
+	h.ExpectTurnsOffAt(1, 8192);
 }
 
 TEST(ApuDividerTests, PoweringOnResetsTheStepCounterToZero)
@@ -488,8 +467,5 @@ TEST(ApuDividerTests, PoweringOnResetsTheStepCounterToZero)
 	h.SetLength(1, 1);
 	h.Trigger(1, true);
 
-	h.RunTo(32767);
-	EXPECT_TRUE(h.Active(1));
-	h.RunTo(32768);
-	EXPECT_FALSE(h.Active(1));
+	h.ExpectTurnsOffAt(1, 32768);
 }
