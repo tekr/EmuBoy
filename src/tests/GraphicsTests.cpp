@@ -86,16 +86,27 @@ TEST_F(GraphicsTestFixture, WindowDrawnFromWindowXPosition)
 {
 	const unsigned short tileBytes = 16;
 	const unsigned short tileMapBytes = 32 * 32;
+	const unsigned short backgroundTileMap = 0x9800;
 	const unsigned short windowTileMap = 0x9c00;
 	const unsigned char identityPalette = 0xe4;
+	const unsigned char backgroundTile = 0;
 	const unsigned char windowTile = 1;
+	const unsigned char allPixelsColour0 = 0;
 	const unsigned char allPixelsColour3 = 0xff;
 	const auto windowLeftEdge = 80;
 	const auto windowXOffset = 7;
 
-	// Background is left as tile 0 (all colour 0) in map 0x9800
-	for (unsigned short i = 0; i < tileBytes; i++) MemoryMap.WriteByte(MemoryMap::RamVideo + windowTile * tileBytes + i, allPixelsColour3);
-	for (unsigned short i = 0; i < tileMapBytes; i++) MemoryMap.WriteByte(windowTileMap + i, windowTile);
+	for (unsigned short i = 0; i < tileBytes; i++)
+	{
+		MemoryMap.WriteByte(MemoryMap::RamVideo + backgroundTile * tileBytes + i, allPixelsColour0);
+		MemoryMap.WriteByte(MemoryMap::RamVideo + windowTile * tileBytes + i, allPixelsColour3);
+	}
+
+	for (unsigned short i = 0; i < tileMapBytes; i++)
+	{
+		MemoryMap.WriteByte(backgroundTileMap + i, backgroundTile);
+		MemoryMap.WriteByte(windowTileMap + i, windowTile);
+	}
 
 	MemoryMap.WriteByte(MemoryMap::VramRegisters + TestGraphics::RegBgScrollY, 0);
 	MemoryMap.WriteByte(MemoryMap::VramRegisters + TestGraphics::RegBgScrollX, 0);
@@ -103,7 +114,7 @@ TEST_F(GraphicsTestFixture, WindowDrawnFromWindowXPosition)
 	MemoryMap.WriteByte(MemoryMap::VramRegisters + TestGraphics::RegWindowY, 0);
 	MemoryMap.WriteByte(MemoryMap::VramRegisters + TestGraphics::RegWindowX, windowLeftEdge + windowXOffset);
 
-	// Display, window (map at windowTileMap), tile data at RamVideo, background
+	// Display, window (map at windowTileMap), tile data at RamVideo, background (map at backgroundTileMap)
 	MemoryMap.WriteByte(MemoryMap::VramRegisters + TestGraphics::RegLcdControl, 0x80 | 0x40 | 0x20 | 0x10 | 0x01);
 
 	Graphics.ResetFrame();
