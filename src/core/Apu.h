@@ -136,7 +136,7 @@ private:
 	int _cyclesToEvent = 0;
 
 	bool DacOn(int channel) const;
-	int PlayingWaveByte() const { return WaveRam + (_wave.Position >> 1); }
+	int PlayingWaveIndex() const { return WaveRam + (_wave.Position >> 1); }
 	bool WaveRamAccessible() const { return !_wave.Active || (_wave.JustRead && _pendingCycles == 0); }
 	bool NoiseRunning() const { return _noise.Active && NoisePeriod() > 0; }
 	Channel& GetChannel(int index);
