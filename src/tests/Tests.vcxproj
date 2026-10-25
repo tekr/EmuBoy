@@ -162,7 +162,6 @@
     <ClCompile Include="ApuTestsRobustness.cpp" />
     <ClCompile Include="ApuTestsSquare.cpp" />
     <ClCompile Include="ApuTestsWaveNoise.cpp" />
-    <ClCompile Include="ApuTestsHeadroom.cpp" />
     <ClCompile Include="ApuTestsQuirks.cpp" />
     <ClCompile Include="BlarggSoundTests.cpp" />
     <ClCompile Include="CartridgeTests.cpp" />
