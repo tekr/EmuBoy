@@ -118,7 +118,7 @@ unsigned char Apu::ReadRegister(unsigned short address) const
 	if (reg == Nr52)
 	{
 		return (_powered ? 0x80 : 0) | ReadMasks[Nr52] |
-			(_square[0].Active ? 1 : 0) | (_square[1].Active ? 2 : 0) | (_wave.Active ? 4 : 0) | (_noise.Active ? 8 : 0);
+			(_square[Ch1].Active ? 1 : 0) | (_square[Ch2].Active ? 2 : 0) | (_wave.Active ? 4 : 0) | (_noise.Active ? 8 : 0);
 	}
 
 	return _registers[reg] | ReadMasks[reg];
@@ -385,8 +385,8 @@ void Apu::FrameSequencerEvent()
 
 	if (_frameStep == EnvelopeStep)
 	{
-		if (_square[0].Active) _square[0].Env.Clock();
-		if (_square[1].Active) _square[1].Env.Clock();
+		if (_square[Ch1].Active) _square[Ch1].Env.Clock();
+		if (_square[Ch2].Active) _square[Ch2].Env.Clock();
 		if (_noise.Active) _noise.Env.Clock();
 	}
 
@@ -410,8 +410,8 @@ void Apu::PowerOff()
 	int lengths[ChannelCount];
 	for (auto i = 0; i < ChannelCount; i++) lengths[i] = GetChannel(i).Length.Counter;
 
-	_square[0] = SquareChannel();
-	_square[1] = SquareChannel();
+	_square[Ch1] = SquareChannel();
+	_square[Ch2] = SquareChannel();
 	_wave = WaveChannel();
 	_noise = NoiseChannel();
 
