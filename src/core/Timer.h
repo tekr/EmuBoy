@@ -8,34 +8,38 @@ class Cpu;
 
 class Timer
 {
-	static const int ClockFreq = 4194304;
-	static const int DivFreq = 16384;
-
-	static const int ModeFreqs[];
+	// Per https://gbdev.io/pandocs/Timer_Obscure_Behaviour.html, the counter increments on the falling
+	// edge of one bit of the internal divider (selected by the mode) ANDed with the timer enable bit
+	static const int ModeBits[];
 
 	static const int DivReg = 0;
 	static const int CounterReg = 1;
 	static const int ModuloReg = 2;
 	static const int ControlReg = 3;
 
-	static constexpr int CyclesPerDivInc = ClockFreq / DivFreq;
-
 	Cpu* _cpu;
 
+	// Increments every cycle; DIV is its upper byte
+	unsigned short _divider;
+
+	// DIV's slot is unused as DIV is read from the divider
 	unsigned char _registers[3];
 	bool _isRunning;
 	int _divisorMode;
 
-	int _cyclesToNextDivInc = CyclesPerDivInc;
-	int _cyclesToNextCounterInc;
-
-	int GetCyclesPerCounterInc() const { return ClockFreq / ModeFreqs[_divisorMode]; }
+	int GetCyclesPerCounterInc() const { return 2 << ModeBits[_divisorMode]; }
+	bool GetCounterSignal() const { return _isRunning && (_divider & GetCyclesPerCounterInc() >> 1) != 0; }
 
 	void IncCounter();
 
 public:
 	Timer();
-	int GetCyclesToNextEvent() const { return std::max(0, _isRunning ? std::min(_cyclesToNextCounterInc, _cyclesToNextDivInc) : _cyclesToNextDivInc); }
+
+	int GetCyclesToNextEvent() const
+	{
+		auto cyclesToNextDivInc = 0x100 - (_divider & 0xff);
+		return _isRunning ? std::min(cyclesToNextDivInc, GetCyclesPerCounterInc() - (_divider & (GetCyclesPerCounterInc() - 1))) : cyclesToNextDivInc;
+	}
 
 	void RunCycles(int numCycles);
 
@@ -43,47 +47,23 @@ public:
 
 	void WriteRegister(int address, unsigned char value)
 	{
-		// Per section 5.5 of https://github.com/AntonioND/giibiiadvance/blob/master/docs/TCAGBD.pdf
-		auto overHalfwayToCounterInc = _isRunning && _cyclesToNextCounterInc >= GetCyclesPerCounterInc() >> 1;
+		// Resetting the divider, disabling the timer or changing the mode can cause a falling edge
+		auto oldSignal = GetCounterSignal();
 
-		if (address == DivReg)
-		{
-			value = 0;
-			_cyclesToNextDivInc = CyclesPerDivInc;
-
-			if (overHalfwayToCounterInc)
-			{
-				IncCounter();
-				_cyclesToNextCounterInc = GetCyclesPerCounterInc();
-			}
-		}
-
-		if (address < ControlReg) _registers[address] = value;
+		if (address == DivReg) _divider = 0;
+		else if (address < ControlReg) _registers[address] = value;
 		else
 		{
-			auto newMode = value & 3;
-			if (newMode != _divisorMode)
-			{
-				// TODO: This can cause counter to increment under
-				// specific circumstances explained in the link above
-				_divisorMode = newMode;
-				_cyclesToNextCounterInc = GetCyclesPerCounterInc();
-			}
-
-			auto newIsRunning = (value & 4) != 0;
-			if (newIsRunning != _isRunning)
-			{
-				if (!newIsRunning && overHalfwayToCounterInc) IncCounter();
-
-				_isRunning = newIsRunning;
-				_cyclesToNextCounterInc = GetCyclesPerCounterInc();
-			}
+			_divisorMode = value & 3;
+			_isRunning = (value & 4) != 0;
 		}
+
+		if (oldSignal && !GetCounterSignal()) IncCounter();
 	}
 
 	unsigned char ReadRegister(int address)
 	{
-		return address < ControlReg ? _registers[address] : _divisorMode | (_isRunning ? 4 : 0);
+		return address == DivReg ? _divider >> 8 : address < ControlReg ? _registers[address] : _divisorMode | (_isRunning ? 4 : 0);
 	}
 };
 
