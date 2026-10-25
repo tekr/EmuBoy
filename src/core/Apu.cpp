@@ -33,15 +33,15 @@ void Envelope::Trigger(unsigned char nrx2, bool nextStepClocksEnvelope)
 	Period = nrx2 & 7;
 	Running = true;
 
-	// A period of 0 counts as 8, and a trigger just before an envelope step delays it by one (Pan Docs, Audio Details)
-	Timer = (Period ? Period : 8) + (nextStepClocksEnvelope ? 1 : 0);
+	// A trigger just before an envelope step delays it by one (Pan Docs, Audio Details)
+	Timer = TimerPeriod() + (nextStepClocksEnvelope ? 1 : 0);
 }
 
 void Envelope::Clock()
 {
 	if (--Timer > 0) return;
 
-	Timer = Period ? Period : 8;
+	Timer = TimerPeriod();
 	if (!Period || !Running) return;
 
 	auto volume = Volume + (Increase ? 1 : -1);
@@ -85,6 +85,13 @@ Channel& Apu::GetChannel(int index)
 	}
 }
 
+// CH3 has its own DAC switch. The others' DACs are off when NRx2 gives initial volume 0, decreasing
+bool Apu::DacOn(int channel) const
+{
+	if (channel == Ch3) return (_registers[Nr30] & 0x80) != 0;
+	return (_registers[Nr12 + channel * RegistersPerChannel] & 0xf8) != 0;
+}
+
 int Apu::NoisePeriod() const
 {
 	auto nr43 = _registers[Nr43];
@@ -105,7 +112,7 @@ unsigned char Apu::ReadRegister(unsigned short address) const
 	{
 		// While CH3 plays, the CPU sees the byte CH3 is reading, and on DMG only at the moment CH3 reads it
 		if (!_wave.Active) return _registers[reg];
-		return WaveRamAccessible() ? _registers[WaveRam + (_wave.Position >> 1)] : 0xff;
+		return WaveRamAccessible() ? _registers[PlayingWaveByte()] : 0xff;
 	}
 
 	if (reg == Nr52)
@@ -129,7 +136,7 @@ void Apu::Write(int reg, unsigned char value)
 	if (reg >= WaveRam)
 	{
 		if (!_wave.Active) _registers[reg] = value;
-		else if (WaveRamAccessible()) _registers[WaveRam + (_wave.Position >> 1)] = value;
+		else if (WaveRamAccessible()) _registers[PlayingWaveByte()] = value;
 		return;
 	}
 
@@ -152,8 +159,7 @@ void Apu::Write(int reg, unsigned char value)
 	if (!_powered)
 	{
 		// DMG keeps its length counters writable while powered off (Pan Docs, gbdev wiki); nothing else is
-		if (reg == Nr11 || reg == Nr21 || reg == Nr41) GetChannel(reg / RegistersPerChannel).Length.Counter = 64 - (value & 0x3f);
-		else if (reg == Nr31) _wave.Length.Counter = 256 - value;
+		if (reg == Nr11 || reg == Nr21 || reg == Nr31 || reg == Nr41) WriteLength(reg / RegistersPerChannel, value);
 		return;
 	}
 
@@ -164,35 +170,30 @@ void Apu::Write(int reg, unsigned char value)
 	{
 	case Nr10:
 		// Leaving negate mode after a sweep calculation used it disables CH1 (Pan Docs, Audio Details)
-		if (_sweepNegateUsed && (old & 8) && !(value & 8)) _square[0].Active = false;
+		if (_sweepNegateUsed && (old & 8) && !(value & 8)) _square[Ch1].Active = false;
 		break;
 
 	case Nr11:
 	case Nr21:
-	case Nr41:
-		GetChannel(reg / RegistersPerChannel).Length.Counter = 64 - (value & 0x3f);
-		break;
-
 	case Nr31:
-		_wave.Length.Counter = 256 - value;
+	case Nr41:
+		WriteLength(reg / RegistersPerChannel, value);
 		break;
 
 	case Nr12:
 	case Nr22:
+	case Nr42:
 	{
-		auto& square = _square[reg / RegistersPerChannel];
-		if (!(value & 0xf8)) square.Active = false;
-		else if (square.Active) square.Env.ZombieWrite(old, value);
+		auto channel = reg / RegistersPerChannel;
+		auto& envelope = channel == Ch4 ? _noise.Env : _square[channel].Env;
+		auto& ch = GetChannel(channel);
+		if (!DacOn(channel)) ch.Active = false;
+		else if (ch.Active) envelope.ZombieWrite(old, value);
 		break;
 	}
 
-	case Nr42:
-		if (!(value & 0xf8)) _noise.Active = false;
-		else if (_noise.Active) _noise.Env.ZombieWrite(old, value);
-		break;
-
 	case Nr30:
-		if (!(value & 0x80)) _wave.Active = false;
+		if (!DacOn(Ch3)) _wave.Active = false;
 		break;
 
 	case Nr13:
@@ -232,11 +233,16 @@ void Apu::Write(int reg, unsigned char value)
 	UpdateMix();
 }
 
+void Apu::WriteLength(int channel, unsigned char value)
+{
+	auto maxLength = MaxLength(channel);
+	GetChannel(channel).Length.Counter = maxLength - (value & (maxLength - 1));
+}
+
 void Apu::WriteNrx4(int channel, unsigned char value)
 {
 	auto& ch = GetChannel(channel);
 	auto trigger = (value & 0x80) != 0;
-	auto maxLength = channel == Ch3 ? 256 : 64;
 
 	// In the first half of a length period (the next frame step doesn't clock length), enabling length clocks it
 	// once, and a trigger that reloads a zero length loads one less than the maximum (gbdev wiki, Obscure Behavior)
@@ -253,13 +259,16 @@ void Apu::WriteNrx4(int channel, unsigned char value)
 
 	if (ch.Length.Counter == 0)
 	{
-		ch.Length.Counter = maxLength;
+		ch.Length.Counter = MaxLength(channel);
 		if (firstHalf && ch.Length.Enabled) ch.Length.Counter--;
 	}
 
 	if (channel <= Ch2) TriggerSquare(channel);
 	else if (channel == Ch3) TriggerWave();
 	else TriggerNoise();
+
+	// The other trigger effects still happen with the DAC off, but the channel stays off
+	if (!DacOn(channel)) ch.Active = false;
 }
 
 void Apu::TriggerSquare(int index)
@@ -280,17 +289,12 @@ void Apu::TriggerSquare(int index)
 
 	if (index == Ch1)
 	{
-		auto nr10 = _registers[Nr10];
-		auto pace = (nr10 >> 4) & 7;
 		_sweepShadow = square.Frequency;
-		_sweepTimer = pace ? pace : 8;
-		_sweepEnabled = pace != 0 || (nr10 & 7) != 0;
+		_sweepTimer = SweepTimerPeriod();
+		_sweepEnabled = SweepPace() != 0 || SweepShift() != 0;
 		_sweepNegateUsed = false;
-		if (nr10 & 7) SweepCalculate();
+		if (SweepShift()) SweepCalculate();
 	}
-
-	// The other trigger effects still happen with the DAC off, but the channel stays off
-	if (!SquareDacOn(index)) square.Active = false;
 }
 
 void Apu::TriggerWave()
@@ -313,8 +317,6 @@ void Apu::TriggerWave()
 	// The first sample read comes 6 T-cycles later than a normal period (SameBoy, verified on hardware), and the
 	// sample buffer isn't refilled, so the first sample played is the low nibble of $FF30
 	_wave.Timer = _wave.Period() + 6;
-
-	if (!WaveDacOn()) _wave.Active = false;
 }
 
 void Apu::TriggerNoise()
@@ -323,24 +325,28 @@ void Apu::TriggerNoise()
 	_noise.Lfsr = 0;
 	_noise.Timer = NoisePeriod();
 	_noise.Env.Trigger(_registers[Nr42], _frameStep == EnvelopeStep);
+}
 
-	if (!NoiseDacOn()) _noise.Active = false;
+// A sweep pace of 0 counts as 8 for the timer, though the sweep then never changes the frequency
+int Apu::SweepTimerPeriod() const
+{
+	auto pace = SweepPace();
+	return pace ? pace : 8;
 }
 
 int Apu::SweepCalculate()
 {
-	auto nr10 = _registers[Nr10];
-	auto delta = _sweepShadow >> (nr10 & 7);
+	auto delta = _sweepShadow >> SweepShift();
 	int result;
 
-	if (nr10 & 8)
+	if (_registers[Nr10] & 8)
 	{
 		result = _sweepShadow - delta;
 		_sweepNegateUsed = true;
 	}
 	else result = _sweepShadow + delta;
 
-	if (result > MaxFrequency) _square[0].Active = false;
+	if (result > MaxFrequency) _square[Ch1].Active = false;
 	return result;
 }
 
@@ -348,17 +354,15 @@ void Apu::ClockSweep()
 {
 	if (--_sweepTimer > 0) return;
 
-	auto nr10 = _registers[Nr10];
-	auto pace = (nr10 >> 4) & 7;
-	_sweepTimer = pace ? pace : 8;
+	_sweepTimer = SweepTimerPeriod();
 
-	if (!_sweepEnabled || !pace) return;
+	if (!_sweepEnabled || !SweepPace()) return;
 
 	auto result = SweepCalculate();
-	if (result <= MaxFrequency && (nr10 & 7))
+	if (result <= MaxFrequency && SweepShift())
 	{
 		_sweepShadow = result;
-		_square[0].Frequency = result;
+		_square[Ch1].Frequency = result;
 
 		// Checked again with the new frequency, but not written back (gbdev wiki, Frequency Sweep)
 		SweepCalculate();
@@ -439,7 +443,7 @@ void Apu::StepSquare(int index)
 void Apu::StepWave()
 {
 	_wave.Position = (_wave.Position + 1) & 31;
-	auto sample = _registers[WaveRam + (_wave.Position >> 1)];
+	auto sample = _registers[PlayingWaveByte()];
 	_wave.SampleBuffer = _wave.Position & 1 ? sample & 0xf : sample >> 4;
 	_wave.JustRead = true;
 	_wave.Timer = _wave.Period();
@@ -457,33 +461,25 @@ void Apu::StepNoise()
 
 int Apu::ChannelOutput(int channel) const
 {
-	switch (channel)
-	{
-	case 1:
-	case 2:
-	{
-		auto index = channel - 1;
-		if (!SquareDacOn(index)) return -1;
+	auto index = channel - 1;
+	if (index < Ch1 || index > Ch4 || !DacOn(index)) return -1;
 
+	switch (index)
+	{
+	case Ch1:
+	case Ch2:
+	{
 		auto& square = _square[index];
 		auto duty = _registers[Nr11 + index * RegistersPerChannel] >> 6;
 		auto high = square.Stepped && (DutyPatterns[duty] >> square.DutyPosition & 1);
 		return square.Active && high ? square.Env.Volume : 0;
 	}
 
-	case 3:
-	{
-		if (!WaveDacOn()) return -1;
-
+	case Ch3:
 		return _wave.Active ? _wave.SampleBuffer >> WaveVolumeShifts[(_registers[Nr32] >> 5) & 3] : 0;
-	}
-
-	case 4:
-		if (!NoiseDacOn()) return -1;
-		return _noise.Active && (_noise.Lfsr & 1) ? _noise.Env.Volume : 0;
 
 	default:
-		return -1;
+		return _noise.Active && (_noise.Lfsr & 1) ? _noise.Env.Volume : 0;
 	}
 }
 
@@ -511,7 +507,7 @@ void Apu::UpdateMix()
 
 void Apu::OutputSample()
 {
-	auto dacsOn = SquareDacOn(0) || SquareDacOn(1) || WaveDacOn() || NoiseDacOn();
+	auto dacsOn = DacOn(Ch1) || DacOn(Ch2) || DacOn(Ch3) || DacOn(Ch4);
 	double left = 0;
 	double right = 0;
 
