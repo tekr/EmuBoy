@@ -1,7 +1,10 @@
 #include "stdafx.h"
 #include <gtest/gtest.h>
+#include <memory>
+#include <vector>
 #include "CpuTestFixture.h"
 #include "../core/Timer.h"
+#include "../core/Emulator.h"
 
 // Per https://gbdev.io/pandocs/Timer_Obscure_Behaviour.html, the counter (TIMA) increments on the falling
 // edge of divider bit 9, 3, 5 or 7 (for modes 0-3) ANDed with the timer enable bit
@@ -154,6 +157,17 @@ TEST_F(TimerQuirkTests, OverflowReloadsModuloAndRequestsInterrupt)
 	EXPECT_NE(0, Cpu.WaitingInterrupts() & InterruptFlags::TimerInt);
 }
 
+TEST_F(TimerQuirkTests, CountsAcrossDividerWraparound)
+{
+	Timer.WriteRegister(ControlReg, TimerEnable | 1);
+	Timer.RunCycles(0xfff8);
+	Timer.WriteRegister(CounterReg, 0);
+
+	Timer.RunCycles(16);
+	EXPECT_EQ(1, Counter());
+	EXPECT_EQ(0, Timer.ReadRegister(DivReg));
+}
+
 TEST_F(TimerQuirkTests, NextEventIsTheSoonerOfTheNextDivAndCounterIncrements)
 {
 	Timer.RunCycles(4);
@@ -164,4 +178,53 @@ TEST_F(TimerQuirkTests, NextEventIsTheSoonerOfTheNextDivAndCounterIncrements)
 
 	Timer.WriteRegister(ControlReg, TimerEnable | 0);
 	EXPECT_EQ(252, Timer.GetCyclesToNextEvent());
+}
+
+// Runs a program from address 0 through the whole emulator, so the timer must see
+// register writes at the cycle they happen
+class TimerEmulatorTests : public testing::Test
+{
+public:
+	std::shared_ptr<TestCartridge> Rom{ std::make_shared<TestCartridge>() };
+	Emulator Emulator{ Rom };
+
+	TimerEmulatorTests()
+	{
+		// Disable the internal ROM so the program runs from address 0
+		Emulator.GetMemoryMap().WriteByte(0xff50, 1);
+
+		// Mode 1 (16 cycles per increment). LDH reads and writes all happen in the instruction's third
+		// machine cycle, so the timings below, from the first DIV write, are exact
+		Rom->SetBytes(0, {
+			0xf3,				// DI
+			0x3e, 0x05,			// LD A,5
+			0xe0, 0x07,			// LDH (TAC),A		Enable timer, mode 1
+			0xe0, 0x04,			// LDH (DIV),A		0: reset divider
+			0xe0, 0x05,			// LDH (TIMA),A		12: TIMA = 5, then 6 at 16
+			0xe0, 0x04,			// LDH (DIV),A		24: second half of the period, so 7
+			0xf0, 0x05,			// LDH A,(TIMA)		36: 12 cycles after the DIV write
+			0x47,				// LD B,A			48
+			0xf0, 0x05,			// LDH A,(TIMA)		52: 28 cycles after the DIV write
+			0xe0, 0x81,			// LDH (0x81),A
+			0x78,				// LD A,B
+			0xe0, 0x80,			// LDH (0x80),A
+			0x18, 0xfe			// JR -2
+		});
+
+		Emulator.GetFrame();
+	}
+
+	unsigned char ReadByte(unsigned short address) { return Emulator.GetMemoryMap().ReadByte(address); }
+};
+
+TEST_F(TimerEmulatorTests, DivWriteInSecondHalfOfPeriodIncrementsCounter)
+{
+	EXPECT_EQ(7, ReadByte(0xff80));
+}
+
+TEST_F(TimerEmulatorTests, DivWriteRestartsThePeriod)
+{
+	// The next increment is 16 cycles after the DIV write
+	EXPECT_EQ(7, ReadByte(0xff80));
+	EXPECT_EQ(8, ReadByte(0xff81));
 }
