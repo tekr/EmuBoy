@@ -351,5 +351,37 @@ namespace ApuTest
 			Write(Nr43, (shift << 4) | (narrow ? 0x08 : 0) | divisorCode);
 			Write(Nr44, 0x80 | (lengthEnable ? 0x40 : 0));
 		}
+
+		// Channel 1, 2 or 4 at its fastest rate, so that Volume() can see the envelope volume in a short window
+		void StartEnvelopeChannel(int channel, int envelope)
+		{
+			if (channel == 4)
+			{
+				StartNoise(0, false, 0, envelope);
+			}
+			else
+			{
+				StartSquare(channel, 2, envelope, 2047);
+			}
+		}
+
+		// The squares reach a duty-high step within 28 cycles; the noise LFSR needs a longer window to output a 1
+		int Volume(int channel)
+		{
+			return Peak(channel, channel == 4 ? 2000 : 28);
+		}
+
+		// Volume shortly before / after an envelope clock; "before" leaves room for the 2000-cycle noise window
+		int VolumeBefore(int channel, long long clock)
+		{
+			RunTo(clock - 2100);
+			return Volume(channel);
+		}
+
+		int VolumeAfter(int channel, long long clock)
+		{
+			RunTo(clock + 100);
+			return Volume(channel);
+		}
 	};
 }
