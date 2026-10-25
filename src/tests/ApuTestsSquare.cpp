@@ -299,10 +299,7 @@ TEST(ApuSweepTests, ShiftZeroWithFrequencyOf0x400OrMoreOverflowsAtTheFirstSweepC
 	StartSweepChannel(h, 0x10, 0x400);
 	ASSERT_TRUE(h.Active(1));
 
-	h.RunTo(24575);
-	EXPECT_TRUE(h.Active(1));
-	h.RunTo(24576);
-	EXPECT_FALSE(h.Active(1));
+	h.ExpectTurnsOffAt(1, 24576);
 }
 
 TEST(ApuSweepTests, ShiftZeroWithPeriodZeroNeverOverflows)
@@ -323,10 +320,7 @@ TEST(ApuSweepTests, OverflowAtTheFirstSweepClockDisablesTheChannelForPaceOne)
 	StartSweepChannel(h, 0x11, 1000);
 	ASSERT_TRUE(h.Active(1));
 
-	h.RunTo(24575);
-	EXPECT_TRUE(h.Active(1));
-	h.RunTo(24576);
-	EXPECT_FALSE(h.Active(1));
+	h.ExpectTurnsOffAt(1, 24576);
 }
 
 TEST(ApuSweepTests, OverflowIsCheckedOnlyAtTheSecondSweepClockForPaceTwo)
@@ -334,10 +328,7 @@ TEST(ApuSweepTests, OverflowIsCheckedOnlyAtTheSecondSweepClockForPaceTwo)
 	ApuHarness h;
 	StartSweepChannel(h, 0x21, 1000);
 
-	h.RunTo(57343);
-	EXPECT_TRUE(h.Active(1));
-	h.RunTo(57344);
-	EXPECT_FALSE(h.Active(1));
+	h.ExpectTurnsOffAt(1, 57344);
 }
 
 TEST(ApuSweepTests, SecondCalculationAfterAnUpdateCanDisableTheChannel)
@@ -347,10 +338,7 @@ TEST(ApuSweepTests, SecondCalculationAfterAnUpdateCanDisableTheChannel)
 	ApuHarness h;
 	StartSweepChannel(h, 0x11, 700);
 
-	h.RunTo(57343);
-	EXPECT_TRUE(h.Active(1));
-	h.RunTo(57344);
-	EXPECT_FALSE(h.Active(1));
+	h.ExpectTurnsOffAt(1, 57344);
 }
 
 TEST(ApuSweepTests, PeriodZeroNeverChangesTheFrequencyNorOverflows)

@@ -174,6 +174,15 @@ namespace ApuTest
 			return ((Read(Nr52) >> (channel - 1)) & 1) != 0;
 		}
 
+		// Runs to `time`, expecting the channel to be on until the cycle before and off from then
+		void ExpectTurnsOffAt(int channel, long long time)
+		{
+			RunTo(time - 1);
+			EXPECT_TRUE(Active(channel)) << "channel " << channel << " one cycle before " << time;
+			RunTo(time);
+			EXPECT_FALSE(Active(channel)) << "channel " << channel << " at " << time;
+		}
+
 		int Out(int channel) const
 		{
 			return Device.ChannelOutput(channel);

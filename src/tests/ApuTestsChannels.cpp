@@ -24,10 +24,7 @@ TEST_P(ApuLengthTests, ExpiryAfterLoadedLengthClocksDisablesTheChannel)
 	h.Trigger(channel, true);
 
 	// third length clock is event 5 = 5 * 8192
-	h.RunTo(5 * 8192 - 1);
-	EXPECT_TRUE(h.Active(channel));
-	h.RunTo(5 * 8192);
-	EXPECT_FALSE(h.Active(channel));
+	h.ExpectTurnsOffAt(channel, 5 * 8192);
 }
 
 TEST_P(ApuLengthTests, DoesNotExpireWhenLengthIsNotEnabled)
@@ -82,10 +79,7 @@ TEST_P(ApuLengthTests, ReloadingLengthWhilePlayingRestartsTheCount)
 	ASSERT_TRUE(h.Active(channel));
 	h.SetLength(channel, 3);
 
-	h.RunTo(7 * 8192 - 1);
-	EXPECT_TRUE(h.Active(channel));
-	h.RunTo(7 * 8192);
-	EXPECT_FALSE(h.Active(channel));
+	h.ExpectTurnsOffAt(channel, 7 * 8192);
 }
 
 TEST_P(ApuLengthTests, ReloadingLengthDoesNotReEnableAnExpiredChannel)
@@ -113,10 +107,7 @@ TEST_P(ApuLengthTests, LoadingZeroMeansTheMaximumLength)
 	h.Trigger(channel, true);
 
 	long long expiry = 8192LL * (2 * MaxLength(channel) - 1);
-	h.RunTo(expiry - 1);
-	EXPECT_TRUE(h.Active(channel));
-	h.RunTo(expiry);
-	EXPECT_FALSE(h.Active(channel));
+	h.ExpectTurnsOffAt(channel, expiry);
 }
 
 TEST_P(ApuLengthTests, TriggerDoesNotReloadANonZeroLength)
@@ -130,10 +121,7 @@ TEST_P(ApuLengthTests, TriggerDoesNotReloadANonZeroLength)
 	h.RunTo(3000);
 	h.Trigger(channel, true);
 
-	h.RunTo(5 * 8192 - 1);
-	EXPECT_TRUE(h.Active(channel));
-	h.RunTo(5 * 8192);
-	EXPECT_FALSE(h.Active(channel));
+	h.ExpectTurnsOffAt(channel, 5 * 8192);
 }
 
 TEST_P(ApuLengthTests, TriggerWithLengthZeroReloadsTheMaximumEvenWithLengthDisabled)
@@ -155,10 +143,7 @@ TEST_P(ApuLengthTests, TriggerWithLengthZeroReloadsTheMaximumEvenWithLengthDisab
 
 	// clock 1 = event 5 (40960); clock Max = event 2 * Max + 3
 	long long expiry = 8192LL * (2 * MaxLength(channel) + 3);
-	h.RunTo(expiry - 1);
-	EXPECT_TRUE(h.Active(channel));
-	h.RunTo(expiry);
-	EXPECT_FALSE(h.Active(channel));
+	h.ExpectTurnsOffAt(channel, expiry);
 }
 
 // ---- Extra length clocking (spec 7.3) ----
@@ -176,10 +161,7 @@ TEST_P(ApuLengthTests, EnablingLengthInTheFirstHalfClocksItOnce)
 	h.SetLengthEnable(channel, true);
 	ASSERT_TRUE(h.Active(channel));
 
-	h.RunTo(3 * 8192 - 1);
-	EXPECT_TRUE(h.Active(channel));
-	h.RunTo(3 * 8192);
-	EXPECT_FALSE(h.Active(channel));
+	h.ExpectTurnsOffAt(channel, 3 * 8192);
 }
 
 TEST_P(ApuLengthTests, EnablingLengthInTheSecondHalfDoesNotClockIt)
@@ -196,10 +178,7 @@ TEST_P(ApuLengthTests, EnablingLengthInTheSecondHalfDoesNotClockIt)
 
 	h.RunTo(3 * 8192 + 1000);
 	EXPECT_TRUE(h.Active(channel));
-	h.RunTo(5 * 8192 - 1);
-	EXPECT_TRUE(h.Active(channel));
-	h.RunTo(5 * 8192);
-	EXPECT_FALSE(h.Active(channel));
+	h.ExpectTurnsOffAt(channel, 5 * 8192);
 }
 
 TEST_P(ApuLengthTests, ExtraClockThatReachesZeroDisablesTheChannelImmediately)
@@ -251,10 +230,7 @@ TEST_P(ApuLengthTests, TriggerWithZeroLengthInTheFirstHalfLoadsMaxMinusOne)
 	ASSERT_TRUE(h.Active(channel));
 
 	long long expiry = 8192LL * (2 * MaxLength(channel) - 1);
-	h.RunTo(expiry - 1);
-	EXPECT_TRUE(h.Active(channel));
-	h.RunTo(expiry);
-	EXPECT_FALSE(h.Active(channel));
+	h.ExpectTurnsOffAt(channel, expiry);
 }
 
 TEST_P(ApuLengthTests, TriggerWithZeroLengthInTheSecondHalfLoadsTheFullMaximum)
@@ -273,10 +249,7 @@ TEST_P(ApuLengthTests, TriggerWithZeroLengthInTheSecondHalfLoadsTheFullMaximum)
 	ASSERT_TRUE(h.Active(channel));
 
 	long long expiry = 8192LL * (2 * MaxLength(channel) + 1);
-	h.RunTo(expiry - 1);
-	EXPECT_TRUE(h.Active(channel));
-	h.RunTo(expiry);
-	EXPECT_FALSE(h.Active(channel));
+	h.ExpectTurnsOffAt(channel, expiry);
 }
 
 TEST_P(ApuLengthTests, TriggerThatClocksLengthOfOneClocksTwiceAndDoesNotFreeze)
@@ -294,10 +267,7 @@ TEST_P(ApuLengthTests, TriggerThatClocksLengthOfOneClocksTwiceAndDoesNotFreeze)
 	EXPECT_TRUE(h.Active(channel));
 
 	long long expiry = 8192LL * (2 * MaxLength(channel) - 1);
-	h.RunTo(expiry - 1);
-	EXPECT_TRUE(h.Active(channel));
-	h.RunTo(expiry);
-	EXPECT_FALSE(h.Active(channel));
+	h.ExpectTurnsOffAt(channel, expiry);
 }
 
 INSTANTIATE_TEST_CASE_P(ApuChannels, ApuLengthTests, ::testing::Range(1, 5));
@@ -402,10 +372,7 @@ TEST_P(ApuDacTests, LengthIsStillReloadedByATriggerWhileTheDacIsOff)
 	ASSERT_TRUE(h.Active(channel));
 
 	long long expiry = 8192LL * (2 * MaxLength(channel) + 1);
-	h.RunTo(expiry - 1);
-	EXPECT_TRUE(h.Active(channel));
-	h.RunTo(expiry);
-	EXPECT_FALSE(h.Active(channel));
+	h.ExpectTurnsOffAt(channel, expiry);
 }
 
 INSTANTIATE_TEST_CASE_P(ApuChannels, ApuDacTests, ::testing::Range(1, 5));

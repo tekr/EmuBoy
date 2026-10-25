@@ -162,10 +162,7 @@ TEST(ApuPowerOnGlitchTests, PowerOnWithBit12ClearUsesTheFirstEventAsStepZero)
 	h.StartSquare(1, 0, 0xf0, 1000);
 
 	// events at 8192 (step 0), 16384 (1), 24576 (2: first sweep clock)
-	h.RunTo(24575);
-	EXPECT_TRUE(h.Active(1));
-	h.RunTo(24576);
-	EXPECT_FALSE(h.Active(1));
+	h.ExpectTurnsOffAt(1, 24576);
 }
 
 TEST(ApuPowerOnGlitchTests, PowerOnWithBit12SetSkipsTheFirstEvent)
@@ -179,10 +176,7 @@ TEST(ApuPowerOnGlitchTests, PowerOnWithBit12SetSkipsTheFirstEvent)
 	// events at 8192 (skipped), 16384 (step 0), 24576 (1), 32768 (2: first sweep clock)
 	h.RunTo(24576 + 1000);
 	EXPECT_TRUE(h.Active(1));
-	h.RunTo(32767);
-	EXPECT_TRUE(h.Active(1));
-	h.RunTo(32768);
-	EXPECT_FALSE(h.Active(1));
+	h.ExpectTurnsOffAt(1, 32768);
 }
 
 // ---- Wave RAM access while CH3 plays (spec 10.1, DMG) ----
