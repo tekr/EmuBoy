@@ -66,21 +66,35 @@ public:
 
 private:
 	static const unsigned short FirstRegister = 0xff10;
-	static const unsigned short WaveRam = 0xff30;
 	static const int RegisterCount = 0x30;
+
+	// Register offsets from FirstRegister. Each channel has 5 register slots, NRx0-NRx4, so reg / 5 is its channel
+	static const int RegistersPerChannel = 5;
 
 	static const int Nr10 = 0x00, Nr11 = 0x01, Nr12 = 0x02, Nr13 = 0x03, Nr14 = 0x04;
 	static const int Nr21 = 0x06, Nr22 = 0x07, Nr23 = 0x08, Nr24 = 0x09;
 	static const int Nr30 = 0x0a, Nr31 = 0x0b, Nr32 = 0x0c, Nr33 = 0x0d, Nr34 = 0x0e;
 	static const int Nr41 = 0x10, Nr42 = 0x11, Nr43 = 0x12, Nr44 = 0x13;
 	static const int Nr50 = 0x14, Nr51 = 0x15, Nr52 = 0x16;
+	static const int WaveRam = 0x20;
 
+	static const int Ch1 = 0, Ch2 = 1, Ch3 = 2, Ch4 = 3, ChannelCount = 4;
+
+	// The frame sequencer steps on falling edges of DIV bit 4, which is bit 12 of the internal 16-bit divider
+	static const unsigned short DivBit4 = 0x1000;
 	static const int FrameSequencerPeriod = 8192;
-	static const int MaxAmplitude = 4 * 15 * 8;
+	static const int EnvelopeStep = 7;
+
+	// Frequencies are 11 bits; a sweep calculation above this disables CH1
+	static const int MaxFrequency = 2047;
+
+	// Four channels, each with a DAC range of +-15, scaled by an NR50 volume of up to 8
+	static const int MaxAmplitude = ChannelCount * 15 * 8;
 
 	static const unsigned char ReadMasks[RegisterCount];
 	static const unsigned char DutyPatterns[4];
 	static const unsigned char InitialWaveRam[16];
+	static const int WaveVolumeShifts[4];
 
 	int _sampleRate;
 	double _chargeFactor;
@@ -116,7 +130,7 @@ private:
 	int _pendingCycles = 0;
 	int _cyclesToEvent = 0;
 
-	bool SquareDacOn(int index) const { return (_registers[Nr12 + index * 5] & 0xf8) != 0; }
+	bool SquareDacOn(int index) const { return (_registers[Nr12 + index * RegistersPerChannel] & 0xf8) != 0; }
 	bool WaveDacOn() const { return (_registers[Nr30] & 0x80) != 0; }
 	bool NoiseDacOn() const { return (_registers[Nr42] & 0xf8) != 0; }
 	bool WaveRamAccessible() const { return !_wave.Active || (_wave.JustRead && _pendingCycles == 0); }

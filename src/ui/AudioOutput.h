@@ -11,6 +11,7 @@ class AudioOutput : public sf::SoundStream
 {
 	static const int Channels = 2;
 	static const int ChunkFrames = 1024;
+	static const int MaxLatencyMs = 150;
 
 	std::mutex _mutex;
 	std::deque<short> _buffer;
