@@ -2,6 +2,8 @@
 #include <gtest/gtest.h>
 #include "../core/CartridgeFactory.h"
 #include <cstdio>
+#include <fstream>
+#include <string>
 
 namespace
 {
@@ -37,12 +39,17 @@ namespace
 		return cartridge.RamReadByte(0x0000) == 0x56;
 	}
 
-	const char* const RomFilePath = "CartridgeRamTests.gb";
-
-	void WriteRomFile(const std::vector<unsigned char>& rom)
+	// Named after the test, so test processes sharing a directory don't overwrite each other's file
+	std::string RomFilePath()
 	{
-		std::ofstream ofs(RomFilePath, std::ios::binary);
+		return std::string(testing::UnitTest::GetInstance()->current_test_info()->name()) + ".gb";
+	}
+
+	bool WriteRomFile(const std::vector<unsigned char>& rom)
+	{
+		std::ofstream ofs(RomFilePath(), std::ios::binary);
 		ofs.write(reinterpret_cast<const char*>(rom.data()), rom.size());
+		return static_cast<bool>(ofs);
 	}
 }
 
@@ -104,9 +111,9 @@ TEST(CartridgeRamSizeTest, BankBeyondCartridgeRamReadsFfAndIgnoresWrites)
 
 TEST(CartridgeRamSizeTest, LoadFromFileSizesRamFromHeader)
 {
-	WriteRomFile(RomWithRamSizeCode(3));
-	auto cartridge = CartridgeFactory::LoadFromFile(RomFilePath);
-	std::remove(RomFilePath);
+	ASSERT_TRUE(WriteRomFile(RomWithRamSizeCode(3)));
+	auto cartridge = CartridgeFactory::LoadFromFile(RomFilePath());
+	std::remove(RomFilePath().c_str());
 
 	ASSERT_NE(nullptr, cartridge);
 	EXPECT_TRUE(RamBankKeepsWrittenValue(*cartridge, 3));
@@ -114,9 +121,9 @@ TEST(CartridgeRamSizeTest, LoadFromFileSizesRamFromHeader)
 
 TEST(CartridgeRamSizeTest, LoadFromFileWithRamBanksIgnoresHeader)
 {
-	WriteRomFile(RomWithRamSizeCode(3));
-	auto cartridge = CartridgeFactory::LoadFromFile(RomFilePath, 1);
-	std::remove(RomFilePath);
+	ASSERT_TRUE(WriteRomFile(RomWithRamSizeCode(3)));
+	auto cartridge = CartridgeFactory::LoadFromFile(RomFilePath(), 1);
+	std::remove(RomFilePath().c_str());
 
 	ASSERT_NE(nullptr, cartridge);
 	EXPECT_FALSE(RamBankKeepsWrittenValue(*cartridge, 3));
