@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "Emulator.h"
+#include "StateStream.h"
 
 void Emulator::RunCycles(int cycles)
 {
@@ -42,4 +43,30 @@ bool Emulator::RunInstruction()
 	EmuCartridge->RunCycles(cycles);
 
 	return EmuGraphics.TakeCompletedFrame();
+}
+
+void Emulator::WriteState(StateWriter& writer) const
+{
+	EmuCpu.WriteState(writer);
+	EmuMemoryMap.WriteState(writer);
+	EmuGraphics.WriteState(writer);
+	EmuOamDma.WriteState(writer);
+	EmuTimer.WriteState(writer);
+	EmuApu.WriteState(writer);
+	EmuSerial.WriteState(writer);
+	EmuJoypad.WriteState(writer);
+	EmuCartridge->WriteState(writer);
+}
+
+void Emulator::ReadState(StateReader& reader)
+{
+	EmuCpu.ReadState(reader);
+	EmuMemoryMap.ReadState(reader);
+	EmuGraphics.ReadState(reader);
+	EmuOamDma.ReadState(reader);
+	EmuTimer.ReadState(reader);
+	EmuApu.ReadState(reader);
+	EmuSerial.ReadState(reader);
+	EmuJoypad.ReadState(reader);
+	EmuCartridge->ReadState(reader);
 }

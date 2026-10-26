@@ -10,6 +10,8 @@ public:
 	{
 	}
 
+	std::unique_ptr<Cartridge> Clone() const override { return std::make_unique<RomOnlyCartridge>(*this); }
+
 	void RomWriteByte(unsigned short address, unsigned char value) override {}
 
 	unsigned char RamReadByte(unsigned short address) const override { return ReadRamBank(0, address); }

@@ -41,6 +41,7 @@ public:
 	InputJoypad& GetJoypad() { return EmuJoypad; }
 	MemoryMap& GetMemoryMap() { return EmuMemoryMap; }
 	Serial& GetSerial() { return EmuSerial; }
+	const OamDma& GetOamDma() const { return EmuOamDma; }
 
 	// Clocks the CPU has run since power-on, including time halted or stopped
 	uint64_t GetCpuClocks() const { return EmuCpu.GetTotalCycles(); }
@@ -49,5 +50,12 @@ public:
 	// Interleaved stereo 16-bit samples at the APU's sample rate, produced since the last call
 	void TakeAudioSamples(std::vector<short>& out) { EmuApu.TakeSamples(out); }
 	int GetAudioSampleRate() const { return EmuApu.GetSampleRate(); }
+
+	const Cartridge& GetCartridge() const { return *EmuCartridge; }
+
+	// Every component's state, for save states (see SaveState, which adds the header and checks). Called between
+	// instructions. Reading can fail part-way with StateError, leaving the emulator part-restored
+	void WriteState(StateWriter& writer) const;
+	void ReadState(StateReader& reader);
 };
 

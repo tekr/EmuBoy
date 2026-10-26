@@ -2,6 +2,8 @@
 
 class MemoryMap;
 class Graphics;
+class StateWriter;
+class StateReader;
 
 // OAM DMA (https://gbdev.io/pandocs/OAM_DMA_Transfer.html): writing $XX to $FF46 copies $XX00-$XX9F to OAM, a byte
 // per machine cycle. Timing per mooneye-test-suite's oam_dma_start, oam_dma_timing and oam_dma_restart
@@ -53,6 +55,9 @@ public:
 
 	// What the CPU reads from an address that BlocksCpuAccess
 	unsigned char BlockedRead(unsigned short address) const { return address >= 0xfe00 ? 0xff : _busValue; }
+
+	void WriteState(StateWriter& writer) const;
+	void ReadState(StateReader& reader);
 
 private:
 	void Step();

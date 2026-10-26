@@ -2,6 +2,7 @@
 #include "OamDma.h"
 #include "MemoryMap.h"
 #include "Graphics.h"
+#include "StateStream.h"
 
 void OamDma::WriteRegister(unsigned char value)
 {
@@ -33,4 +34,30 @@ void OamDma::Step()
 
 	_busValue = _memoryMap.ReadByteForDma(address);
 	_graphics.WriteOamDirect(static_cast<unsigned short>(_bytesTransferred++), _busValue);
+}
+
+void OamDma::WriteState(StateWriter& writer) const
+{
+	writer.BeginSection("DMA ");
+	writer.WriteU8(_register);
+	writer.WriteInt(_startDelay);
+	writer.WriteU16(_pendingSource);
+	writer.WriteBool(_transferring);
+	writer.WriteU16(_source);
+	writer.WriteInt(_bytesTransferred);
+	writer.WriteU8(_busValue);
+	writer.EndSection();
+}
+
+void OamDma::ReadState(StateReader& reader)
+{
+	reader.BeginSection("DMA ");
+	_register = reader.ReadU8();
+	_startDelay = reader.ReadInt(0, StartDelayCycles);
+	_pendingSource = reader.ReadU16();
+	_transferring = reader.ReadBool();
+	_source = reader.ReadU16();
+	_bytesTransferred = reader.ReadInt(0, TransferBytes);
+	_busValue = reader.ReadU8();
+	reader.EndSection();
 }

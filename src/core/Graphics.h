@@ -5,6 +5,8 @@ class MemoryMap;
 class Cpu;
 class SpriteManager;
 class OamDma;
+class StateWriter;
+class StateReader;
 
 enum LcdcStatus : unsigned char
 {
@@ -236,6 +238,9 @@ protected:
 
 	void SpriteChanged(unsigned short address);
 
+	void WriteBitmap(StateWriter& writer) const;
+	void ReadBitmap(StateReader& reader);
+
 public:
 
 	int Bitmap[HozPixels * VertPixels];
@@ -296,4 +301,8 @@ public:
 
 	unsigned char ReadRegister(unsigned short address) const;
 	void WriteRegister(unsigned short address, unsigned char value);
+
+	// Save states. The frame being drawn is kept too, so a state taken mid-frame finishes the same frame
+	void WriteState(StateWriter& writer) const;
+	void ReadState(StateReader& reader);
 };

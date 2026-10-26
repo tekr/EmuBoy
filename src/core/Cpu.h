@@ -2,6 +2,9 @@
 #include "MemoryMap.h"
 #include <vector>
 
+class StateWriter;
+class StateReader;
+
 // Avoids enum class to simplify bit-level operations
 enum CpuFlags : unsigned char
 {
@@ -398,5 +401,9 @@ public:
 	// Executes the next emulated CPU instruction, dispatches an interrupt, or runs a machine cycle while halted.
 	// Runs the clocked hardware alongside. Returns emulated CPU cycles elapsed
 	int DoNextInstruction();
+
+	// Save states, which are taken between instructions
+	void WriteState(StateWriter& writer) const;
+	void ReadState(StateReader& reader);
 };
 

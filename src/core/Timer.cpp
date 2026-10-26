@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "Timer.h"
 #include "Cpu.h"
+#include "StateStream.h"
 #include <algorithm>
 #include <climits>
 
@@ -94,4 +95,28 @@ void Timer::WriteRegister(int address, unsigned char value)
 	}
 
 	if (oldSignal && !GetCounterSignal()) IncCounter();
+}
+
+void Timer::WriteState(StateWriter& writer) const
+{
+	writer.BeginSection("TIMR");
+	writer.WriteU16(_divider);
+	writer.WriteBytes(_registers, sizeof(_registers));
+	writer.WriteBool(_isRunning);
+	writer.WriteInt(_divisorMode);
+	writer.WriteInt(_cyclesToReload);
+	writer.WriteInt(_cyclesLeftInReload);
+	writer.EndSection();
+}
+
+void Timer::ReadState(StateReader& reader)
+{
+	reader.BeginSection("TIMR");
+	_divider = reader.ReadU16();
+	reader.ReadBytes(_registers, sizeof(_registers));
+	_isRunning = reader.ReadBool();
+	_divisorMode = reader.ReadInt(0, 3);
+	_cyclesToReload = reader.ReadInt(0, ReloadDelayCycles);
+	_cyclesLeftInReload = reader.ReadInt(0, ReloadDelayCycles);
+	reader.EndSection();
 }

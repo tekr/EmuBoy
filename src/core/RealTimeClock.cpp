@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "RealTimeClock.h"
+#include "StateStream.h"
 #include <algorithm>
 
 namespace
@@ -111,4 +112,28 @@ void RealTimeClock::SetState(const State& state)
 	}
 
 	_state.CyclesIntoSecond = std::min(std::max(_state.CyclesIntoSecond, 0), CyclesPerSecond - 1);
+}
+
+void RealTimeClock::WriteState(StateWriter& writer) const
+{
+	writer.BeginSection("RTC ");
+	writer.WriteBytes(_state.Counters.data(), RegisterCount);
+	writer.WriteBytes(_state.Latched.data(), RegisterCount);
+	writer.WriteInt(_state.CyclesIntoSecond);
+	writer.WriteBool(_state.LatchArmed);
+	writer.EndSection();
+}
+
+void RealTimeClock::ReadState(StateReader& reader)
+{
+	reader.BeginSection("RTC ");
+
+	State state;
+	reader.ReadBytes(state.Counters.data(), RegisterCount);
+	reader.ReadBytes(state.Latched.data(), RegisterCount);
+	state.CyclesIntoSecond = reader.ReadInt(0, CyclesPerSecond - 1);
+	state.LatchArmed = reader.ReadBool();
+	SetState(state);
+
+	reader.EndSection();
 }

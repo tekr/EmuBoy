@@ -1,6 +1,9 @@
 #pragma once
 #include <vector>
 
+class StateWriter;
+class StateReader;
+
 // Original Game Boy (DMG) sound. References: Pan Docs (Audio, Audio Registers, Audio Details) and the gbdev wiki
 // "Gameboy sound hardware"; SameBoy's apu.c where those are silent.
 
@@ -198,4 +201,8 @@ public:
 	int ChannelOutput(int channel) const;
 
 	int GetSampleRate() const { return _sampleRate; }
+
+	// Save states. Samples produced but not yet taken aren't part of them, as they're already on their way out
+	void WriteState(StateWriter& writer) const;
+	void ReadState(StateReader& reader);
 };

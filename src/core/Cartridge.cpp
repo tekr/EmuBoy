@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "Cartridge.h"
+#include "StateStream.h"
 
 namespace
 {
@@ -50,5 +51,39 @@ void Cartridge::WriteRamBank(int bank, unsigned short address, unsigned char val
 	if (byte == value) return;
 
 	byte = value;
+	MarkChanged();
+}
+
+void Cartridge::WriteState(StateWriter& writer) const
+{
+	writer.BeginSection("CART");
+
+	writer.WriteInt(static_cast<int>(_romBank0Offset / RomBankSize));
+	writer.WriteInt(static_cast<int>(_romBank1Offset / RomBankSize));
+	writer.WriteU32(static_cast<uint32_t>(_ram.size()));
+	writer.WriteBytes(_ram.data(), _ram.size());
+	WriteRegisters(writer);
+
+	writer.EndSection();
+}
+
+void Cartridge::ReadState(StateReader& reader)
+{
+	reader.BeginSection("CART");
+
+	auto bank0 = reader.ReadInt(0, _romBankMask);
+	auto bank1 = reader.ReadInt(0, _romBankMask);
+	SetRomBanks(bank0, bank1);
+
+	auto ramSize = reader.ReadU32();
+	if (ramSize != _ram.size())
+	{
+		reader.Fail("it has " + std::to_string(ramSize) + " bytes of cartridge RAM rather than " + std::to_string(_ram.size()));
+	}
+
+	reader.ReadBytes(_ram.data(), _ram.size());
+	ReadRegisters(reader);
+
+	reader.EndSection();
 	MarkChanged();
 }

@@ -163,6 +163,7 @@
     <ClInclude Include="MemoryMap.h" />
     <ClInclude Include="RealTimeClock.h" />
     <ClInclude Include="StateStream.h" />
+    <ClInclude Include="SaveState.h" />
     <ClInclude Include="RomOnlyCartridge.h" />
     <ClInclude Include="SpriteManager.h" />
     <ClInclude Include="stdafx.h" />
@@ -190,6 +191,7 @@
     <ClCompile Include="MemoryMap.cpp" />
     <ClCompile Include="RealTimeClock.cpp" />
     <ClCompile Include="StateStream.cpp" />
+    <ClCompile Include="SaveState.cpp" />
     <ClCompile Include="SpriteManager.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>

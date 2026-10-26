@@ -197,6 +197,9 @@
     <ClCompile Include="MooneyeMbcTests.cpp" />
     <ClCompile Include="RealTimeClockTests.cpp" />
     <ClCompile Include="StateStreamTests.cpp" />
+    <ClCompile Include="SaveStateTests.cpp" />
+    <ClCompile Include="SaveStateRoundTripTests.cpp" />
+    <ClCompile Include="ComponentStateTests.cpp" />
     <ClCompile Include="Rtc3Tests.cpp" />
     <ClCompile Include="TimerTests.cpp" />
     <ClCompile Include="CartridgeRamTests.cpp" />

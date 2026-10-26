@@ -1,7 +1,10 @@
 #pragma once
+#include <memory>
 #include <vector>
 
 class RealTimeClock;
+class StateWriter;
+class StateReader;
 
 // A game cartridge: its ROM, optional RAM and the memory bank controller (MBC) that maps them into the Game Boy's
 // address space. Each mapper derives from this and decodes its own register writes; see
@@ -54,6 +57,17 @@ public:
 	bool HasUnsavedChanges() const { return _hasUnsavedChanges; }
 	void MarkSaved() { _hasUnsavedChanges = false; }
 
+	// The ROM, padded to a whole number of banks
+	const std::vector<unsigned char>& GetRom() const { return _rom; }
+
+	// A copy of the cartridge in its current state, e.g. to try loading a save state into
+	virtual std::unique_ptr<Cartridge> Clone() const = 0;
+
+	// Save states: the mapper's registers, the RAM and any clock, but not the ROM, which a state is tied to. Loading
+	// a state counts as changing the RAM, so the battery save is brought into line with it at the next save
+	void WriteState(StateWriter& writer) const;
+	void ReadState(StateReader& reader);
+
 protected:
 	std::vector<unsigned char> _rom;
 	std::vector<unsigned char> _ram;
@@ -73,6 +87,10 @@ protected:
 
 	// Called by Reset after the ROM banks are back at 0 and 1
 	virtual void ResetRegisters() {}
+
+	// The mapper's own registers in save states. The ROM banks mapped in are saved for all mappers
+	virtual void WriteRegisters(StateWriter& writer) const {}
+	virtual void ReadRegisters(StateReader& reader) {}
 
 private:
 	bool _hasBattery;

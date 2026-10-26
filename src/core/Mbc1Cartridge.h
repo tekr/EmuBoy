@@ -21,12 +21,16 @@ class Mbc1Cartridge : public Cartridge
 
 protected:
 	void ResetRegisters() override;
+	void WriteRegisters(StateWriter& writer) const override;
+	void ReadRegisters(StateReader& reader) override;
 
 public:
 	Mbc1Cartridge(std::vector<unsigned char>&& rom, size_t ramSize, bool hasBattery = false, bool isMulticart = false);
 
 	// Multicarts hold several 256 KB games, each with its own header and boot logo
 	static bool IsMulticart(const std::vector<unsigned char>& rom);
+
+	std::unique_ptr<Cartridge> Clone() const override { return std::make_unique<Mbc1Cartridge>(*this); }
 
 	void RomWriteByte(unsigned short address, unsigned char value) override;
 
