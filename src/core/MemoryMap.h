@@ -55,6 +55,9 @@ public:
 	void SetTimer(Timer* timer) { _timer = timer; }
 	void SetApu(Apu* apu) { _apu = apu; }
 
+	// The boot ROM overlays the cartridge until it hands over by writing to $FF50
+	bool InternalRomEnabled() const { return _internalRomEnabled; }
+
 	unsigned char ReadByte(unsigned short address) const;
 	void WriteByte(unsigned short address, unsigned char value);
 };

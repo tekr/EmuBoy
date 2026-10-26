@@ -37,7 +37,10 @@ Emulator::Emulator(std::shared_ptr<Cartridge> cartridge)
 int* Emulator::GetFrame()
 {
 	EmuGraphics.ResetFrame();
-	auto cycleCounter = 0;
+
+	// The last instruction of a frame can run past its end; those clocks come off this frame, so frames
+	// average exactly FrameClocks and the emulated clock doesn't creep ahead of the frame rate
+	auto cycleCounter = _frameOvershoot;
 	auto cycleTarget = 0;
 
 	for (auto i = 0; i < Graphics::VertPixels; i++)
@@ -67,5 +70,6 @@ int* Emulator::GetFrame()
 		EmuGraphics.RenderLine();
 	}
 
+	_frameOvershoot = cycleCounter - cycleTarget;
 	return EmuGraphics.Bitmap;
 }
