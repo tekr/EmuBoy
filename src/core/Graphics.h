@@ -97,7 +97,8 @@ protected:
 	unsigned char _vram[VramSize];
 	unsigned char _oam[OamSize];
 
-	unsigned char _registers[RegisterBlockSize];
+	// All zero at power-on (display off, as the boot ROM expects), apart from the palettes, set in the constructor
+	unsigned char _registers[RegisterBlockSize]{};
 
 	unsigned int _currentScanline{ 0 };
 	unsigned int _currentWindowScanline{ 0 };

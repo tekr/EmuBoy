@@ -1,6 +1,8 @@
 
 #include "stdafx.h"
 #include <gtest/gtest.h>
+#include <cstring>
+#include <new>
 #include "GraphicsTestFixture.h"
 #include "TestGraphics.h"
 #include "../core/CartridgeFactory.h"
@@ -252,4 +254,26 @@ TEST_F(GraphicsTestFixture, WindowLineCounterAdvancesWhileBackgroundDisabled)
 
 	// Window row 1 (colour 0) is drawn on line 1, not row 0 again
 	EXPECT_EQ(Graphics::ShadeColour(0), Graphics.Bitmap[Graphics::HozPixels]);
+}
+
+TEST_F(GraphicsTestFixture, RegistersHaveDefinedPowerOnValues)
+{
+	// Construct over non-zero memory, so uninitialised registers would show
+	alignas(::Graphics) unsigned char storage[sizeof(::Graphics)];
+	memset(storage, 0xaa, sizeof(storage));
+	auto graphics = new (storage) ::Graphics(Cpu, MemoryMap, SpriteManager);
+
+	// The boot ROM runs from power-on, with the display off. The palettes start as all colour 3, and STAT bit 7
+	// always reads as 1
+	for (unsigned short address = 0; address < TestGraphics::RegisterBlockSize; address++)
+	{
+		int expected = address == TestGraphics::RegLcdStatus ? 0x80
+			: address == TestGraphics::RegBgWinPalette || address == TestGraphics::RegSprite0Palette || address == TestGraphics::RegSprite1Palette ? 0xff
+			: 0;
+
+		EXPECT_EQ(expected, static_cast<int>(graphics->ReadRegister(address))) << "register " << address;
+	}
+
+	graphics->~Graphics();
+	MemoryMap.SetGraphics(&Graphics);
 }

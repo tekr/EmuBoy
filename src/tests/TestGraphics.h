@@ -21,6 +21,8 @@ public:
 	using Graphics::RegBgScrollY;
 	using Graphics::RegBgScrollX;
 	using Graphics::RegBgWinPalette;
+	using Graphics::RegSprite0Palette;
+	using Graphics::RegSprite1Palette;
 	using Graphics::RegWindowY;
 	using Graphics::RegWindowX;
 	using Graphics::RegisterBlockSize;

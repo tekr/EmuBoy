@@ -69,7 +69,6 @@ Graphics::Graphics(Cpu& cpu, MemoryMap& memoryMap, SpriteManager& spriteManager)
 {
 	_memoryMap.SetGraphics(this);
 
-	_registers[RegLineCount] = 0;
 	_registers[RegBgWinPalette] = 0xff;
 	_registers[RegSprite0Palette] = 0xff;
 	_registers[RegSprite1Palette] = 0xff;
