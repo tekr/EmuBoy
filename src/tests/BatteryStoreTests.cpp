@@ -58,7 +58,11 @@ namespace
 #endif
 		}
 
+#ifdef _WIN32
 		return ".";
+#else
+		return "/tmp";
+#endif
 	}
 
 	bool Exists(const std::string& path)
