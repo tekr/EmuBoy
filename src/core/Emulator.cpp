@@ -27,13 +27,19 @@ Emulator::Emulator(std::shared_ptr<Cartridge> cartridge) : EmuCartridge{ cartrid
 
 int* Emulator::GetFrame()
 {
-	while (!EmuGraphics.TakeCompletedFrame())
+	while (!RunInstruction())
 	{
-		auto cycles = EmuCpu.DoNextInstruction();
-
-		// The cartridge's clock counts seconds, so it runs once per instruction rather than every machine cycle
-		EmuCartridge->RunCycles(cycles);
 	}
 
 	return EmuGraphics.Bitmap;
+}
+
+bool Emulator::RunInstruction()
+{
+	auto cycles = EmuCpu.DoNextInstruction();
+
+	// The cartridge's clock counts seconds, so it runs once per instruction rather than every machine cycle
+	EmuCartridge->RunCycles(cycles);
+
+	return EmuGraphics.TakeCompletedFrame();
 }

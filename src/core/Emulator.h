@@ -33,6 +33,11 @@ public:
 	// next frame comes at its first V-Blank, so the frame it's turned on in lasts up to nearly two frames. Pace by
 	// GetCpuClocks rather than by frames
 	int* GetFrame();
+
+	// Runs one instruction, interrupt dispatch or halted machine cycle. Returns true if that completed a frame, which
+	// GetFrame would have returned then. For stopping between frames, e.g. to save a state there
+	bool RunInstruction();
+
 	InputJoypad& GetJoypad() { return EmuJoypad; }
 	MemoryMap& GetMemoryMap() { return EmuMemoryMap; }
 	Serial& GetSerial() { return EmuSerial; }
