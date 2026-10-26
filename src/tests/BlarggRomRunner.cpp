@@ -63,9 +63,6 @@ BlarggRomResult RunBlarggRom(const std::string& path, int maxFrames)
 			return result;
 		}
 
-		// The ROM may leave cartridge RAM disabled; enable it so the results can be read
-		memory.WriteByte(0x0000, 0x0a);
-
 		if (HasRamSignature(memory) && memory.ReadByte(ResultAddress) != RunningStatus)
 		{
 			result.Finished = true;
