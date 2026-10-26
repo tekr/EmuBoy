@@ -35,13 +35,19 @@ int main()
 	sf::RenderWindow window(sf::VideoMode(640, 576), "EmuBoy");
 	window.setFramerateLimit(60);
 
-	sf::Texture texture;
-	texture.create(Graphics::HozPixels, Graphics::VertPixels);
-	texture.setSmooth(true);
+	sf::Texture frameTexture;
+	frameTexture.create(Graphics::HozPixels, Graphics::VertPixels);
+	sf::Sprite frameSprite(frameTexture);
 
-	sf::Sprite sprite;
-	sprite.setTexture(texture);
-	sprite.scale(4, 4);
+	// Frames are drawn at 75% opacity over the previous ones to emulate the slow LCD. They build up in a texture
+	// the app owns, as a window's back buffer isn't guaranteed to keep its contents between frames
+	sf::RenderTexture screen;
+	screen.create(Graphics::HozPixels, Graphics::VertPixels);
+	screen.setSmooth(true);
+	screen.clear();
+
+	sf::Sprite screenSprite(screen.getTexture());
+	screenSprite.scale(4, 4);
 
 	auto cartridge = CartridgeFactory::LoadFromFile("../../ROMs/gb-snake.gb", 0);
 	if (cartridge != nullptr)
@@ -58,9 +64,11 @@ int main()
 				if (event.type == sf::Event::Closed) window.close();
 			}
 
-			texture.update(reinterpret_cast<sf::Uint8*>(emulator.GetFrame()));
+			frameTexture.update(reinterpret_cast<sf::Uint8*>(emulator.GetFrame()));
+			screen.draw(frameSprite);
+			screen.display();
 
-			window.draw(sprite);
+			window.draw(screenSprite);
 			window.display();
 		}
 
