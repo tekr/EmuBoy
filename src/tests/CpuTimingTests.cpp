@@ -235,6 +235,49 @@ TEST_F(CpuInterruptEnableTests, RetiEnablesInterruptsStraightAway)
 	EXPECT_EQ(0x10, MemoryMap.ReadByte(StackTop + 1));
 }
 
+TEST_F(CpuInterruptEnableTests, EiWithInterruptsAlreadyEnabledDoesNotReenableThemInTheHandler)
+{
+	MemoryMap.SetBytes(MemoryMap::RomFixed, { 0xfb, 0x00 });			// EI, NOP
+	MemoryMap.SetBytes(0x40, { 0x00, 0x00 });							// NOP, NOP
+	Cpu.WaitingInterrupts() = 0;
+	Cpu.InterruptsEnabled() = true;
+
+	Cpu.DoNextInstruction();
+	Cpu.RequestInterrupt(InterruptFlags::VBlankInt);
+
+	Cpu.DoNextInstruction();
+	EXPECT_EQ(0x40, Cpu.Registers().PC);
+
+	for (auto i = 0; i < 2; i++)
+	{
+		Cpu.DoNextInstruction();
+		EXPECT_FALSE(Cpu.InterruptsEnabled());
+	}
+}
+
+TEST_F(CpuInterruptEnableTests, EiTwiceEnablesInterruptsAfterTheSecondAndNotAgainInTheHandler)
+{
+	MemoryMap.SetBytes(MemoryMap::RomFixed, { 0xfb, 0xfb, 0x00 });	// EI, EI, NOP
+	MemoryMap.SetBytes(0x40, { 0x00, 0x00 });							// NOP, NOP
+
+	Cpu.DoNextInstruction();
+	EXPECT_FALSE(Cpu.InterruptsEnabled());
+
+	// The first EI takes effect after the second
+	Cpu.DoNextInstruction();
+	EXPECT_TRUE(Cpu.InterruptsEnabled());
+
+	Cpu.DoNextInstruction();
+	EXPECT_EQ(0x40, Cpu.Registers().PC);
+	EXPECT_EQ(2, MemoryMap.ReadByte(StackTop - 2));
+
+	for (auto i = 0; i < 2; i++)
+	{
+		Cpu.DoNextInstruction();
+		EXPECT_FALSE(Cpu.InterruptsEnabled());
+	}
+}
+
 class CpuHaltTests : public CpuTimingTests
 {
 public:

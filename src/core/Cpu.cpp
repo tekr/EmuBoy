@@ -505,7 +505,9 @@ void Cpu::Di(unsigned char opcode)
 
 void Cpu::Ei(unsigned char opcode)
 {
-	_enableInterruptsAfterNext = true;
+	// With interrupts already enabled EI does nothing, so it can't re-enable them inside a handler dispatched
+	// straight after it
+	if (!_interruptsEnabled) _enableInterruptsAfterNext = true;
 }
 
 void Cpu::Ret(unsigned char opcode)
@@ -676,8 +678,10 @@ void Cpu::DispatchInterrupt()
 {
 	// Per https://gbdev.io/pandocs/Interrupts.html#interrupt-handling, dispatch takes five machine cycles: two
 	// wait states, two to push PC and one to jump to the handler. The first wait state is the opcode fetch the
-	// dispatch replaces, which DoNextInstruction has already made
+	// dispatch replaces, which DoNextInstruction has already made. An EI still waiting to take effect (the first
+	// of EI; EI) is dropped, so the handler runs with interrupts disabled
 	_interruptsEnabled = false;
+	_enableInterruptsAfterNext = false;
 	InternalCycle();
 
 	// The opcode fetch that the dispatch replaced didn't increment PC if the HALT bug struck, so the handler
