@@ -138,10 +138,28 @@ TEST_F(SpriteTests, SpriteMovedAfterLineRenderedIsDrawnAtNewPositionOnNextLine)
 	SetSprite(0, ScreenLeft, SolidTile);
 	RenderFirstLine();
 
-	// As if written during H-Blank, between line 0 being drawn and line 1's OAM scan
+	// As if written after line 0 was drawn (e.g. in its H-Blank), before line 1 is drawn
 	Graphics.WriteOam(1, ScreenLeft + 16);
 	Graphics.RenderLine();
 
+	EXPECT_EQ(Colour(0, TestGraphics::Palette::BgAndWindow), Pixel(0, 1));
+	EXPECT_EQ(Colour(1, TestGraphics::Palette::Sprite0), Pixel(16, 1));
+}
+
+TEST_F(SpriteTests, SpriteMovedInHBlankStaysAtOldPositionOnCurrentLine)
+{
+	SetSprite(0, ScreenLeft, SolidTile);
+	Graphics.ResetFrame();
+	Graphics.DrawLine();
+
+	// Written in line 0's H-Blank: line 0 has already been drawn
+	Graphics.SetLcdcStatus(LcdcStatus::HBlankMode);
+	Graphics.WriteOam(1, ScreenLeft + 16);
+	Graphics.EndLine();
+	Graphics.DrawLine();
+
+	EXPECT_EQ(Colour(1, TestGraphics::Palette::Sprite0), Pixel(0, 0));
+	EXPECT_EQ(Colour(0, TestGraphics::Palette::BgAndWindow), Pixel(16, 0));
 	EXPECT_EQ(Colour(0, TestGraphics::Palette::BgAndWindow), Pixel(0, 1));
 	EXPECT_EQ(Colour(1, TestGraphics::Palette::Sprite0), Pixel(16, 1));
 }

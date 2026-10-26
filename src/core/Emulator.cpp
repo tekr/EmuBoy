@@ -46,6 +46,9 @@ int* Emulator::GetFrame()
 		cycleTarget += Graphics::OamReadClocks;
 		Run(cycleCounter, cycleTarget);
 
+		// Drawn before mode 3 starts, so H-Blank writes only affect the next line, as on hardware
+		EmuGraphics.DrawLine();
+
 		EmuGraphics.SetLcdcStatus(LcdcStatus::OamAndVramReadMode);
 		cycleTarget += Graphics::OamAndVramReadClocks;
 		Run(cycleCounter, cycleTarget);
@@ -54,7 +57,7 @@ int* Emulator::GetFrame()
 		cycleTarget += Graphics::HBlankPeriodClocks;
 		Run(cycleCounter, cycleTarget);
 
-		EmuGraphics.RenderLine();
+		EmuGraphics.EndLine();
 	}
 
 	EmuGraphics.SetLcdcStatus(LcdcStatus::VBlankMode);

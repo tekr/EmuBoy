@@ -52,8 +52,8 @@ void Graphics::CheckLineCompare()
 	}
 }
 
-// LY changes, and is compared with LYC, at the start of each line, so a register write made from the LY=LYC
-// interrupt (e.g. in mode 2) affects the line that triggered it
+// LY changes, and is compared with LYC, at the start of each line. The line is drawn at the end of its OAM scan
+// (mode 2), so a register write made from the LY=LYC interrupt during mode 2 affects the line that triggered it
 void Graphics::StartLine(unsigned int line)
 {
 	_currentScanline = line;
@@ -130,7 +130,7 @@ void Graphics::WriteRegister(unsigned short address, unsigned char value)
 	_registers[address] = value;
 }
 
-int Graphics::RenderLine()
+void Graphics::DrawLine()
 {
 	if (_currentScanline < VertPixels)
 	{
@@ -212,7 +212,17 @@ int Graphics::RenderLine()
 		}
 	}
 
+}
+
+void Graphics::EndLine()
+{
 	StartLine(_currentScanline + 1 < FrameLines ? _currentScanline + 1 : 0);
+}
+
+int Graphics::RenderLine()
+{
+	DrawLine();
+	EndLine();
 
 	return ScanlineClocks;
 }

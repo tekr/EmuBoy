@@ -49,8 +49,8 @@ public:
 
 	const VisibleSpriteContainer& GetVisibleSprites() const { return _visibleSprites; }
 
-	// Selects the sprites drawn on a line. Called just before the line is rendered, so the selection always reflects
-	// the current OAM and sprite size, as the hardware's OAM scan at the start of the line would
+	// Selects the sprites drawn on a line. Called when the line is drawn, at the end of its OAM scan, so the selection
+	// reflects OAM and the sprite size as they are then, including any changes made in the previous line's H-Blank
 	void SelectSprites(unsigned char scanline);
 
 	void SpriteMoved(SpriteData& spriteData);

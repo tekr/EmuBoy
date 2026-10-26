@@ -155,6 +155,14 @@ public:
 		if (_currentScanline != 0) StartLine(0);
 	}
 
+	// Draws the current line in one go, using the registers, OAM and VRAM as they are when its OAM scan (mode 2)
+	// ends. Writes made later in the line, including in its H-Blank, take effect from the next line
+	void DrawLine();
+
+	// Moves to the next line, wrapping to line 0 after the last V-Blank line
+	void EndLine();
+
+	// DrawLine then EndLine, for when there's nothing to run in between
 	int RenderLine();
 
 	void SetLcdcStatus(LcdcStatus status);
