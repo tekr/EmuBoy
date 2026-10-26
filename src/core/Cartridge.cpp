@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "Cartridge.h"
 #include "StateStream.h"
+#include "Crc32.h"
 
 namespace
 {
@@ -24,6 +25,17 @@ Cartridge::Cartridge(std::vector<unsigned char>&& rom, size_t ramSize, bool hasB
 	_romData = _rom->data();
 
 	SetRomBanks(0, 1);
+}
+
+uint32_t Cartridge::GetRomCrc() const
+{
+	if (!_romCrcKnown)
+	{
+		_romCrc = Crc32::Compute(_rom->data(), _rom->size());
+		_romCrcKnown = true;
+	}
+
+	return _romCrc;
 }
 
 void Cartridge::SetRomBanks(int bank0, int bank1)

@@ -151,6 +151,7 @@
     <ClInclude Include="FileIo.h" />
     <ClInclude Include="Apu.h" />
     <ClInclude Include="Cartridge.h" />
+    <ClInclude Include="Crc32.h" />
     <ClInclude Include="CartridgeFactory.h" />
     <ClInclude Include="Cpu.h" />
     <ClInclude Include="Emulator.h" />
@@ -179,6 +180,7 @@
     <ClCompile Include="FileIo.cpp" />
     <ClCompile Include="Apu.cpp" />
     <ClCompile Include="Cartridge.cpp" />
+    <ClCompile Include="Crc32.cpp" />
     <ClCompile Include="CartridgeFactory.cpp" />
     <ClCompile Include="Cpu.cpp" />
     <ClCompile Include="Core.cpp" />

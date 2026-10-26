@@ -62,9 +62,9 @@ RAM and clock) so a game can carry on from that moment. There are four slots per
 `<name>.ss1` to `<name>.ss4` (`Tetris.gb` saves slot 1 to `Tetris.ss1`). F5 saves to the selected slot and F8 loads
 from it; F6 and F7 select the previous and next slot. The window title briefly shows the slot selected and whether
 saving or loading worked, and the terminal shows the same messages with any error. A state only loads into the game
-it was saved from (it checks the title and checksums in the cartridge header) and into the same version of the
-state format; a state that doesn't match, or is damaged, is reported and the game carries on undisturbed. Saving
-and loading take well under a millisecond, and a state takes about 40 KB plus the cartridge's RAM.
+it was saved from (it checks a checksum of the whole ROM) and into the same version of the state format; a state
+that doesn't match, or is damaged, is reported and the game carries on undisturbed. Saving and loading take well
+under a millisecond, and a state takes about 40 KB plus the cartridge's RAM.
 
 Loading a state also puts back the cartridge RAM as it was when the state was saved, and that becomes the game's
 battery save too: it is written to the `.sav` file within a few seconds, as if the game had just saved. This keeps

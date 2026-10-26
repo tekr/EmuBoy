@@ -8,6 +8,7 @@
 #include "../core/CartridgeFactory.h"
 #include "../core/RealTimeClock.h"
 #include "../core/SaveState.h"
+#include "../core/Crc32.h"
 #include "../core/StateStream.h"
 #include "CartridgeTestHelpers.h"
 #include "SaveFileTestHelpers.h"
@@ -48,7 +49,7 @@ namespace
 	// Makes the CRC match again after changing a state, so that the change itself is what's checked
 	void FixCrc(Bytes& state)
 	{
-		WriteU32(state, state.size() - CrcSize, SaveState::Crc32(state.data(), state.size() - CrcSize));
+		WriteU32(state, state.size() - CrcSize, Crc32::Compute(state.data(), state.size() - CrcSize));
 	}
 
 	// The offset of a section's contents, found by walking the sections after the header
@@ -97,31 +98,30 @@ namespace
 TEST(SaveStateCrcTest, MatchesTheStandardCheckValue)
 {
 	const std::string check = "123456789";
-	EXPECT_EQ(0xcbf43926u, SaveState::Crc32(reinterpret_cast<const unsigned char*>(check.data()), check.size()));
+	EXPECT_EQ(0xcbf43926u, Crc32::Compute(reinterpret_cast<const unsigned char*>(check.data()), check.size()));
 }
 
 TEST_F(SaveStateTest, StartsWithMagicAndFormatVersion)
 {
 	EXPECT_EQ("EMUBOYSS", std::string(State.begin(), State.begin() + 8));
 	EXPECT_EQ(SaveState::FormatVersion, ReadU32(State, 8));
-	EXPECT_EQ(1u, SaveState::FormatVersion);
+	EXPECT_EQ(2u, SaveState::FormatVersion);
 }
 
 TEST_F(SaveStateTest, EndsWithCrcOfEverythingElse)
 {
-	EXPECT_EQ(SaveState::Crc32(State.data(), State.size() - CrcSize), ReadU32(State, State.size() - CrcSize));
+	EXPECT_EQ(Crc32::Compute(State.data(), State.size() - CrcSize), ReadU32(State, State.size() - CrcSize));
 }
 
-TEST_F(SaveStateTest, IdentifiesTheRomByTitleChecksumsAndSize)
+TEST_F(SaveStateTest, IdentifiesTheRomByTitleSizeAndCrc)
 {
 	auto rom = FindSection(State, "ROM ");
 	auto& romData = Rom->GetRom();
 
 	EXPECT_EQ(Bytes(romData.begin() + 0x134, romData.begin() + 0x144), Bytes(State.begin() + rom, State.begin() + rom + 16));
-	EXPECT_EQ(romData[0x14d], State[rom + 16]);
-	EXPECT_EQ(romData[0x14e] << 8 | romData[0x14f], State[rom + 17] | State[rom + 18] << 8);
-	EXPECT_EQ(romData.size(), ReadU32(State, rom + 19));
-	EXPECT_EQ(23u, ReadU32(State, rom - 4));
+	EXPECT_EQ(romData.size(), ReadU32(State, rom + 16));
+	EXPECT_EQ(Crc32::Compute(romData.data(), romData.size()), ReadU32(State, rom + 20));
+	EXPECT_EQ(24u, ReadU32(State, rom - 4));
 }
 
 TEST_F(SaveStateTest, HoldsASectionForEachComponentInOrder)
@@ -186,14 +186,14 @@ TEST_F(SaveStateTest, RejectsAnotherFormatVersion)
 	auto state = State;
 	WriteU32(state, 8, SaveState::FormatVersion + 1);
 
-	ExpectRejected(state, "version 2 of the format");
+	ExpectRejected(state, "version " + std::to_string(SaveState::FormatVersion + 1) + " of the format");
 }
 
 TEST_F(SaveStateTest, RejectsAnotherFormatVersionEvenIfItsLaidOutDifferently)
 {
-	Bytes state{ 'E', 'M', 'U', 'B', 'O', 'Y', 'S', 'S', 2, 0, 0, 0, 1, 2, 3 };
+	Bytes state{ 'E', 'M', 'U', 'B', 'O', 'Y', 'S', 'S', 99, 0, 0, 0, 1, 2, 3 };
 
-	ExpectRejected(state, "version 2 of the format");
+	ExpectRejected(state, "version 99 of the format");
 }
 
 TEST_F(SaveStateTest, RejectsTruncatedStates)
@@ -241,7 +241,7 @@ TEST_F(SaveStateTest, RejectsAStateForAnotherGame)
 
 TEST_F(SaveStateTest, RejectsAStateForAnotherUntitledGame)
 {
-	// blargg's ROMs have no title, so are told apart by their checksums
+	// blargg's ROMs have no title, so are told apart by their contents
 	Emulator other{ CartridgeFactory::LoadFromFile("roms/cpu_instrs/02-interrupts.gb", 1) };
 
 	ExpectRejected(SaveState::Create(other), "for another game (untitled)");
@@ -249,12 +249,12 @@ TEST_F(SaveStateTest, RejectsAStateForAnotherUntitledGame)
 
 TEST_F(SaveStateTest, RejectsAStateForAnotherVersionOfTheGame)
 {
-	// The same title, but a different global checksum
-	auto state = State;
-	state[FindSection(state, "ROM ") + 17] ^= 1;
-	FixCrc(state);
+	// The same header, but different code: a byte past the header changed
+	auto rom = Rom->GetRom();
+	rom[0x200] ^= 1;
+	Emulator other{ CartridgeFactory::Create(std::move(rom), 1) };
 
-	ExpectRejected(state, "for another game");
+	ExpectRejected(SaveState::Create(other), "for another game");
 }
 
 TEST_F(SaveStateTest, RejectsAStateWithAnotherAmountOfCartridgeRam)

@@ -54,6 +54,9 @@
     <ClCompile Include="Cartridge.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Crc32.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="Apu.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -132,6 +135,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Cartridge.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Crc32.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Apu.h">

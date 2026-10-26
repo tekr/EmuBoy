@@ -1,4 +1,5 @@
 #pragma once
+#include <cstdint>
 #include <memory>
 #include <vector>
 
@@ -60,6 +61,9 @@ public:
 	// The ROM, padded to a whole number of banks
 	const std::vector<unsigned char>& GetRom() const { return *_rom; }
 
+	// The CRC-32 of the whole ROM (as padded), which identifies the game. Worked out the first time it's needed
+	uint32_t GetRomCrc() const;
+
 	// A copy of the cartridge in its current state, e.g. to try loading a save state into. It shares the ROM, which
 	// doesn't change, so copying is quick however big the ROM
 	virtual std::unique_ptr<Cartridge> Clone() const = 0;
@@ -101,6 +105,9 @@ private:
 
 	// _rom's bytes, read on every instruction fetch
 	const unsigned char* _romData;
+
+	mutable uint32_t _romCrc{ 0 };
+	mutable bool _romCrcKnown{ false };
 	size_t _romBank0Offset{ 0 };
 	size_t _romBank1Offset{ 0 };
 

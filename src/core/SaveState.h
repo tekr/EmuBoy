@@ -9,8 +9,8 @@
 //
 //   "EMUBOYSS"     Magic
 //   u32            Format version, FormatVersion
-//   ROM section    The game the state belongs to: its title bytes ($0134-$0143), header checksum ($014D), global
-//                  checksum ($014E-$014F) and size
+//   ROM section    The game the state belongs to: the title bytes from its header ($0134-$0143, for messages), its
+//                  size and the CRC-32 of the whole ROM
 //   Sections       Each component's state, as Emulator::WriteState writes it: CPU, memory, PPU, OAM DMA, timer,
 //                  APU, serial port, joypad and cartridge (mapper, RAM and clock)
 //   u32            CRC-32 of everything before it
@@ -20,14 +20,11 @@
 class SaveState
 {
 public:
-	static const uint32_t FormatVersion = 1;
+	static const uint32_t FormatVersion = 2;
 
 	static std::vector<unsigned char> Create(const Emulator& emulator);
 
 	// Restores the emulator to a state. Returns an empty string, or why the state can't be loaded, in which case the
 	// emulator is left as it was: the state is checked in full, by loading it into a copy, before it is applied
 	static std::string Restore(Emulator& emulator, const std::vector<unsigned char>& state);
-
-	// CRC-32 (ISO-HDLC, as zlib and PNG use)
-	static uint32_t Crc32(const unsigned char* data, size_t size);
 };
