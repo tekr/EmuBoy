@@ -12,6 +12,9 @@ namespace
 	// The bits each clock register holds, per https://gbdev.io/pandocs/MBC3.html
 	const unsigned char RegisterMasks[RealTimeClock::RegisterCount] = { 0x3f, 0x3f, 0x1f, 0xff, 0xc1 };
 
+	// 1 January 1997. No clock cartridge predates it, so an earlier time stamp is garbage, as SameBoy also assumes
+	const uint64_t EarliestTimeStamp = 852076800;
+
 	const unsigned char Mbc2UnusedBits = 0xf0;
 	const size_t Mbc2PackedSize = Mbc2Cartridge::RamSize / 2;
 
@@ -67,11 +70,11 @@ namespace
 		footer = ReadRegisters(footer, state.Latched);
 		clock.SetState(state);
 
-		// A clock set back since the save doesn't wind the Game Boy's clock back. A zero time stamp means the time
-		// wasn't known, so moving the clock on by decades would be wrong. Gaps longer than the 512-day counter
-		// set its carry bit, as they would on the cartridge
+		// A time stamp before 1997 or in the future (from a clock set back since the save) isn't trusted, so the
+		// clock keeps the saved time without catching up, rather than moving it by decades or winding it back.
+		// Gaps longer than the 512-day counter set its carry bit, as they would on the cartridge
 		auto savedTime = ReadLittleEndian(footer, footerSize - 2 * RealTimeClock::RegisterCount * RegisterFieldSize);
-		if (savedTime != 0 && unixTime > 0 && savedTime < static_cast<uint64_t>(unixTime))
+		if (savedTime >= EarliestTimeStamp && unixTime > 0 && savedTime < static_cast<uint64_t>(unixTime))
 		{
 			clock.AdvanceSeconds(static_cast<uint64_t>(unixTime) - savedTime);
 		}

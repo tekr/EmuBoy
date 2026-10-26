@@ -280,6 +280,25 @@ TEST(SaveFileTest, ZeroTimeStampDoesNotMoveTheClock)
 	EXPECT_EQ((Registers{ { 5, 4, 3, 2, 0 } }), Counters(*cartridge));
 }
 
+TEST(SaveFileTest, TimeStampBefore1997DoesNotMoveTheClock)
+{
+	// There were no clock cartridges before 1997, so an earlier time stamp is garbage
+	auto cartridge = CartridgeFactory::Create(Rom(Mbc3TimerBattery, NoRam));
+
+	SaveFile::Deserialise(*cartridge, ClockSave({ { 5, 4, 3, 2, 0 } }, {}, 852076799), SaveTime);
+
+	EXPECT_EQ((Registers{ { 5, 4, 3, 2, 0 } }), Counters(*cartridge));
+}
+
+TEST(SaveFileTest, TimeStampFrom1997MovesTheClock)
+{
+	auto cartridge = CartridgeFactory::Create(Rom(Mbc3TimerBattery, NoRam));
+
+	SaveFile::Deserialise(*cartridge, ClockSave({ { 5, 4, 3, 2, 0 } }, {}, 852076800), 852076800 + 10);
+
+	EXPECT_EQ((Registers{ { 15, 4, 3, 2, 0 } }), Counters(*cartridge));
+}
+
 TEST(SaveFileTest, ClockRegistersAreMaskedToTheirBits)
 {
 	auto cartridge = CartridgeFactory::Create(Rom(Mbc3TimerBattery, NoRam));
