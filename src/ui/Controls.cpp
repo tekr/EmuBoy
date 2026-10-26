@@ -52,7 +52,8 @@ namespace
 		const unsigned selectButton = 10;
 		const unsigned startButton = 11;
 #else
-		// XInput on Windows and the xpad driver on Linux number Back and Start 6 and 7
+		// DirectInput on Windows (which SFML uses, falling back to WinMM) and the xpad driver on Linux number Back and
+		// Start 6 and 7
 		const unsigned selectButton = 6;
 		const unsigned startButton = 7;
 #endif

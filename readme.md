@@ -80,10 +80,9 @@ ROM's folder can't be written to. On a Mac keyboard whose top row controls brigh
 F12. The emulator's commands are on the keyboard only.
 
 Gamepad buttons are numbered differently by each platform's drivers. The defaults suit Xbox-style pads: through
-XInput on Windows and the xpad driver on Linux (buttons 0, 1, 6 and 7), and Xbox One and Series pads over Bluetooth on
-macOS (buttons 0, 1, 10 and 11). Other pads may number their buttons differently. On
-macOS, SFML 2 doesn't read d-pads that report as a hat switch numbered 1-8, as some Xbox pads' do, so use the left
-stick there.
+DirectInput on Windows and the xpad driver on Linux (buttons 0, 1, 6 and 7), and Xbox One and Series pads over
+Bluetooth on macOS (buttons 0, 1, 10 and 11). Other pads may number their buttons differently. On macOS, SFML 2
+doesn't read d-pads that report as a hat switch numbered 1-8, as some Xbox pads' do, so use the left stick there.
 
 
 ## Current status
