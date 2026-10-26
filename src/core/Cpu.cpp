@@ -298,14 +298,16 @@ void Cpu::St8MemRegAcc(unsigned char opcode)
 
 void Cpu::Inc16Reg(unsigned char opcode)
 {
-	GetReg16Ref1(opcode)++;
-	InternalCycle();
+	auto& reg = GetReg16Ref1(opcode);
+	IncDecCycle(reg);
+	reg++;
 }
 
 void Cpu::Dec16Reg(unsigned char opcode)
 {
-	GetReg16Ref1(opcode)--;
-	InternalCycle();
+	auto& reg = GetReg16Ref1(opcode);
+	IncDecCycle(reg);
+	reg--;
 }
 
 void Cpu::IncDec8RegOrMem(unsigned char opcode)
@@ -396,7 +398,9 @@ void Cpu::Add16RegReg(unsigned char opcode)
 void Cpu::Ld8AccMem(unsigned char opcode)
 {
 	auto& ref = GetReg16Ref2(opcode);
-	_registers.A = ReadByte(ref);
+
+	// LD A,(HL+) and LD A,(HL-) increment or decrement HL in the same machine cycle as the read
+	_registers.A = ReadByte(ref, (opcode & 0x20) ? OamCorruption::ReadDuringIncDec : OamCorruption::Read);
 
 	switch (opcode & 0x30)
 	{
@@ -684,7 +688,7 @@ void Cpu::DispatchInterrupt()
 	// of EI; EI) is dropped, so the handler runs with interrupts disabled
 	_interruptsEnabled = false;
 	_enableInterruptsAfterNext = false;
-	InternalCycle();
+	IncDecCycle(_registers.SP);
 
 	// The opcode fetch that the dispatch replaced didn't increment PC if the HALT bug struck, so the handler
 	// returns to the HALT

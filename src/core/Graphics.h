@@ -22,6 +22,17 @@ enum SpriteFlags : unsigned char
 	ZPriority		= 0x80
 };
 
+// How the CPU touched OAM while the PPU was scanning it, which decides how the DMG's OAM corruption bug corrupts it
+// (https://gbdev.io/pandocs/OAM_Corruption_Bug.html)
+enum class OamCorruption
+{
+	// A write, or a 16-bit increment or decrement of a register holding an OAM address
+	Write,
+	Read,
+	// A read in the same machine cycle as an increment or decrement, as by LD A,(HL+)
+	ReadDuringIncDec
+};
+
 // Windows-specific
 #pragma pack(push, 1)
 struct SpriteData
@@ -162,6 +173,9 @@ protected:
 	bool _vramReadBlocked{ false };
 	bool _vramWriteBlocked{ false };
 
+	// The PPU reads a row of OAM each machine cycle of mode 2, which the OAM corruption bug corrupts
+	bool _oamScanning{ false };
+
 	// OAM DMA during the OAM scan hides every sprite on the line
 	bool _dmaDuringOamScan{ false };
 
@@ -272,6 +286,9 @@ public:
 	unsigned char& Vram(unsigned short address) { return _vram[address]; }
 	void WriteOamDirect(unsigned short address, unsigned char value);
 
+	// Applies the DMG's OAM corruption bug for an access to $FE00-$FEFF, which corrupts OAM only while the PPU is
+	// scanning it
+	void CorruptOam(OamCorruption corruption);
 
 	unsigned char ReadRegister(unsigned short address) const;
 	void WriteRegister(unsigned short address, unsigned char value);

@@ -73,6 +73,9 @@ public:
 	// What OAM DMA reads, from below $E000
 	unsigned char ReadByteForDma(unsigned short address) const;
 
+	// The CPU touched $FE00-$FEFF; see Graphics::CorruptOam
+	void CorruptOam(OamCorruption corruption) { _graphics->CorruptOam(corruption); }
+
 private:
 	unsigned char ReadUnblocked(unsigned short address) const;
 };

@@ -168,6 +168,8 @@
     <ClCompile Include="SerialTests.cpp" />
     <ClCompile Include="PpuTimingTests.cpp" />
     <ClCompile Include="OamDmaTests.cpp" />
+    <ClCompile Include="OamCorruptionTests.cpp" />
+    <ClCompile Include="BlarggOamBugTests.cpp" />
     <ClCompile Include="SaveFileTests.cpp" />
     <ClCompile Include="BatteryStoreTests.cpp" />
     <ClCompile Include="ApuTests.cpp" />

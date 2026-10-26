@@ -131,14 +131,14 @@ protected:
 	// PUSH, CALL and RST spend a machine cycle decrementing SP before writing to the stack
 	void PushWord(unsigned short word)
 	{
-		InternalCycle();
+		IncDecCycle(_registers.SP);
 		WriteByte(--_registers.SP, word >> 8);
 		WriteByte(--_registers.SP, word & 0xff);
 	}
 
 	unsigned short PopWord()
 	{
-		unsigned short word = ReadByte(_registers.SP++);
+		unsigned short word = ReadByte(_registers.SP++, OamCorruption::ReadDuringIncDec);
 		return word | ReadByte(_registers.SP++) << 8;
 	}
 
@@ -225,15 +225,31 @@ protected:
 	// A machine cycle with no memory access
 	void InternalCycle() { Tick(); }
 
-	unsigned char ReadByte(unsigned short address)
+	// On the DMG, accessing $FE00-$FEFF, or incrementing or decrementing a register pair holding an address there,
+	// can corrupt OAM (https://gbdev.io/pandocs/OAM_Corruption_Bug.html)
+	void TouchOam(unsigned short address, OamCorruption corruption)
+	{
+		if ((address & 0xff00) == 0xfe00) _memoryMap.CorruptOam(corruption);
+	}
+
+	// A machine cycle in which a 16-bit register is incremented or decremented, with its value before the change
+	void IncDecCycle(unsigned short value)
 	{
 		Tick();
-		return ReadBus(address);
+		TouchOam(value, OamCorruption::Write);
+	}
+
+	unsigned char ReadByte(unsigned short address, OamCorruption corruption = OamCorruption::Read)
+	{
+		Tick();
+		return ReadBus(address, corruption);
 	}
 
 	// A read at the end of the current machine cycle
-	unsigned char ReadBus(unsigned short address)
+	unsigned char ReadBus(unsigned short address, OamCorruption corruption = OamCorruption::Read)
 	{
+		TouchOam(address, corruption);
+
 		switch (address)
 		{
 		case WaitingInterruptsAddress:
@@ -250,6 +266,7 @@ protected:
 	void WriteByte(unsigned short address, unsigned char value)
 	{
 		Tick();
+		TouchOam(address, OamCorruption::Write);
 
 		switch (address)
 		{

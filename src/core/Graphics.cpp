@@ -128,6 +128,7 @@ void Graphics::StartLine(unsigned int line)
 
 		_mode = LcdcStatus::HBlankMode;
 		_oamReadBlocked = true;
+		_oamScanning = true;
 		_dmaDuringOamScan = false;
 
 		UpdateStat();
@@ -156,6 +157,7 @@ void Graphics::EndOamScan()
 {
 	_oamWriteBlocked = false;
 	_vramReadBlocked = true;
+	_oamScanning = false;
 	if (_oamDma != nullptr && _oamDma->IsTransferring()) _dmaDuringOamScan = true;
 
 	Schedule(LineEvent::Draw, DrawStart);
@@ -230,6 +232,7 @@ void Graphics::TurnOn()
 	_mode = LcdcStatus::HBlankMode;
 	_interruptMode = NoInterruptMode;
 	_lyForComparison = 0;
+	_oamScanning = false;
 	_dmaDuringOamScan = false;
 	SetBlocking(false, false);
 
@@ -243,6 +246,7 @@ void Graphics::TurnOff()
 	// (mooneye-test-suite's stat_lyc_onoff)
 	_registers[RegLineCount] = 0;
 	_mode = LcdcStatus::HBlankMode;
+	_oamScanning = false;
 	SetBlocking(false, false);
 }
 
@@ -322,6 +326,53 @@ void Graphics::WriteOamDirect(unsigned short address, unsigned char value)
 void Graphics::SpriteChanged(unsigned short address)
 {
 	_spriteManager.SpriteMoved(*reinterpret_cast<SpriteData*>(&_oam[address & 0xfffc]));
+}
+
+void Graphics::CorruptOam(OamCorruption corruption)
+{
+	if (!_oamScanning) return;
+
+	// OAM is read as 16-bit words, in 20 rows of four words (two sprites), one row per machine cycle of the scan
+	const int rowBytes = 8;
+	const int rows = OamSize / rowBytes;
+	auto row = _linePosition / 4;
+
+	// The first row (the first two sprites) is never corrupted
+	if (row < 1 || row >= rows) return;
+
+	auto word = [this](int row, int index)
+	{
+		auto address = row * rowBytes + index * 2;
+		return static_cast<unsigned short>(_oam[address] | _oam[address + 1] << 8);
+	};
+	auto setWord = [this](int row, int index, unsigned short value)
+	{
+		auto address = row * rowBytes + index * 2;
+		_oam[address] = value & 0xff;
+		_oam[address + 1] = value >> 8;
+	};
+	auto copyRow = [this](int from, int to) { memcpy(&_oam[to * rowBytes], &_oam[from * rowBytes], rowBytes); };
+
+	auto firstChangedRow = row;
+
+	if (corruption == OamCorruption::ReadDuringIncDec && row >= 4 && row < rows - 1)
+	{
+		auto a = word(row - 2, 0), b = word(row - 1, 0), c = word(row, 0), d = word(row - 1, 2);
+		setWord(row - 1, 0, (b & (a | c | d)) | (a & c & d));
+		copyRow(row - 1, row);
+		copyRow(row - 1, row - 2);
+		firstChangedRow = row - 2;
+	}
+
+	auto a = word(row, 0), b = word(row - 1, 0), c = word(row - 1, 2);
+	setWord(row, 0, corruption == OamCorruption::Write ? ((a ^ c) & (b ^ c)) ^ c : b | (a & c));
+	for (auto index = 1; index < 4; index++) setWord(row, index, word(row - 1, index));
+
+	for (auto changed = firstChangedRow; changed <= row; changed++)
+	{
+		SpriteChanged(static_cast<unsigned short>(changed * rowBytes));
+		SpriteChanged(static_cast<unsigned short>(changed * rowBytes + 4));
+	}
 }
 
 unsigned char Graphics::ReadRegister(unsigned short address) const

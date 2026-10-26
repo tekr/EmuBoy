@@ -35,6 +35,8 @@ public:
 	using Graphics::TileMapBase1;
 	using Graphics::TileMapBase2;
 
+	unsigned char OamByte(unsigned short address) const { return _oam[address]; }
+
 	TestGraphics(Cpu& cpu, MemoryMap& memoryMap, SpriteManager& spriteManager) : Graphics(cpu, memoryMap, spriteManager)
 	{
 	}
