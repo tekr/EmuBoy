@@ -11,10 +11,13 @@ namespace
 	const unsigned ButtonB = 0;
 	const unsigned ButtonStart = 7;
 
+	// As SFML reports axes
+	const float AxisRange = 100.f;
+
 	GamepadLayout Layout(bool hatUpIsPositive = true)
 	{
-		return { { { ButtonB, JoypadKey::B }, { ButtonA, JoypadKey::A }, { ButtonStart, JoypadKey::Start } }, 0.5f,
-			hatUpIsPositive };
+		return { { { ButtonB, JoypadKey::B }, { ButtonA, JoypadKey::A }, { ButtonStart, JoypadKey::Start } }, AxisRange,
+			0.5f, hatUpIsPositive };
 	}
 
 	InputMapper Mapper(bool hatUpIsPositive = true)
@@ -226,26 +229,41 @@ TEST(InputMapperTest, StickPressesDirectionsBeyondDeadzone)
 {
 	auto mapper = Mapper();
 
-	mapper.AxisMoved(0, GamepadAxis::StickX, -0.8f);
+	mapper.AxisMoved(0, GamepadAxis::StickX, -80.f);
 	EXPECT_EQ(JoypadKey::Left, mapper.GetKeysDown());
 
-	mapper.AxisMoved(0, GamepadAxis::StickX, 0.8f);
+	mapper.AxisMoved(0, GamepadAxis::StickX, 80.f);
 	EXPECT_EQ(JoypadKey::Right, mapper.GetKeysDown());
 
 	mapper.AxisMoved(0, GamepadAxis::StickX, 0.f);
-	mapper.AxisMoved(0, GamepadAxis::StickY, -0.8f);
+	mapper.AxisMoved(0, GamepadAxis::StickY, -80.f);
 	EXPECT_EQ(JoypadKey::Up, mapper.GetKeysDown());
 
-	mapper.AxisMoved(0, GamepadAxis::StickY, 0.8f);
+	mapper.AxisMoved(0, GamepadAxis::StickY, 80.f);
 	EXPECT_EQ(JoypadKey::Down, mapper.GetKeysDown());
+}
+
+TEST(InputMapperTest, AxisPositionsAreScaledToRange)
+{
+	// 0.8 is well inside the deadzone when full deflection is 100, but beyond it when full deflection is 1
+	auto sfmlRange = Mapper();
+	sfmlRange.AxisMoved(0, GamepadAxis::StickX, 0.8f);
+	EXPECT_EQ(JoypadKey::NoKey, sfmlRange.GetKeysDown());
+
+	InputMapper unitRange{ {}, {}, { {}, 1.f, 0.5f, true } };
+	unitRange.AxisMoved(0, GamepadAxis::StickX, 0.8f);
+	EXPECT_EQ(JoypadKey::Right, unitRange.GetKeysDown());
+
+	unitRange.AxisMoved(0, GamepadAxis::HatY, 1.f);
+	EXPECT_EQ(Keys(JoypadKey::Right | JoypadKey::Up), unitRange.GetKeysDown());
 }
 
 TEST(InputMapperTest, StickInsideDeadzoneDoesNothing)
 {
 	auto mapper = Mapper();
 
-	mapper.AxisMoved(0, GamepadAxis::StickX, 0.4f);
-	mapper.AxisMoved(0, GamepadAxis::StickY, -0.5f);
+	mapper.AxisMoved(0, GamepadAxis::StickX, 40.f);
+	mapper.AxisMoved(0, GamepadAxis::StickY, -50.f);
 
 	EXPECT_EQ(JoypadKey::NoKey, mapper.GetKeysDown());
 }
@@ -254,8 +272,8 @@ TEST(InputMapperTest, StickDiagonalPressesTwoDirections)
 {
 	auto mapper = Mapper();
 
-	mapper.AxisMoved(0, GamepadAxis::StickX, 0.7f);
-	mapper.AxisMoved(0, GamepadAxis::StickY, 0.7f);
+	mapper.AxisMoved(0, GamepadAxis::StickX, 70.f);
+	mapper.AxisMoved(0, GamepadAxis::StickY, 70.f);
 
 	EXPECT_EQ(Keys(JoypadKey::Right | JoypadKey::Down), mapper.GetKeysDown());
 }
@@ -264,12 +282,12 @@ TEST(InputMapperTest, HatPressesDirections)
 {
 	auto mapper = Mapper(true);
 
-	mapper.AxisMoved(0, GamepadAxis::HatX, 1.f);
-	mapper.AxisMoved(0, GamepadAxis::HatY, 1.f);
+	mapper.AxisMoved(0, GamepadAxis::HatX, 100.f);
+	mapper.AxisMoved(0, GamepadAxis::HatY, 100.f);
 	EXPECT_EQ(Keys(JoypadKey::Right | JoypadKey::Up), mapper.GetKeysDown());
 
-	mapper.AxisMoved(0, GamepadAxis::HatX, -1.f);
-	mapper.AxisMoved(0, GamepadAxis::HatY, -1.f);
+	mapper.AxisMoved(0, GamepadAxis::HatX, -100.f);
+	mapper.AxisMoved(0, GamepadAxis::HatY, -100.f);
 	EXPECT_EQ(Keys(JoypadKey::Left | JoypadKey::Down), mapper.GetKeysDown());
 }
 
@@ -277,20 +295,20 @@ TEST(InputMapperTest, HatWithUpNegative)
 {
 	auto mapper = Mapper(false);
 
-	mapper.AxisMoved(0, GamepadAxis::HatY, -1.f);
+	mapper.AxisMoved(0, GamepadAxis::HatY, -100.f);
 	EXPECT_EQ(JoypadKey::Up, mapper.GetKeysDown());
 
-	mapper.AxisMoved(0, GamepadAxis::HatY, 1.f);
+	mapper.AxisMoved(0, GamepadAxis::HatY, 100.f);
 	EXPECT_EQ(JoypadKey::Down, mapper.GetKeysDown());
 }
 
 TEST(InputMapperTest, HatDiagonalFromAngle)
 {
-	// Windows reports a hat as an angle, giving about 0.71 on each axis on a diagonal
+	// Windows reports a hat as an angle, which SFML gives as about 71 on each axis on a diagonal
 	auto mapper = Mapper(true);
 
-	mapper.AxisMoved(0, GamepadAxis::HatX, 0.71f);
-	mapper.AxisMoved(0, GamepadAxis::HatY, 0.71f);
+	mapper.AxisMoved(0, GamepadAxis::HatX, 71.f);
+	mapper.AxisMoved(0, GamepadAxis::HatY, 71.f);
 
 	EXPECT_EQ(Keys(JoypadKey::Right | JoypadKey::Up), mapper.GetKeysDown());
 }
@@ -299,8 +317,8 @@ TEST(InputMapperTest, HatAndStickCombine)
 {
 	auto mapper = Mapper();
 
-	mapper.AxisMoved(0, GamepadAxis::HatX, 1.f);
-	mapper.AxisMoved(0, GamepadAxis::StickY, 1.f);
+	mapper.AxisMoved(0, GamepadAxis::HatX, 100.f);
+	mapper.AxisMoved(0, GamepadAxis::StickY, 100.f);
 
 	EXPECT_EQ(Keys(JoypadKey::Right | JoypadKey::Down), mapper.GetKeysDown());
 }
@@ -309,7 +327,7 @@ TEST(InputMapperTest, DisconnectReleasesThatGamepadOnly)
 {
 	auto mapper = Mapper();
 	mapper.ButtonPressed(0, ButtonA);
-	mapper.AxisMoved(0, GamepadAxis::StickX, 1.f);
+	mapper.AxisMoved(0, GamepadAxis::StickX, 100.f);
 	mapper.ButtonPressed(1, ButtonB);
 	mapper.KeyPressed(KeyUp);
 
@@ -321,7 +339,7 @@ TEST(InputMapperTest, DisconnectReleasesThatGamepadOnly)
 TEST(InputMapperTest, ReconnectedGamepadStartsReleased)
 {
 	auto mapper = Mapper();
-	mapper.AxisMoved(0, GamepadAxis::StickX, 1.f);
+	mapper.AxisMoved(0, GamepadAxis::StickX, 100.f);
 	mapper.GamepadDisconnected(0);
 
 	mapper.ButtonPressed(0, ButtonA);
@@ -335,7 +353,7 @@ TEST(InputMapperTest, ReleaseKeysReleasesKeysOnly)
 	mapper.KeyPressed(KeyLeft);
 	mapper.KeyPressed(KeyFastForward);
 	mapper.ButtonPressed(0, ButtonA);
-	mapper.AxisMoved(1, GamepadAxis::HatX, 1.f);
+	mapper.AxisMoved(1, GamepadAxis::HatX, 100.f);
 
 	mapper.ReleaseKeys();
 

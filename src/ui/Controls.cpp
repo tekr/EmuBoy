@@ -7,6 +7,9 @@ namespace
 
 	const float StickDeadzone = 0.5f;
 
+	// SFML reports axis positions from -100 to 100
+	const float SfmlAxisRange = 100.f;
+
 	InputMapper::KeyMap GameKeys()
 	{
 		return
@@ -69,6 +72,7 @@ namespace
 		return
 		{
 			{ { 0, JoypadKey::B }, { 1, JoypadKey::A }, { selectButton, JoypadKey::Select }, { startButton, JoypadKey::Start } },
+			SfmlAxisRange,
 			StickDeadzone,
 			hatUpIsPositive
 		};
@@ -116,10 +120,9 @@ Command Controls::HandleEvent(const sf::Event& event, InputMapper& input)
 		break;
 
 	case sf::Event::JoystickMoved:
-		// SFML gives positions from -100 to 100
 		if (ToGamepadAxis(event.joystickMove.axis, axis))
 		{
-			input.AxisMoved(event.joystickMove.joystickId, axis, event.joystickMove.position / 100.f);
+			input.AxisMoved(event.joystickMove.joystickId, axis, event.joystickMove.position);
 		}
 		break;
 

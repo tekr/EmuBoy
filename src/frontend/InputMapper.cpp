@@ -4,8 +4,8 @@
 
 namespace
 {
-	// Hats only report -1, 0 and +1 on each axis (or about 0.7 on a diagonal on Windows), so any threshold between
-	// 0 and 0.7 reads them the same
+	// Hats only report -1, 0 and +1 of full deflection on each axis (or about 0.7 on a diagonal on Windows), so any
+	// threshold between 0 and 0.7 reads them the same
 	const float HatThreshold = 0.5f;
 
 	JoypadKey Combine(JoypadKey keys, JoypadKey more)
@@ -78,7 +78,7 @@ void InputMapper::ButtonReleased(unsigned gamepad, unsigned button)
 
 void InputMapper::AxisMoved(unsigned gamepad, GamepadAxis axis, float position)
 {
-	_gamepads[gamepad].Axes[axis] = position;
+	_gamepads[gamepad].Axes[axis] = position / _layout.AxisRange;
 }
 
 void InputMapper::GamepadDisconnected(unsigned gamepad)

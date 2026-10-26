@@ -49,6 +49,9 @@ struct GamepadLayout
 {
 	std::vector<std::pair<unsigned, JoypadKey>> Buttons;
 
+	// The position the input library reports for an axis at full deflection (100 for SFML)
+	float AxisRange;
+
 	// How far (as a fraction of full deflection) the stick must move before it counts as a direction, so a
 	// stick resting slightly off centre doesn't press anything
 	float StickDeadzone;
@@ -78,7 +81,7 @@ public:
 	void ButtonPressed(unsigned gamepad, unsigned button);
 	void ButtonReleased(unsigned gamepad, unsigned button);
 
-	// Position from -1 (left or up for the stick) to +1
+	// Position from -AxisRange (left, or up for the stick) to +AxisRange
 	void AxisMoved(unsigned gamepad, GamepadAxis axis, float position);
 
 	// Releases everything a gamepad held, as its release events won't come once it is unplugged
