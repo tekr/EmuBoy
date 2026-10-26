@@ -67,16 +67,17 @@ wasn't running.
 
 | Emulator | Key |
 |----------|-----|
-| Pause / resume | P or Escape |
+| Pause / resume | P |
 | Fast-forward (up to 8x) | Hold Space |
 | Reset (power off and on, keeping the save) | F2 |
-| Fullscreen on / off | F11 |
+| Fullscreen on / off | F11 (Escape also leaves fullscreen) |
 | Screenshot | F12 |
 
 The window title shows the game's title from the cartridge header, and whether it is paused or fast-forwarding.
 Fast-forward plays only the sound of the frames it shows. Screenshots are saved at the Game Boy's 160x144 resolution
 next to the ROM, named after it and numbered (`Tetris-1.png`, `Tetris-2.png`, ...), or in the working directory if the
-ROM's folder can't be written to. On a Mac, the F keys may need the fn key held.
+ROM's folder can't be written to. On a Mac, the F keys may need the fn key held. The emulator's commands are on the
+keyboard only.
 
 Gamepad buttons are numbered differently by each platform's drivers. The defaults suit Xbox-style pads: through
 XInput on Windows and the xpad driver on Linux (buttons 0, 1, 6 and 7), and Xbox One and Series pads over Bluetooth on

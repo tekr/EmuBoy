@@ -13,7 +13,8 @@ enum class Command
 	FastForward,
 	Reset,
 	Screenshot,
-	ToggleFullscreen
+	ToggleFullscreen,
+	LeaveFullscreen
 };
 
 // The gamepad axes used for directions. The front end translates its own library's axes to these
@@ -64,8 +65,9 @@ public:
 	// Releases everything a gamepad held, as its release events won't come once it is unplugged
 	void GamepadDisconnected(unsigned gamepad);
 
-	// Releases every key and button, e.g. when the window loses focus and stops receiving release events
-	void ReleaseAll();
+	// Releases every key, e.g. when the window loses focus and stops receiving key events. Gamepads are left as
+	// they are, as their events arrive whether or not the window has focus, and an axis held still sends none
+	void ReleaseKeys();
 
 	JoypadKey GetKeysDown() const;
 

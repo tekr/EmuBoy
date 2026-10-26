@@ -60,7 +60,7 @@ void App::OpenWindow()
 	FitScreenToWindow();
 
 	// Keys held while the window was replaced won't send their release events to the new one
-	_input.ReleaseAll();
+	_input.ReleaseKeys();
 }
 
 void App::FitScreenToWindow()
@@ -130,7 +130,7 @@ void App::HandleEvents()
 			break;
 
 		case sf::Event::LostFocus:
-			_input.ReleaseAll();
+			_input.ReleaseKeys();
 			break;
 
 		default:
@@ -148,6 +148,7 @@ void App::DoCommand(Command command)
 	case Command::Reset: Reset(); break;
 	case Command::Screenshot: SaveScreenshot(); break;
 	case Command::ToggleFullscreen: ToggleFullscreen(); break;
+	case Command::LeaveFullscreen: if (_fullscreen) ToggleFullscreen(); break;
 
 	// Fast-forward lasts while its key is held, so is read in Run
 	case Command::FastForward:

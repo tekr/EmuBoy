@@ -27,7 +27,7 @@ namespace
 		return
 		{
 			{ Key::P, Command::TogglePause },
-			{ Key::Escape, Command::TogglePause },
+			{ Key::Escape, Command::LeaveFullscreen },
 			{ Key::Space, Command::FastForward },
 			{ Key::F2, Command::Reset },
 			{ Key::F11, Command::ToggleFullscreen },
@@ -107,7 +107,10 @@ Command Controls::HandleEvent(const sf::Event& event, InputMapper& input)
 
 	case sf::Event::JoystickMoved:
 		// SFML gives positions from -100 to 100
-		if (ToGamepadAxis(event.joystickMove.axis, axis)) input.AxisMoved(event.joystickMove.joystickId, axis, event.joystickMove.position / 100.f);
+		if (ToGamepadAxis(event.joystickMove.axis, axis))
+		{
+			input.AxisMoved(event.joystickMove.joystickId, axis, event.joystickMove.position / 100.f);
+		}
 		break;
 
 	case sf::Event::JoystickDisconnected:

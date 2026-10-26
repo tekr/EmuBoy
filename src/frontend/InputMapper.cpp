@@ -80,10 +80,9 @@ void InputMapper::GamepadDisconnected(unsigned gamepad)
 	_gamepads.erase(gamepad);
 }
 
-void InputMapper::ReleaseAll()
+void InputMapper::ReleaseKeys()
 {
 	_keysHeld.clear();
-	_gamepads.clear();
 }
 
 JoypadKey InputMapper::GamepadKeys(const GamepadState& state) const

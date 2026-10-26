@@ -265,7 +265,7 @@ TEST(InputMapperTest, ReconnectedGamepadStartsReleased)
 	EXPECT_EQ(JoypadKey::A, mapper.GetKeysDown());
 }
 
-TEST(InputMapperTest, ReleaseAllReleasesEverything)
+TEST(InputMapperTest, ReleaseKeysReleasesKeysOnly)
 {
 	auto mapper = Mapper();
 	mapper.KeyPressed(KeyLeft);
@@ -273,9 +273,9 @@ TEST(InputMapperTest, ReleaseAllReleasesEverything)
 	mapper.ButtonPressed(0, ButtonA);
 	mapper.AxisMoved(1, GamepadAxis::HatX, 1.f);
 
-	mapper.ReleaseAll();
+	mapper.ReleaseKeys();
 
-	EXPECT_EQ(JoypadKey::NoKey, mapper.GetKeysDown());
+	EXPECT_EQ(Keys(JoypadKey::A | JoypadKey::Right), mapper.GetKeysDown());
 	EXPECT_FALSE(mapper.IsHeld(Command::FastForward));
 
 	// A key held through the focus change starts a command again when next pressed

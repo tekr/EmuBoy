@@ -10,7 +10,7 @@ class RunState
 
 public:
 	// Fast-forward runs up to this many frames in the time of one, as fast as the computer allows
-	static const int FastForwardSpeed = 8;
+	static constexpr int FastForwardSpeed = 8;
 
 	void TogglePause() { _paused = !_paused; }
 	void SetFastForward(bool held) { _fastForwardHeld = held; }
