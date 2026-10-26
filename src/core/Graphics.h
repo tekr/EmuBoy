@@ -64,8 +64,6 @@ public:
 	static const unsigned short SpriteDataTableBase = 0;
 
 protected:
-	static const unsigned int RegisterBlockSize = 0xb;
-
 	static const unsigned short TileDataTableBase1 = 0;
 	static const unsigned short TileDataTableBase2 = 0x800;
 
@@ -84,6 +82,8 @@ protected:
 	static const unsigned int RegSprite1Palette = 0x9;
 	static const unsigned int RegWindowY		= 0xa;
 	static const unsigned int RegWindowX		= 0xb;
+
+	static const unsigned int RegisterBlockSize = RegWindowX + 1;
 
 	Cpu& _cpu;
 	MemoryMap& _memoryMap;

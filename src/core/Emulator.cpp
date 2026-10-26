@@ -14,9 +14,11 @@ void Emulator::Run(int& currentCycle, int cycleTarget)
 			auto cycles = EmuCpu.DoNextInstruction();
 			cyclesRun += cycles;
 			EmuApu.RunCycles(cycles);
+
+			// Timer register writes must see the current divider
+			EmuTimer.RunCycles(cycles);
 		}
 
-		EmuTimer.RunCycles(cyclesRun);
 		currentCycle += cyclesRun;
 	}
 

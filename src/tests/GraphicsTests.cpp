@@ -2,6 +2,7 @@
 #include "stdafx.h"
 #include <gtest/gtest.h>
 #include "GraphicsTestFixture.h"
+#include "TestGraphics.h"
 #include "../core/CartridgeFactory.h"
 
 void RunCpu(Cpu& cpu, int& currentCycle, int cycleTarget)
@@ -63,5 +64,69 @@ TEST_F(GraphicsTestFixture, RunInternalRom)
 
 			Graphics.RenderLine();
 		}
+	}
+}
+
+static_assert(TestGraphics::RegisterBlockSize == MemoryMap::UnusableArea2 - MemoryMap::VramRegisters,
+	"Graphics must store every register that MemoryMap routes to it");
+
+TEST_F(GraphicsTestFixture, WindowXRegisterKeepsWrittenValue)
+{
+	const unsigned char windowX = 0x57;
+
+	Graphics.ResetFrame();
+	MemoryMap.WriteByte(MemoryMap::VramRegisters + TestGraphics::RegWindowX, windowX);
+
+	for (auto i = 0; i < 3; i++) Graphics.RenderLine();
+
+	EXPECT_EQ(windowX, MemoryMap.ReadByte(MemoryMap::VramRegisters + TestGraphics::RegWindowX));
+}
+
+TEST_F(GraphicsTestFixture, WindowDrawnFromWindowXPosition)
+{
+	const unsigned short tileBytes = 16;
+	const unsigned short tileMapBytes = 32 * 32;
+	const unsigned short backgroundTileMap = MemoryMap::RamVideo + TestGraphics::TileMapBase1;
+	const unsigned short windowTileMap = MemoryMap::RamVideo + TestGraphics::TileMapBase2;
+	const unsigned char identityPalette = 0xe4;
+	const unsigned char backgroundTile = 0;
+	const unsigned char windowTile = 1;
+	const unsigned char allPixelsColour0 = 0;
+	const unsigned char allPixelsColour3 = 0xff;
+	const auto windowLeftEdge = 80;
+	const auto windowXOffset = 7;
+
+	for (unsigned short i = 0; i < tileBytes; i++)
+	{
+		MemoryMap.WriteByte(MemoryMap::RamVideo + backgroundTile * tileBytes + i, allPixelsColour0);
+		MemoryMap.WriteByte(MemoryMap::RamVideo + windowTile * tileBytes + i, allPixelsColour3);
+	}
+
+	for (unsigned short i = 0; i < tileMapBytes; i++)
+	{
+		MemoryMap.WriteByte(backgroundTileMap + i, backgroundTile);
+		MemoryMap.WriteByte(windowTileMap + i, windowTile);
+	}
+
+	MemoryMap.WriteByte(MemoryMap::VramRegisters + TestGraphics::RegBgScrollY, 0);
+	MemoryMap.WriteByte(MemoryMap::VramRegisters + TestGraphics::RegBgScrollX, 0);
+	MemoryMap.WriteByte(MemoryMap::VramRegisters + TestGraphics::RegBgWinPalette, identityPalette);
+	MemoryMap.WriteByte(MemoryMap::VramRegisters + TestGraphics::RegWindowY, 0);
+	MemoryMap.WriteByte(MemoryMap::VramRegisters + TestGraphics::RegWindowX, windowLeftEdge + windowXOffset);
+
+	// Display, window (map at windowTileMap), tile data at RamVideo, background (map at backgroundTileMap)
+	MemoryMap.WriteByte(MemoryMap::VramRegisters + TestGraphics::RegLcdControl, 0x80 | 0x40 | 0x20 | 0x10 | 0x01);
+
+	Graphics.ResetFrame();
+	Graphics.RenderLine();
+
+	auto background = Graphics.Bitmap[0];
+	auto window = Graphics.Bitmap[Graphics::HozPixels - 1];
+
+	ASSERT_NE(background, window);
+
+	for (auto x = 0; x < Graphics::HozPixels; x++)
+	{
+		EXPECT_EQ(x < windowLeftEdge ? background : window, Graphics.Bitmap[x]) << "at x = " << x;
 	}
 }
