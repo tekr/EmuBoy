@@ -230,7 +230,7 @@ protected:
 			return _waitingInterrupts | 0xe0;
 
 		case EnabledInterruptsAddress:
-			return _enabledInterrupts ;
+			return _enabledInterrupts;
 
 		default:
 			return _memoryMap.ReadByte(address);
