@@ -5,69 +5,6 @@
 #include <new>
 #include "GraphicsTestFixture.h"
 #include "TestGraphics.h"
-#include "../core/CartridgeFactory.h"
-
-void RunCpu(Cpu& cpu, int& currentCycle, int cycleTarget)
-{
-	while (currentCycle < cycleTarget && cpu.IsClockRunning())
-	{
-		currentCycle += cpu.DoNextInstruction();
-	}
-
-	currentCycle = std::max(currentCycle, cycleTarget);
-}
-
-TEST_F(GraphicsTestFixture, RunInternalRom)
-{
-	auto& reg = Cpu.Registers();
-
-	reg.PC = 0;
-	reg.SP = 0xffff;
-
-	MemoryMap.SetInternalRomEnabled(true);
-
-	auto cartridge = CartridgeFactory::LoadFromFile("../../ROMs/gb-snake.gb", 0);
-	MemoryMap.SetCartridge(cartridge);
-
-	auto frameCounter = 0;
-
-	// Keep going until we're beyond the start of cartridge ROM
-	while (reg.PC < 0x100)
-	{
-		Graphics.ResetFrame();
-		auto cycleCounter = 0;
-		auto cycleTarget = 0;
-
-		for (auto i = 0; i < Graphics::VertPixels; i++)
-		{
-			Graphics.SetLcdcStatus(LcdcStatus::OamReadMode);
-			cycleTarget += Graphics::OamReadClocks;
-			RunCpu(Cpu, cycleCounter, cycleTarget);
-
-			Graphics.SetLcdcStatus(LcdcStatus::OamAndVramReadMode);
-			cycleTarget += Graphics::OamAndVramReadClocks;
-			RunCpu(Cpu, cycleCounter, cycleTarget);
-
-			Graphics.SetLcdcStatus(LcdcStatus::HBlankMode);
-			cycleTarget += Graphics::HBlankPeriodClocks;
-			RunCpu(Cpu, cycleCounter, cycleTarget);
-
-			Graphics.RenderLine();
-		}
-
-		frameCounter++;
-
-		Graphics.SetLcdcStatus(LcdcStatus::VBlankMode);
-
-		for (auto i = 0; i < Graphics::VBlankLines; i++)
-		{
-			cycleTarget += Graphics::ScanlineClocks;
-			RunCpu(Cpu, cycleCounter, cycleTarget);
-
-			Graphics.RenderLine();
-		}
-	}
-}
 
 static_assert(TestGraphics::RegisterBlockSize == MemoryMap::UnusableArea2 - MemoryMap::VramRegisters,
 	"Graphics must store every register that MemoryMap routes to it");
@@ -76,10 +13,9 @@ TEST_F(GraphicsTestFixture, WindowXRegisterKeepsWrittenValue)
 {
 	const unsigned char windowX = 0x57;
 
-	Graphics.ResetFrame();
 	MemoryMap.WriteByte(MemoryMap::VramRegisters + TestGraphics::RegWindowX, windowX);
-
-	for (auto i = 0; i < 3; i++) Graphics.RenderLine();
+	DrawFirstLine(0);
+	for (auto i = 0; i < 3; i++) DrawNextLine();
 
 	EXPECT_EQ(windowX, MemoryMap.ReadByte(MemoryMap::VramRegisters + TestGraphics::RegWindowX));
 }
@@ -117,10 +53,7 @@ TEST_F(GraphicsTestFixture, WindowDrawnFromWindowXPosition)
 	MemoryMap.WriteByte(MemoryMap::VramRegisters + TestGraphics::RegWindowX, windowLeftEdge + windowXOffset);
 
 	// Display, window (map at windowTileMap), tile data at RamVideo, background (map at backgroundTileMap)
-	MemoryMap.WriteByte(MemoryMap::VramRegisters + TestGraphics::RegLcdControl, 0x80 | 0x40 | 0x20 | 0x10 | 0x01);
-
-	Graphics.ResetFrame();
-	Graphics.RenderLine();
+	DrawFirstLine(0x40 | 0x20 | 0x10 | 0x01);
 
 	auto background = Graphics.Bitmap[0];
 	auto window = Graphics.Bitmap[Graphics::HozPixels - 1];
@@ -136,79 +69,30 @@ TEST_F(GraphicsTestFixture, WindowDrawnFromWindowXPosition)
 namespace
 {
 	const unsigned short LcdControlAddress = MemoryMap::VramRegisters + TestGraphics::RegLcdControl;
-	const unsigned short LcdStatusAddress = MemoryMap::VramRegisters + TestGraphics::RegLcdStatus;
 	const unsigned short LineCountAddress = MemoryMap::VramRegisters + TestGraphics::RegLineCount;
-	const unsigned short LineCompareAddress = MemoryMap::VramRegisters + TestGraphics::RegLineCompare;
-
-	const unsigned char DisplayOn = 0x80;
-	const unsigned char CoincidenceFlag = 0x04;
-	const unsigned char CoincidenceInterruptEnable = 0x40;
 }
 
-TEST_F(GraphicsTestFixture, LineCountIsLineAboutToBeDrawn)
+TEST_F(GraphicsTestFixture, LineCountIsLineBeingDrawn)
 {
-	MemoryMap.WriteByte(LcdControlAddress, DisplayOn);
-	Graphics.ResetFrame();
-
+	TurnOn();
 	EXPECT_EQ(0, MemoryMap.ReadByte(LineCountAddress));
 
-	for (auto line = 1; line < Graphics::FrameLines; line++)
+	for (unsigned int line = 1; line < Graphics::FrameLines; line++)
 	{
-		Graphics.RenderLine();
+		RunTo(line, 0);
 		EXPECT_EQ(line, MemoryMap.ReadByte(LineCountAddress));
 	}
 
 	// The last line of the frame is followed by line 0 of the next
-	Graphics.RenderLine();
+	RunTo(Graphics::FrameLines, 0);
 	EXPECT_EQ(0, MemoryMap.ReadByte(LineCountAddress));
 }
 
 TEST_F(GraphicsTestFixture, LineCountStaysZeroWhileDisplayOff)
 {
-	MemoryMap.WriteByte(LcdControlAddress, 0);
-	Graphics.ResetFrame();
-
-	for (auto i = 0; i < 3; i++) Graphics.RenderLine();
+	Run(3 * Graphics::ScanlineClocks);
 
 	EXPECT_EQ(0, MemoryMap.ReadByte(LineCountAddress));
-}
-
-TEST_F(GraphicsTestFixture, LineCompareMatchesAtStartOfLine)
-{
-	const unsigned char compareLine = 5;
-
-	MemoryMap.WriteByte(LcdControlAddress, DisplayOn);
-	MemoryMap.WriteByte(LineCompareAddress, compareLine);
-	MemoryMap.WriteByte(LcdStatusAddress, CoincidenceInterruptEnable);
-	Graphics.ResetFrame();
-
-	for (auto line = 0; line < compareLine - 1; line++) Graphics.RenderLine();
-	Cpu.WaitingInterrupts() = 0;
-
-	// Line 4 is drawn, then line 5 starts
-	Graphics.RenderLine();
-
-	EXPECT_EQ(CoincidenceFlag, MemoryMap.ReadByte(LcdStatusAddress) & CoincidenceFlag);
-	EXPECT_EQ(InterruptFlags::LcdStatInt, Cpu.WaitingInterrupts() & InterruptFlags::LcdStatInt);
-
-	Graphics.RenderLine();
-	EXPECT_EQ(0, MemoryMap.ReadByte(LcdStatusAddress) & CoincidenceFlag);
-}
-
-TEST_F(GraphicsTestFixture, LineCompareOfZeroMatchesAtStartOfFrame)
-{
-	MemoryMap.WriteByte(LcdControlAddress, DisplayOn);
-	MemoryMap.WriteByte(LineCompareAddress, 0);
-	MemoryMap.WriteByte(LcdStatusAddress, CoincidenceInterruptEnable);
-	Graphics.ResetFrame();
-
-	for (auto line = 0; line < Graphics::FrameLines - 1; line++) Graphics.RenderLine();
-	Cpu.WaitingInterrupts() = 0;
-
-	Graphics.RenderLine();
-
-	EXPECT_EQ(CoincidenceFlag, MemoryMap.ReadByte(LcdStatusAddress) & CoincidenceFlag);
-	EXPECT_EQ(InterruptFlags::LcdStatInt, Cpu.WaitingInterrupts() & InterruptFlags::LcdStatInt);
 }
 
 TEST_F(GraphicsTestFixture, BackgroundDisableAlsoBlanksWindow)
@@ -222,10 +106,7 @@ TEST_F(GraphicsTestFixture, BackgroundDisableAlsoBlanksWindow)
 	MemoryMap.WriteByte(MemoryMap::VramRegisters + TestGraphics::RegWindowX, 7);
 
 	// Display, window and tile data at 0x8000 on, background off
-	MemoryMap.WriteByte(LcdControlAddress, 0xb0);
-
-	Graphics.ResetFrame();
-	Graphics.RenderLine();
+	DrawFirstLine(0x30);
 
 	EXPECT_EQ(Graphics::ShadeColour(0), Graphics.Bitmap[0]);
 }
@@ -245,12 +126,10 @@ TEST_F(GraphicsTestFixture, WindowLineCounterAdvancesWhileBackgroundDisabled)
 	MemoryMap.WriteByte(MemoryMap::VramRegisters + TestGraphics::RegWindowX, 7);
 
 	// Line 0 with the background (and so the window) blanked, then line 1 with it on again
-	MemoryMap.WriteByte(LcdControlAddress, 0xb0);
-	Graphics.ResetFrame();
-	Graphics.RenderLine();
+	DrawFirstLine(0x30);
 
 	MemoryMap.WriteByte(LcdControlAddress, 0xb1);
-	Graphics.RenderLine();
+	DrawNextLine();
 
 	// Window row 1 (colour 0) is drawn on line 1, not row 0 again
 	EXPECT_EQ(Graphics::ShadeColour(0), Graphics.Bitmap[Graphics::HozPixels]);
@@ -280,9 +159,8 @@ TEST_F(GraphicsTestFixture, RegistersHaveDefinedPowerOnValues)
 
 TEST_F(GraphicsTestFixture, WritesToLineCountAreIgnored)
 {
-	MemoryMap.WriteByte(LcdControlAddress, DisplayOn);
-	Graphics.ResetFrame();
-	for (auto i = 0; i < 3; i++) Graphics.RenderLine();
+	TurnOn();
+	RunTo(3, 0);
 
 	MemoryMap.WriteByte(LineCountAddress, 0x55);
 

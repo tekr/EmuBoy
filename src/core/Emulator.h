@@ -6,6 +6,7 @@
 #include "Timer.h"
 #include "Apu.h"
 #include "Serial.h"
+#include "OamDma.h"
 #include <vector>
 
 class Emulator : ClockedHardware
@@ -16,13 +17,10 @@ class Emulator : ClockedHardware
 	Cpu EmuCpu{ EmuMemoryMap };
 	SpriteManager EmuSpriteManager;
 	Graphics EmuGraphics{ EmuCpu, EmuMemoryMap, EmuSpriteManager };
+	OamDma EmuOamDma{ EmuMemoryMap, EmuGraphics };
 	Timer EmuTimer;
 	Apu EmuApu;
 	Serial EmuSerial;
-
-	int _frameOvershoot{ 0 };
-
-	void Run(int& currentCycle, int cycleTarget);
 
 	// Called by the CPU for each machine cycle
 	void RunCycles(int cycles) override;
@@ -30,6 +28,8 @@ class Emulator : ClockedHardware
 public:
 	explicit Emulator(std::shared_ptr<Cartridge> cartridge);
 
+	// Runs until the PPU completes a frame and returns it. Frames come as V-Blank starts, so they're FrameClocks
+	// apart while the LCD stays on, and every FrameClocks while it's off
 	int* GetFrame();
 	InputJoypad& GetJoypad() { return EmuJoypad; }
 	MemoryMap& GetMemoryMap() { return EmuMemoryMap; }

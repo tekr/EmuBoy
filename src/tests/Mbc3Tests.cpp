@@ -292,11 +292,10 @@ TEST(Mbc3EmulatorTest, EmulatorDrivesClockInEmulatedTime)
 	Emulator emulator{ cartridge };
 	auto& counters = cartridge->GetRealTimeClock()->GetState().Counters;
 
-	// Just under and just over one second of frames
-	const auto framesPerSecond = RealTimeClock::CyclesPerSecond / Graphics::FrameClocks;
-	for (auto frame = 0; frame < framesPerSecond; frame++) emulator.GetFrame();
+	// Just under and just over one second of emulated time, a frame at a time
+	while (emulator.GetCpuClocks() + Graphics::FrameClocks < RealTimeClock::CyclesPerSecond) emulator.GetFrame();
 	EXPECT_EQ(0, counters[RealTimeClock::Seconds]);
 
-	emulator.GetFrame();
+	while (emulator.GetCpuClocks() < RealTimeClock::CyclesPerSecond) emulator.GetFrame();
 	EXPECT_EQ(1, counters[RealTimeClock::Seconds]);
 }

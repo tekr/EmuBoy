@@ -166,6 +166,8 @@
     <ClCompile Include="BlarggCpuTests.cpp" />
     <ClCompile Include="BlarggRomRunner.cpp" />
     <ClCompile Include="SerialTests.cpp" />
+    <ClCompile Include="PpuTimingTests.cpp" />
+    <ClCompile Include="OamDmaTests.cpp" />
     <ClCompile Include="SaveFileTests.cpp" />
     <ClCompile Include="BatteryStoreTests.cpp" />
     <ClCompile Include="ApuTests.cpp" />

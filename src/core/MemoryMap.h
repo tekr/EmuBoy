@@ -7,6 +7,7 @@
 #include "Apu.h"
 #include "InputJoypad.h"
 #include "Serial.h"
+#include "OamDma.h"
 
 class MemoryMap
 {
@@ -32,6 +33,7 @@ public:
 
 	static const unsigned short JoypadPort = 0xff00;
 	static const unsigned short InternalRomDisable = 0xff50;
+	static const unsigned short OamDmaPort = 0xff46;
 
 	static const unsigned short Joypad = 0xff00;
 
@@ -41,6 +43,7 @@ protected:
 	Timer* _timer;
 	Apu* _apu;
 	Serial* _serial;
+	OamDma* _oamDma;
 	InputJoypad& _joypad;
 
 	unsigned char _fixedRam[RamBankSize];
@@ -58,11 +61,19 @@ public:
 	void SetTimer(Timer* timer) { _timer = timer; }
 	void SetApu(Apu* apu) { _apu = apu; }
 	void SetSerial(Serial* serial) { _serial = serial; }
+	void SetOamDma(OamDma* oamDma) { _oamDma = oamDma; }
 
 	// The boot ROM overlays the cartridge until it hands over by writing to $FF50
 	bool InternalRomEnabled() const { return _internalRomEnabled; }
 
+	// The CPU's view of memory, which OAM DMA and the PPU can block
 	unsigned char ReadByte(unsigned short address) const;
 	void WriteByte(unsigned short address, unsigned char value);
+
+	// What OAM DMA reads, from below $E000
+	unsigned char ReadByteForDma(unsigned short address) const;
+
+private:
+	unsigned char ReadUnblocked(unsigned short address) const;
 };
 

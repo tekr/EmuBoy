@@ -53,6 +53,9 @@ public:
 	// reflects OAM and the sprite size as they are then, including any changes made in the previous line's H-Blank
 	void SelectSprites(unsigned char scanline);
 
+	// For a line on which no sprites are selected
+	void ClearVisibleSprites() { _visibleSprites.clear(); }
+
 	void SpriteMoved(SpriteData& spriteData);
 
 	unsigned char GetSpriteColour(SpriteData& spriteData, int x, int y, unsigned char* vram) const;

@@ -38,10 +38,30 @@ namespace
 	// regularly straddle the end of a frame. It never halts, so the CPU's clock count is the emulated time
 	const std::vector<unsigned char> StraddlingProgram{ 0xc5, 0xc1, 0x18, 0xfc };
 
+	// XOR A; LDH (LCDC),A; HALT: turns the LCD off and halts for good, as no interrupts are enabled. It fits
+	// before the logo in the header
+	const std::vector<unsigned char> LcdOffProgram{ 0xaf, 0xe0, 0x40, 0x76 };
+
 	// The most a frame's last instruction can run past the frame's end. A step of the CPU takes at most 24 clocks
 	// (an instruction, or an interrupt dispatch) and starts at least 4 clocks before the end, as every clock count
 	// and scanline phase is a multiple of 4
 	const uint64_t MaxOvershootClocks = 20;
+
+	// Asserts that each of the next frames ends FrameClocks after the one before, give or take the clocks the last
+	// instruction of a frame runs past its end
+	void ExpectFramesFrameClocksApart(Emulator& emulator, uint64_t frames)
+	{
+		auto start = emulator.GetCpuClocks();
+
+		for (uint64_t frame = 1; frame <= frames; frame++)
+		{
+			emulator.GetFrame();
+			auto elapsed = emulator.GetCpuClocks() - start;
+
+			ASSERT_GE(elapsed + MaxOvershootClocks, frame * Graphics::FrameClocks) << "after " << frame << " frames";
+			ASSERT_LE(elapsed, frame * Graphics::FrameClocks + MaxOvershootClocks) << "after " << frame << " frames";
+		}
+	}
 }
 
 // Pan Docs gives no figure for how long the DMG boot ROM runs, so the expectation comes from its code
@@ -66,17 +86,48 @@ TEST(EmulatorTimingTest, BootRomHandsOverAfterAbout333Frames)
 	EXPECT_LE(frames, 337);
 }
 
-TEST(EmulatorTimingTest, EachFrameIsFrameClocksLong)
+TEST(EmulatorTimingTest, FramesWhileLcdIsOffAreFrameClocksApart)
 {
-	Emulator emulator{ CartridgeWithProgram(StraddlingProgram) };
+	// The boot ROM starts with the LCD off, and clears VRAM for over three frames before turning it on
+	Emulator emulator{ CartridgeWithProgram(SpinProgram) };
 
-	// Through the boot ROM and on into the cartridge's program. Clocks run past the end of one frame come off the
-	// next, so after any number of frames only the last frame's overshoot is outstanding
-	for (uint64_t frames = 1; frames <= 400; frames++)
+	for (uint64_t frames = 1; frames <= 3; frames++)
 	{
 		emulator.GetFrame();
 
 		ASSERT_GE(emulator.GetCpuClocks(), frames * Graphics::FrameClocks) << "after " << frames << " frames";
 		ASSERT_LE(emulator.GetCpuClocks() - frames * Graphics::FrameClocks, MaxOvershootClocks) << "after " << frames << " frames";
+	}
+}
+
+TEST(EmulatorTimingTest, FramesWhileLcdIsOnAreFrameClocksApart)
+{
+	// Frames end as V-Blank starts. The boot ROM turns the LCD on early and leaves it on, through the handover to
+	// the cartridge's program
+	Emulator emulator{ CartridgeWithProgram(StraddlingProgram) };
+	for (auto i = 0; i < 10; i++) emulator.GetFrame();
+
+	ExpectFramesFrameClocksApart(emulator, 400);
+}
+
+TEST(EmulatorTimingTest, FramesKeepComingFrameClocksApartAfterLcdIsTurnedOff)
+{
+	Emulator emulator{ CartridgeWithProgram(LcdOffProgram) };
+	while (emulator.GetMemoryMap().InternalRomEnabled()) emulator.GetFrame();
+
+	ExpectFramesFrameClocksApart(emulator, 10);
+}
+
+TEST(EmulatorTimingTest, FramesAreBlankWhileLcdIsOff)
+{
+	Emulator emulator{ CartridgeWithProgram(LcdOffProgram) };
+	while (emulator.GetMemoryMap().InternalRomEnabled()) emulator.GetFrame();
+
+	auto frame = emulator.GetFrame();
+	const int blank = Graphics::BlankColour;
+
+	for (auto pixel = 0u; pixel < Graphics::HozPixels * Graphics::VertPixels; pixel++)
+	{
+		ASSERT_EQ(blank, frame[pixel]) << "pixel " << pixel;
 	}
 }

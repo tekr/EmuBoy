@@ -4,6 +4,7 @@
 class MemoryMap;
 class Cpu;
 class SpriteManager;
+class OamDma;
 
 enum LcdcStatus : unsigned char
 {
@@ -38,6 +39,8 @@ struct SpriteData
 // Windows-specific
 #pragma pack(pop)
 
+// The PPU. It runs alongside the CPU one machine cycle at a time, drawing each line in one go as the line's mode 3
+// starts, and keeping the LCD's timing, STAT interrupts and the CPU's access to VRAM and OAM accurate to the cycle
 class Graphics
 {
 public:
@@ -46,16 +49,13 @@ public:
 	static const unsigned int HozPixels = 160;
 	static const unsigned int VertPixels = 144;
 
-	static const unsigned int HBlankPeriodClocks = 204;		// Docs say 201-207
-	static const unsigned int OamReadClocks = 80;			// Docs say 77-83
-	static const unsigned int OamAndVramReadClocks = 172;	// Docs say 169-175
-
-	static const unsigned int ScanlineClocks = HBlankPeriodClocks + OamReadClocks + OamAndVramReadClocks;
-	static_assert(ScanlineClocks == 456, "Clocks per scanline is incorrect");
+	static const unsigned int OamScanClocks = 80;
+	static const unsigned int MinDrawClocks = 172;
+	static const unsigned int ScanlineClocks = 456;
 
 	static const unsigned int VBlankLines = 10;
 	static const unsigned int FrameLines = VertPixels + VBlankLines;
-	static const unsigned int FrameClocks = ScanlineClocks * (VertPixels + VBlankLines);
+	static const unsigned int FrameClocks = ScanlineClocks * FrameLines;
 	static_assert(FrameClocks == 70224, "Clocks per frame is incorrect");
 
 	const double FrameRate = static_cast<double>(SystemClockHz) / FrameClocks;
@@ -86,22 +86,88 @@ protected:
 
 	static const unsigned int RegisterBlockSize = RegWindowX + 1;
 
+	// STAT's interrupt selects
+	static const unsigned char HBlankIntSelect = 0x08;
+	static const unsigned char VBlankIntSelect = 0x10;
+	static const unsigned char OamIntSelect = 0x20;
+	static const unsigned char LineCompareIntSelect = 0x40;
+	static const unsigned char AllIntSelects = 0x78;
+	static const unsigned char LineCompareFlag = 0x04;
+
+	// Positions in a line, in clocks since LY changed. See the timing notes in Graphics.cpp
+	static const int OamScanStart = 4;
+	static const int OamScanLastCycle = OamScanStart + OamScanClocks - 4;
+	static const int DrawStart = OamScanStart + OamScanClocks;
+
+	// Line 153 stops comparing LY with LYC, then compares 0
+	static const int Line153StopCompareStart = 8;
+	static const int Line153CompareZeroStart = 12;
+
+	// Turning the LCD on starts line 0 part-way in, without an OAM scan
+	static const int FirstLineStart = 4;
+
+	static const int NoComparison = -1;
+	static const int NoInterruptMode = -1;
+
+	enum class LineEvent
+	{
+		OamScan,
+		OamScanLastCycle,
+		Draw,
+		HBlank,
+		VBlankCompare,
+		Line153StopCompare,
+		Line153CompareZero,
+		LineEnd
+	};
+
 	Cpu& _cpu;
 	MemoryMap& _memoryMap;
+	SpriteManager& _spriteManager;
+	const OamDma* _oamDma{ nullptr };
 
-	bool _screenEnabled;
-	LcdcStatus _status{ LcdcStatus::VBlankMode };
+	// Zeroed for repeatability, though their contents at power-on are random on hardware
+	unsigned char _vram[VramSize]{};
+	unsigned char _oam[OamSize]{};
 
-	uint64_t _totalCycles;
-
-	unsigned char _vram[VramSize];
-	unsigned char _oam[OamSize];
-
-	// All zero at power-on (display off, as the boot ROM expects), apart from the palettes, set in the constructor
+	// All zero at power-on (display off, as the boot ROM expects), apart from the palettes, set in the constructor.
+	// STAT's slot holds only its interrupt selects; its mode and LY=LYC flag are kept separately
 	unsigned char _registers[RegisterBlockSize]{};
 
 	unsigned int _currentScanline{ 0 };
 	unsigned int _currentWindowScanline{ 0 };
+
+	// Clocks since the line started, and the next event in it
+	int _linePosition{ 0 };
+	int _nextEventPosition{ 0 };
+	LineEvent _nextEvent{ LineEvent::LineEnd };
+
+	// The mode STAT shows, and the mode whose interrupt select feeds the STAT interrupt line (or NoInterruptMode).
+	// They differ around mode changes, as on hardware
+	LcdcStatus _mode{ LcdcStatus::HBlankMode };
+	int _interruptMode{ NoInterruptMode };
+
+	// The line LYC is compared with, or NoComparison for the machine cycle after LY changes, when the comparison
+	// reads false but doesn't clear the LY=LYC interrupt condition
+	int _lyForComparison{ 0 };
+	bool _lineCompareFlag{ false };
+	bool _lineCompareMatch{ false };
+
+	// The STAT interrupt is requested only when this line, the OR of all the selected conditions, rises, so one
+	// condition holding it high blocks interrupts from the others (https://gbdev.io/pandocs/Interrupt_Sources.html)
+	bool _statLine{ false };
+
+	bool _oamReadBlocked{ false };
+	bool _oamWriteBlocked{ false };
+	bool _vramReadBlocked{ false };
+	bool _vramWriteBlocked{ false };
+
+	// OAM DMA during the OAM scan hides every sprite on the line
+	bool _dmaDuringOamScan{ false };
+
+	// Clocks since the last frame completed, so frames keep coming every FrameClocks while the LCD is off
+	unsigned int _framePosition{ 0 };
+	bool _frameCompleted{ false };
 
 	bool DisplayEnabled() const { return (_registers[RegLcdControl] & 0x80) != 0; }
 	bool WindowEnabled() const { return (_registers[RegLcdControl] & 0x20) != 0; }
@@ -117,20 +183,48 @@ protected:
 
 	int MapColour(unsigned char colour, Palette palette);
 
-	// Used as a dummy read/write location when an attempt is made to access
-	// VRAM or OAM during periods when it is inaccessible on the real hardware
-	unsigned char _dummy;
+	void Schedule(LineEvent event, int position)
+	{
+		_nextEvent = event;
+		_nextEventPosition = position;
+	}
 
-	SpriteManager& _spriteManager;
-
-	void CheckLineCompare();
+	void RunLineEvent();
 	void StartLine(unsigned int line);
+	void StartOamScan();
+	void EndOamScan();
+	void StartDrawing();
+	void StartHBlank();
+	void CompareInVBlank();
+	void SetLyForComparison(int line, LineEvent nextEvent, int nextPosition);
+	void TurnOn();
+	void TurnOff();
+	void CompleteFrame();
+
+	void SetBlocking(bool oam, bool vram);
+
+	bool StatLineFor(unsigned char intSelects) const;
+	void SetStatLine(bool line);
+
+	// Re-evaluates LY=LYC and the STAT interrupt line after anything they depend on changes
+	void UpdateStat();
+
+	// Draws the current line in one go, using the registers, OAM and VRAM as they are as its mode 3 starts, and
+	// returns how long mode 3 lasts
+	int DrawLine();
+
+	// The clocks the window and the line's sprites add to mode 3
+	int DrawPenalty(bool windowVisible, int windowStartX) const;
+
+	void SpriteChanged(unsigned short address);
 
 public:
 
 	int Bitmap[HozPixels * VertPixels];
 
 	Graphics(Cpu& cpu, MemoryMap& memoryMap, SpriteManager& spriteManager);
+
+	void SetOamDma(const OamDma* oamDma) { _oamDma = oamDma; }
 
 	// The Bitmap colour for a DMG shade, 0 (lightest) to 3 (darkest)
 	static int ShadeColour(unsigned char shade)
@@ -139,32 +233,46 @@ public:
 		return 0x99000000 | ((3 - shade) * 0x40504a);
 	}
 
-	unsigned char& Vram(unsigned short address) { return _status != LcdcStatus::OamAndVramReadMode ? _vram[address] : _dummy; }
+	// The colour of the screen while the LCD is off
+	static const int BlankColour = -1;
 
-	unsigned char ReadOam(unsigned short address) { return _status != LcdcStatus::OamReadMode && _status != LcdcStatus::OamAndVramReadMode
-															? _oam[address] : 0xff; }
-
-	void WriteOam(unsigned short address, unsigned char value);
-
-	unsigned char ReadRegister(unsigned short address) const { return _registers[address] | (address == RegLcdStatus ? 0x80 : 0); }
-
-	void WriteRegister(unsigned short address, unsigned char value);
-
-	// RenderLine wraps to line 0 after the last line of a frame, so this only has an effect if a frame was cut short
-	void ResetFrame()
+	void RunCycles(int cycles)
 	{
-		if (_currentScanline != 0) StartLine(0);
+		_framePosition += cycles;
+
+		if (!DisplayEnabled())
+		{
+			while (_framePosition >= FrameClocks) CompleteFrame();
+			return;
+		}
+
+		_linePosition += cycles;
+		while (_linePosition >= _nextEventPosition) RunLineEvent();
 	}
 
-	// Draws the current line in one go, using the registers, OAM and VRAM as they are when its OAM scan (mode 2)
-	// ends. Writes made later in the line, including in its H-Blank, take effect from the next line
-	void DrawLine();
+	// True once per frame: as V-Blank starts, or every FrameClocks while the LCD is off
+	bool TakeCompletedFrame()
+	{
+		auto completed = _frameCompleted;
+		_frameCompleted = false;
+		return completed;
+	}
 
-	// Moves to the next line, wrapping to line 0 after the last V-Blank line
-	void EndLine();
+	// The CPU can't read VRAM while the PPU draws (mode 3), nor OAM while it scans or draws (modes 2 and 3);
+	// reads return $FF and writes are ignored
+	unsigned char ReadVram(unsigned short address) const { return _vramReadBlocked ? 0xff : _vram[address]; }
+	void WriteVram(unsigned short address, unsigned char value) { if (!_vramWriteBlocked) _vram[address] = value; }
+	unsigned char ReadOam(unsigned short address) const { return _oamReadBlocked ? 0xff : _oam[address]; }
+	void WriteOam(unsigned short address, unsigned char value);
 
-	// DrawLine then EndLine, for when there's nothing to run in between
-	int RenderLine();
+	// Whether the CPU is blocked from reading OAM, including the unusable area after it
+	bool OamReadBlocked() const { return _oamReadBlocked; }
 
-	void SetLcdcStatus(LcdcStatus status);
+	// VRAM and OAM regardless of the PPU, for OAM DMA and tests
+	unsigned char& Vram(unsigned short address) { return _vram[address]; }
+	void WriteOamDirect(unsigned short address, unsigned char value);
+
+
+	unsigned char ReadRegister(unsigned short address) const;
+	void WriteRegister(unsigned short address, unsigned char value);
 };
