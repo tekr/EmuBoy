@@ -13,15 +13,21 @@ jobs:
         # Not ubuntu-latest: from Ubuntu 26.04 the distribution's SFML is 3.x, which Emu Boy doesn't support yet
         os: [ubuntu-24.04, macos-latest]
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
 
     steps:
       - uses: actions/checkout@v5
 
       - name: Install dependencies (Linux)
         if: runner.os == 'Linux'
+        # The package mirror occasionally stalls, so time out and retry rather than hang
+        timeout-minutes: 10
+        env:
+          DEBIAN_FRONTEND: noninteractive
         run: |
-          sudo apt-get update
-          sudo apt-get install -y cmake libboost-dev libsfml-dev libgtest-dev
+          APT_OPTS="-o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30"
+          sudo -E apt-get $APT_OPTS update
+          sudo -E apt-get $APT_OPTS install -y --no-install-recommends cmake libboost-dev libsfml-dev libgtest-dev
 
       - name: Install dependencies (macOS)
         if: runner.os == 'macOS'
