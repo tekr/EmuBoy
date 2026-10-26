@@ -1,6 +1,8 @@
 #include "stdafx.h"
 #include <gtest/gtest.h>
 #include "../core/Mbc3Cartridge.h"
+#include "../core/Emulator.h"
+#include "../core/Graphics.h"
 #include "CartridgeTestHelpers.h"
 
 using namespace CartridgeTestHelpers;
@@ -194,4 +196,19 @@ TEST_F(Mbc3ClockTest, HaltBitStopsClock)
 
 	EXPECT_EQ(0, ReadClock(RealTimeClock::Seconds));
 	EXPECT_EQ(RealTimeClock::HaltBit, ReadClock(RealTimeClock::DaysHigh));
+}
+
+TEST(Mbc3EmulatorTest, EmulatorDrivesClockInEmulatedTime)
+{
+	auto cartridge = std::make_shared<Mbc3Cartridge>(BankNumberedRom(4), 0, true, true);
+	Emulator emulator{ cartridge };
+	auto& counters = cartridge->GetRealTimeClock()->GetState().Counters;
+
+	// Just under and just over one second of frames
+	const auto framesPerSecond = RealTimeClock::CyclesPerSecond / Graphics::FrameClocks;
+	for (auto frame = 0; frame < framesPerSecond; frame++) emulator.GetFrame();
+	EXPECT_EQ(0, counters[RealTimeClock::Seconds]);
+
+	emulator.GetFrame();
+	EXPECT_EQ(1, counters[RealTimeClock::Seconds]);
 }
