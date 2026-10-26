@@ -33,6 +33,9 @@ public:
 	// Runs until the window is closed or quitRequested is set
 	void Run(const volatile std::sig_atomic_t& quitRequested);
 
+	// Shows a save's error or warning, if it has one, in the terminal
+	static void ReportSaveResult(const BatteryStore::Result& result);
+
 private:
 	Options _options;
 	std::shared_ptr<Cartridge> _cartridge;

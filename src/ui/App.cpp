@@ -13,11 +13,11 @@ namespace
 	// Changes are saved within a few seconds, so a crash loses little, without writing the file on every frame of a
 	// game's multi-frame save routine
 	const int FramesBetweenSaves = 3 * Graphics::SystemClockHz / Graphics::FrameClocks;
+}
 
-	void ReportSaveResult(const BatteryStore::Result& result)
-	{
-		if (!result.Message.empty()) std::cerr << result.Message << std::endl;
-	}
+void App::ReportSaveResult(const BatteryStore::Result& result)
+{
+	if (!result.Message.empty()) std::cerr << result.Message << std::endl;
 }
 
 App::App(const Options& options, std::shared_ptr<Cartridge> cartridge, std::string gameTitle, BatteryStore& saves) :

@@ -17,11 +17,6 @@ void RequestQuit(int)
 	QuitRequested = 1;
 }
 
-void ReportSaveResult(const BatteryStore::Result& result)
-{
-	if (!result.Message.empty()) std::cerr << result.Message << std::endl;
-}
-
 // Usage: EmuBoy [rom] [record-file] [scale]
 // With a record file, every frame is appended to it as raw 160x144 RGBA, as the emulator produced it
 int main(int argc, char* argv[])
@@ -49,7 +44,7 @@ int main(int argc, char* argv[])
 	if (cartridge == nullptr) return 1;
 
 	BatteryStore saves{ cartridge, BatteryStore::SavePathForRom(options.RomPath) };
-	ReportSaveResult(saves.Load());
+	App::ReportSaveResult(saves.Load());
 
 	std::signal(SIGINT, RequestQuit);
 	std::signal(SIGTERM, RequestQuit);
@@ -66,10 +61,10 @@ int main(int argc, char* argv[])
 	catch (const std::exception& e)
 	{
 		std::cerr << "Emu Boy stopped after an error: " << e.what() << std::endl;
-		ReportSaveResult(saves.SaveOnExit());
+		App::ReportSaveResult(saves.SaveOnExit());
 		return 1;
 	}
 
-	ReportSaveResult(saves.SaveOnExit());
+	App::ReportSaveResult(saves.SaveOnExit());
 	return 0;
 }
