@@ -53,11 +53,24 @@ void Graphics::CheckLineCompare()
 	}
 }
 
+// LY changes, and is compared with LYC, at the start of each line, so a register write made from the LY=LYC
+// interrupt (e.g. in mode 2) affects the line that triggered it
+void Graphics::StartLine(unsigned int line)
+{
+	_currentScanline = line;
+	if (line == 0) _currentWindowScanline = 0;
+
+	// LY stays at 0 while the display is off
+	_registers[RegLineCount] = DisplayEnabled() ? line : 0;
+	CheckLineCompare();
+}
+
 Graphics::Graphics(Cpu& cpu, MemoryMap& memoryMap, SpriteManager& spriteManager)
 	: _cpu(cpu), _memoryMap(memoryMap), _screenEnabled(true), _totalCycles(0), _spriteManager(spriteManager)
 {
 	_memoryMap.SetGraphics(this);
 
+	_registers[RegLineCount] = 0;
 	_registers[RegBgWinPalette] = 0xff;
 	_registers[RegSprite0Palette] = 0xff;
 	_registers[RegSprite1Palette] = 0xff;
@@ -120,13 +133,6 @@ void Graphics::WriteRegister(unsigned short address, unsigned char value)
 
 int Graphics::RenderLine()
 {
-	// Reset line counter at start of frame
-	if (_currentScanline == 0)
-	{
-		_registers[RegLineCount] = 0;
-		_currentWindowScanline = 0;
-	}
-
 	if (_currentScanline < VertPixels)
 	{
 		if (DisplayEnabled())
@@ -207,10 +213,7 @@ int Graphics::RenderLine()
 		}
 	}
 
-	CheckLineCompare();
-
-	++_registers[RegLineCount];
-	++_currentScanline;
+	StartLine(_currentScanline + 1 < FrameLines ? _currentScanline + 1 : 0);
 
 	return ScanlineClocks;
 }

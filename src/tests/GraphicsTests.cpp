@@ -130,3 +130,81 @@ TEST_F(GraphicsTestFixture, WindowDrawnFromWindowXPosition)
 		EXPECT_EQ(x < windowLeftEdge ? background : window, Graphics.Bitmap[x]) << "at x = " << x;
 	}
 }
+
+namespace
+{
+	const unsigned short LcdControlAddress = MemoryMap::VramRegisters + TestGraphics::RegLcdControl;
+	const unsigned short LcdStatusAddress = MemoryMap::VramRegisters + TestGraphics::RegLcdStatus;
+	const unsigned short LineCountAddress = MemoryMap::VramRegisters + TestGraphics::RegLineCount;
+	const unsigned short LineCompareAddress = MemoryMap::VramRegisters + TestGraphics::RegLineCompare;
+
+	const unsigned char DisplayOn = 0x80;
+	const unsigned char CoincidenceFlag = 0x04;
+	const unsigned char CoincidenceInterruptEnable = 0x40;
+}
+
+TEST_F(GraphicsTestFixture, LineCountIsLineAboutToBeDrawn)
+{
+	MemoryMap.WriteByte(LcdControlAddress, DisplayOn);
+	Graphics.ResetFrame();
+
+	EXPECT_EQ(0, MemoryMap.ReadByte(LineCountAddress));
+
+	for (auto line = 1; line < Graphics::FrameLines; line++)
+	{
+		Graphics.RenderLine();
+		EXPECT_EQ(line, MemoryMap.ReadByte(LineCountAddress));
+	}
+
+	// The last line of the frame is followed by line 0 of the next
+	Graphics.RenderLine();
+	EXPECT_EQ(0, MemoryMap.ReadByte(LineCountAddress));
+}
+
+TEST_F(GraphicsTestFixture, LineCountStaysZeroWhileDisplayOff)
+{
+	MemoryMap.WriteByte(LcdControlAddress, 0);
+	Graphics.ResetFrame();
+
+	for (auto i = 0; i < 3; i++) Graphics.RenderLine();
+
+	EXPECT_EQ(0, MemoryMap.ReadByte(LineCountAddress));
+}
+
+TEST_F(GraphicsTestFixture, LineCompareMatchesAtStartOfLine)
+{
+	const unsigned char compareLine = 5;
+
+	MemoryMap.WriteByte(LcdControlAddress, DisplayOn);
+	MemoryMap.WriteByte(LineCompareAddress, compareLine);
+	MemoryMap.WriteByte(LcdStatusAddress, CoincidenceInterruptEnable);
+	Graphics.ResetFrame();
+
+	for (auto line = 0; line < compareLine - 1; line++) Graphics.RenderLine();
+	Cpu.WaitingInterrupts() = 0;
+
+	// Line 4 is drawn, then line 5 starts
+	Graphics.RenderLine();
+
+	EXPECT_EQ(CoincidenceFlag, MemoryMap.ReadByte(LcdStatusAddress) & CoincidenceFlag);
+	EXPECT_EQ(InterruptFlags::LcdStatInt, Cpu.WaitingInterrupts() & InterruptFlags::LcdStatInt);
+
+	Graphics.RenderLine();
+	EXPECT_EQ(0, MemoryMap.ReadByte(LcdStatusAddress) & CoincidenceFlag);
+}
+
+TEST_F(GraphicsTestFixture, LineCompareOfZeroMatchesAtStartOfFrame)
+{
+	MemoryMap.WriteByte(LcdControlAddress, DisplayOn);
+	MemoryMap.WriteByte(LineCompareAddress, 0);
+	MemoryMap.WriteByte(LcdStatusAddress, CoincidenceInterruptEnable);
+	Graphics.ResetFrame();
+
+	for (auto line = 0; line < Graphics::FrameLines - 1; line++) Graphics.RenderLine();
+	Cpu.WaitingInterrupts() = 0;
+
+	Graphics.RenderLine();
+
+	EXPECT_EQ(CoincidenceFlag, MemoryMap.ReadByte(LcdStatusAddress) & CoincidenceFlag);
+	EXPECT_EQ(InterruptFlags::LcdStatInt, Cpu.WaitingInterrupts() & InterruptFlags::LcdStatInt);
+}

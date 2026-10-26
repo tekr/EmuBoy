@@ -15,6 +15,9 @@ public:
 	using Graphics::GetTileOffset;
 
 	using Graphics::RegLcdControl;
+	using Graphics::RegLcdStatus;
+	using Graphics::RegLineCount;
+	using Graphics::RegLineCompare;
 	using Graphics::RegBgScrollY;
 	using Graphics::RegBgScrollX;
 	using Graphics::RegBgWinPalette;

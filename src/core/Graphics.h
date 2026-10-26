@@ -54,6 +54,7 @@ public:
 	static_assert(ScanlineClocks == 456, "Clocks per scanline is incorrect");
 
 	static const unsigned int VBlankLines = 10;
+	static const unsigned int FrameLines = VertPixels + VBlankLines;
 	static const unsigned int FrameClocks = ScanlineClocks * (VertPixels + VBlankLines);
 	static_assert(FrameClocks == 70224, "Clocks per frame is incorrect");
 
@@ -98,8 +99,8 @@ protected:
 
 	unsigned char _registers[RegisterBlockSize];
 
-	unsigned int _currentScanline;
-	unsigned int _currentWindowScanline;
+	unsigned int _currentScanline{ 0 };
+	unsigned int _currentWindowScanline{ 0 };
 
 	bool DisplayEnabled() const { return (_registers[RegLcdControl] & 0x80) != 0; }
 	bool WindowEnabled() const { return (_registers[RegLcdControl] & 0x20) != 0; }
@@ -122,6 +123,7 @@ protected:
 	SpriteManager& _spriteManager;
 
 	void CheckLineCompare();
+	void StartLine(unsigned int line);
 
 public:
 
@@ -140,10 +142,10 @@ public:
 
 	void WriteRegister(unsigned short address, unsigned char value);
 
+	// RenderLine wraps to line 0 after the last line of a frame, so this only has an effect if a frame was cut short
 	void ResetFrame()
 	{
-		_currentScanline = 0;
-		_currentWindowScanline = 0;
+		if (_currentScanline != 0) StartLine(0);
 	}
 
 	int RenderLine();
