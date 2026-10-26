@@ -43,6 +43,20 @@ without it, only the emulator is built.
 (default 4). If `record-file` is given, every frame is appended to it as raw 160x144 RGBA, which is useful for making
 screen captures.
 
+Games with battery-backed RAM keep their saves in a `.sav` file next to the ROM, named after it (`Tetris.gb` saves
+to `Tetris.sav`). It is loaded at start-up, written within a few seconds of the game changing it, and written on exit
+if anything changed (always, for real-time clock cartridges, to record the time). On macOS, exiting includes closing
+the window, Ctrl+C and closing the terminal, and save errors and warnings are shown in the terminal. On Windows,
+saves are written when the window is closed; Emu Boy has no console there, so messages aren't shown. If a save is the
+wrong size for the cartridge, what fits is loaded, and the original is copied to `<name>.sav.bak` before it is first
+replaced.
+
+The format is the raw RAM dump most emulators use, with the BGB/VBA-M real-time clock footer for MBC3 clock
+cartridges, so saves can be moved to and from BGB, VBA-M, mGBA and SameBoy. A clock save from mGBA can run ahead by
+the time between the game last reading the clock and mGBA saving. MBC2 saves are written as 512 bytes, as SameBoy and
+VBA-M do; mGBA's 256-byte MBC2 saves can be loaded too. The clock catches up with the time that passed while Emu Boy
+wasn't running.
+
 
 ## Building on Linux
 Install the dependencies with your package manager, then build with CMake. On Ubuntu 24.04 or Debian 12/13:
@@ -70,6 +84,7 @@ As of now Emu Boy is still in its early stages and is very much a work in progre
   MBC5 (including rumble cartridges), chosen from the cartridge header, which covers almost all of the original Game
   Boy's library. Other mappers are run as MBC1 with a warning. Passes the mooneye-test-suite's MBC1, MBC2 and MBC5
   test ROMs and rtc3test
+* Battery-backed saves, including the MBC3 real-time clock, compatible with other emulators' `.sav` files
 * Unit testing of most CPU instructions, the sound hardware and the cartridge mappers
 * Windows (Visual Studio 2015 solution), macOS and Linux (CMake), with CI builds and tests on macOS and Linux
 * Simulates the slow response-time of the Game Boy LCD screen and smoothes upsized jagged pixels

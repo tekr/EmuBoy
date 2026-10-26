@@ -71,7 +71,10 @@ void Mbc3Cartridge::RamWriteByte(unsigned short address, unsigned char value)
 	else
 	{
 		auto reg = SelectedClockRegister();
-		if (reg >= 0) _clock.WriteRegister(reg, value);
+		if (reg < 0) return;
+
+		_clock.WriteRegister(reg, value);
+		MarkChanged();
 	}
 }
 
