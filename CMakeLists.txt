@@ -21,7 +21,7 @@ file(GLOB FRONTEND_SOURCES CONFIGURE_DEPENDS src/frontend/*.cpp)
 add_library(frontend STATIC ${FRONTEND_SOURCES})
 target_link_libraries(frontend PUBLIC core)
 
-add_executable(EmuBoy src/ui/main.cpp src/ui/AudioOutput.cpp)
+add_executable(EmuBoy src/ui/main.cpp src/ui/App.cpp src/ui/AudioOutput.cpp src/ui/Controls.cpp)
 target_link_libraries(EmuBoy PRIVATE frontend sfml-graphics sfml-window sfml-audio sfml-system)
 
 # Unit tests (Google Test). Run with ctest, or run Tests from src/tests, which the tests' file paths are relative to

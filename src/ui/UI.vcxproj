@@ -152,7 +152,9 @@
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="App.cpp" />
     <ClCompile Include="AudioOutput.cpp" />
+    <ClCompile Include="Controls.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="..\frontend\InputMapper.cpp">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
@@ -183,7 +185,9 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="App.h" />
     <ClInclude Include="AudioOutput.h" />
+    <ClInclude Include="Controls.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="targetver.h" />
     <ClInclude Include="..\frontend\InputMapper.h" />
