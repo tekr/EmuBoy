@@ -17,6 +17,8 @@ class Emulator
 	Timer EmuTimer;
 	Apu EmuApu;
 
+	int _frameOvershoot{ 0 };
+
 	void Run(int& currentCycle, int cycleTarget);
 
 public:
@@ -25,6 +27,9 @@ public:
 	int* GetFrame();
 	InputJoypad& GetJoypad() { return EmuJoypad; }
 	MemoryMap& GetMemoryMap() { return EmuMemoryMap; }
+
+	// Clocks the CPU has run since power-on, not counting time halted or stopped
+	uint64_t GetCpuClocks() const { return EmuCpu.GetTotalCycles(); }
 
 	// Interleaved stereo 16-bit samples at the APU's sample rate, produced since the last call
 	void TakeAudioSamples(std::vector<short>& out) { EmuApu.TakeSamples(out); }
