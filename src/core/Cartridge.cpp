@@ -18,9 +18,18 @@ unsigned char Cartridge::RomReadByte(unsigned short address) const
 	return _rom[index];
 }
 
+size_t Cartridge::RamIndex(unsigned short address) const
+{
+	return address + _selectedRamBank * MemoryMap::RamBankSize;
+}
+
 unsigned char Cartridge::RamReadByte(unsigned short address) const
 {
-	return _ramEnabled ? _ram[address + _selectedRamBank * MemoryMap::RamBankSize] : 0x0;
+	if (!_ramEnabled) return 0x0;
+
+	// Reads from RAM the cartridge doesn't have return 0xff, as on hardware
+	auto index = RamIndex(address);
+	return index < _ram.size() ? _ram[index] : 0xff;
 }
 
 void Cartridge::RomWriteByte(unsigned short address, unsigned char value)
@@ -52,8 +61,10 @@ void Cartridge::RomWriteByte(unsigned short address, unsigned char value)
 
 void Cartridge::RamWriteByte(unsigned short address, unsigned char value)
 {
-	if (_ramEnabled)
+	auto index = RamIndex(address);
+
+	if (_ramEnabled && index < _ram.size())
 	{
-		_ram[address + _selectedRamBank * MemoryMap::RamBankSize] = value;
+		_ram[index] = value;
 	}
 }

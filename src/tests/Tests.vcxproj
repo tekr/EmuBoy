@@ -155,6 +155,7 @@
     <ClInclude Include="TestMemoryMap.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="CartridgeRamTests.cpp" />
     <ClCompile Include="CpuTestFixture.cpp" />
     <ClCompile Include="CpuTests.cpp" />
     <ClCompile Include="GraphicsTestFixture.cpp" />
