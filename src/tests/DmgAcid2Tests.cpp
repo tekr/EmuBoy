@@ -15,6 +15,9 @@ namespace
 	// The boot ROM and the test take about 6 s of emulated time; this leaves plenty of margin
 	const int MaxFrames = 60 * 20;
 
+	// Frames that must still match after the first one does
+	const int FramesToStayMatched = 10;
+
 	std::vector<std::string> LoadReference(const std::string& path)
 	{
 		std::ifstream file(path);
@@ -53,6 +56,22 @@ namespace
 
 		return rows;
 	}
+
+	std::string DescribeDifferences(const std::vector<std::string>& actual, const std::vector<std::string>& reference)
+	{
+		std::ostringstream diff;
+		diff << "(shades 0-3, ? = not a DMG shade)\n";
+
+		for (auto y = 0; y < Graphics::VertPixels; y++)
+		{
+			if (actual[y] != reference[y])
+			{
+				diff << "row " << y << "\n  expected " << reference[y] << "\n  actual   " << actual[y] << "\n";
+			}
+		}
+
+		return diff.str();
+	}
 }
 
 TEST(DmgAcid2Test, FrameMatchesReferenceImage)
@@ -65,24 +84,19 @@ TEST(DmgAcid2Test, FrameMatchesReferenceImage)
 
 	Emulator emulator{ cartridge };
 	std::vector<std::string> actual;
+	auto frame = 0;
 
-	// The final image doesn't change once drawn, so stop at the first frame that matches it
-	for (auto frame = 0; frame < MaxFrames && actual != reference; frame++)
+	for (; frame < MaxFrames && actual != reference; frame++)
 	{
 		actual = ToShadeRows(emulator.GetFrame());
 	}
 
-	if (actual == reference) return;
+	ASSERT_TRUE(actual == reference) << "No frame matched the reference image; the last differs " << DescribeDifferences(actual, reference);
 
-	std::ostringstream diff;
-
-	for (auto y = 0; y < Graphics::VertPixels; y++)
+	// The final image doesn't change once drawn
+	for (auto i = 0; i < FramesToStayMatched; i++, frame++)
 	{
-		if (actual[y] != reference[y])
-		{
-			diff << "row " << y << "\n  expected " << reference[y] << "\n  actual   " << actual[y] << "\n";
-		}
+		actual = ToShadeRows(emulator.GetFrame());
+		ASSERT_TRUE(actual == reference) << "Frame " << frame << " differs " << DescribeDifferences(actual, reference);
 	}
-
-	FAIL() << "Final frame differs from the reference image (shades 0-3, ? = not a DMG shade):\n" << diff.str();
 }
