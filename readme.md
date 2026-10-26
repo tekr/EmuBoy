@@ -53,7 +53,7 @@ As of now Emu Boy is still in its early stages and is very much a work in progre
 * Cartridge mappers: ROM only, MBC1 (including MBC1M multicarts), MBC2, MBC3 (including its real-time clock) and
   MBC5 (including rumble cartridges), chosen from the cartridge header, which covers almost all of the original Game
   Boy's library. Other mappers are run as MBC1 with a warning. Passes the mooneye-test-suite's MBC1, MBC2 and MBC5
-  test ROMs
+  test ROMs and rtc3test
 * Unit testing of most CPU instructions, the sound hardware and the cartridge mappers
 * Windows (Visual Studio 2015 solution) and macOS (CMake)
 * Simulates the slow response-time of the Game Boy LCD screen and smoothes upsized jagged pixels
