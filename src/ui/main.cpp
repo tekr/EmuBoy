@@ -161,7 +161,7 @@ int main(int argc, char* argv[])
 			nextFrame += frameTime;
 		}
 
-		ReportSaveResult(saves.Save());
+		ReportSaveResult(saves.SaveOnExit());
 		return 0;
 	}
 

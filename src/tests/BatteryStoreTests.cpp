@@ -100,10 +100,13 @@ namespace
 
 		~BatteryStoreTest()
 		{
-			std::remove(SavePath.c_str());
-			RemoveTestDirectory(SavePath);
-			RemoveTestDirectory(SavePath + ".tmp");
-			std::remove((SavePath + ".tmp").c_str());
+			for (auto suffix : { "", ".tmp", ".bak", ".bak.tmp" })
+			{
+				auto path = SavePath + suffix;
+				std::remove(path.c_str());
+				RemoveTestDirectory(path);
+			}
+
 			RemoveTestDirectory(Directory);
 		}
 
@@ -232,14 +235,13 @@ TEST_F(BatteryStoreTest, UnreadableSaveIsReportedAndNotOverwritten)
 	auto load = store.Load();
 	EnableRam(*cartridge);
 	cartridge->RamWriteByte(0x0000, 0x99);
-	auto periodicSave = store.SaveIfChanged();
-	auto save = store.Save();
+	auto save = store.SaveIfChanged();
 
 	EXPECT_FALSE(load.Succeeded);
 	EXPECT_NE("", load.Message);
-	EXPECT_TRUE(periodicSave.Succeeded);
 	EXPECT_FALSE(save.Succeeded);
 	EXPECT_NE("", save.Message);
+	EXPECT_FALSE(store.SaveOnExit().Succeeded);
 	EXPECT_FALSE(Exists(SavePath + ".tmp"));
 }
 
@@ -358,4 +360,139 @@ TEST_F(BatteryStoreTest, GameReadsSavedRamThroughTheEmulator)
 	memory.WriteByte(0x4000, 0x02);
 
 	EXPECT_EQ(0x78, memory.ReadByte(0xa456));
+}
+
+TEST_F(BatteryStoreTest, RepeatedErrorIsReportedOnceUntilASaveSucceeds)
+{
+	ASSERT_TRUE(MakeTestDirectory(SavePath));
+	auto cartridge = CartridgeFactory::Create(Rom(Mbc1RamBattery, Ram8K));
+	auto store = Store(cartridge);
+
+	auto first = store.Save();
+	auto second = store.Save();
+	RemoveTestDirectory(SavePath);
+	auto success = store.Save();
+	std::remove(SavePath.c_str());
+	ASSERT_TRUE(MakeTestDirectory(SavePath));
+	auto again = store.Save();
+
+	EXPECT_FALSE(first.Succeeded);
+	EXPECT_NE("", first.Message);
+	EXPECT_FALSE(second.Succeeded);
+	EXPECT_EQ("", second.Message);
+	EXPECT_TRUE(success.Succeeded);
+	EXPECT_FALSE(again.Succeeded);
+	EXPECT_EQ(first.Message, again.Message);
+}
+
+TEST_F(BatteryStoreTest, WrongSizeSaveIsBackedUpBeforeBeingReplaced)
+{
+	std::vector<unsigned char> original(100, 0x33);
+	WriteAll(SavePath, original);
+	auto cartridge = CartridgeFactory::Create(Rom(Mbc1RamBattery, Ram8K));
+	auto store = Store(cartridge);
+	auto load = store.Load();
+
+	EXPECT_TRUE(store.Save().Succeeded);
+
+	EXPECT_NE(std::string::npos, load.Message.find(".bak"));
+	EXPECT_EQ(original, ReadAll(SavePath + ".bak"));
+	EXPECT_EQ(Ram8KSize, ReadAll(SavePath).size());
+}
+
+TEST_F(BatteryStoreTest, WrongSizeSaveIsBackedUpOnlyOnce)
+{
+	WriteAll(SavePath, std::vector<unsigned char>(100, 0x33));
+	auto cartridge = CartridgeFactory::Create(Rom(Mbc1RamBattery, Ram8K));
+	auto store = Store(cartridge);
+	store.Load();
+	store.Save();
+	std::remove((SavePath + ".bak").c_str());
+
+	store.Save();
+
+	EXPECT_FALSE(Exists(SavePath + ".bak"));
+}
+
+TEST_F(BatteryStoreTest, RightSizeSaveIsNotBackedUp)
+{
+	WriteAll(SavePath, std::vector<unsigned char>(Ram8KSize, 0x33));
+	auto cartridge = CartridgeFactory::Create(Rom(Mbc1RamBattery, Ram8K));
+	auto store = Store(cartridge);
+	store.Load();
+
+	store.Save();
+
+	EXPECT_FALSE(Exists(SavePath + ".bak"));
+}
+
+TEST_F(BatteryStoreTest, FailedBackupLeavesWrongSizeSaveInPlace)
+{
+	// A directory where the backup's temporary file should go stops it being written
+	std::vector<unsigned char> original(100, 0x33);
+	WriteAll(SavePath, original);
+	ASSERT_TRUE(MakeTestDirectory(SavePath + ".bak.tmp"));
+	auto cartridge = CartridgeFactory::Create(Rom(Mbc1RamBattery, Ram8K));
+	auto store = Store(cartridge);
+	store.Load();
+
+	auto result = store.Save();
+
+	EXPECT_FALSE(result.Succeeded);
+	EXPECT_NE("", result.Message);
+	EXPECT_EQ(original, ReadAll(SavePath));
+}
+
+TEST_F(BatteryStoreTest, ExitWithoutChangesLeavesTheSaveAlone)
+{
+	std::vector<unsigned char> original(100, 0x33);
+	WriteAll(SavePath, original);
+	auto cartridge = CartridgeFactory::Create(Rom(Mbc1RamBattery, Ram8K));
+	auto store = Store(cartridge);
+	store.Load();
+
+	EXPECT_TRUE(store.SaveOnExit().Succeeded);
+
+	EXPECT_EQ(original, ReadAll(SavePath));
+	EXPECT_FALSE(Exists(SavePath + ".bak"));
+}
+
+TEST_F(BatteryStoreTest, ExitWithoutChangesOrSaveCreatesNoSave)
+{
+	auto cartridge = CartridgeFactory::Create(Rom(Mbc1RamBattery, Ram8K));
+	auto store = Store(cartridge);
+	store.Load();
+
+	store.SaveOnExit();
+
+	EXPECT_FALSE(Exists(SavePath));
+}
+
+TEST_F(BatteryStoreTest, ExitSavesChanges)
+{
+	auto cartridge = CartridgeFactory::Create(Rom(Mbc1RamBattery, Ram8K));
+	auto store = Store(cartridge);
+	store.Load();
+	EnableRam(*cartridge);
+	cartridge->RamWriteByte(0x0010, 0x66);
+
+	EXPECT_TRUE(store.SaveOnExit().Succeeded);
+
+	EXPECT_EQ(0x66, ReadAll(SavePath)[0x0010]);
+}
+
+TEST_F(BatteryStoreTest, ExitAlwaysSavesClockCartridgeWithCurrentTime)
+{
+	auto cartridge = CartridgeFactory::Create(Rom(Mbc3TimerBattery, NoRam));
+	auto store = Store(cartridge);
+	store.Save();
+	Now += 1000;
+
+	EXPECT_TRUE(store.SaveOnExit().Succeeded);
+
+	auto save = ReadAll(SavePath);
+	ASSERT_EQ(48u, save.size());
+	int64_t timeStamp = 0;
+	for (auto i = 0; i < 8; i++) timeStamp |= static_cast<int64_t>(save[40 + i]) << (8 * i);
+	EXPECT_EQ(Now, timeStamp);
 }

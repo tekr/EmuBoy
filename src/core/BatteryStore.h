@@ -4,6 +4,7 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <vector>
 
 // Keeps a cartridge's battery-backed RAM and clock in a save file (in SaveFile's format) between runs. Cartridges
 // without a battery, or with nothing for it to keep, never touch the file system
@@ -34,12 +35,18 @@ public:
 	// Loads the save into the cartridge. A missing save leaves the RAM blank
 	Result Load();
 
-	// Writes the save to a temporary file and renames it over the old one, so an interrupted save can't corrupt it
+	// Writes the save to a temporary file and renames it over the old one, so an interrupted save can't corrupt it.
+	// A save that loaded with a warning (being the wrong size) is first copied to <save path>.bak, as it may hold
+	// data that didn't fit. An error the same as the last one is returned without its message, so the front end
+	// reports it once rather than on every attempt, until a save succeeds again
 	Result Save();
 
-	// Saves only if the RAM or clock registers changed since the last load or save. Quietly does nothing after a
-	// failed load, which Load and Save report
+	// Saves only if the RAM or clock registers changed since the last load or save
 	Result SaveIfChanged();
+
+	// Saves when the emulator exits: only if something changed, so just running a game never rewrites its save,
+	// except that a clock cartridge's save is always rewritten to keep its time stamp current
+	Result SaveOnExit();
 
 private:
 	std::shared_ptr<Cartridge> _cartridge;
@@ -48,4 +55,13 @@ private:
 
 	// Set when a save exists but couldn't be read, so that it isn't overwritten with blank RAM
 	bool _loadFailed{ false };
+
+	// The save as loaded, kept when it loaded with a warning until it has been backed up
+	std::vector<unsigned char> _saveToBackUp;
+	bool _needsBackup{ false };
+
+	std::string _lastError;
+
+	Result Write();
+	Result ReportOnce(Result result);
 };
