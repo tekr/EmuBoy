@@ -11,6 +11,7 @@
 #include <cstdlib>
 #include <algorithm>
 #include <csignal>
+#include <exception>
 
 using sfKey = sf::Keyboard::Key;
 
@@ -118,47 +119,57 @@ int main(int argc, char* argv[])
 		sf::Clock clock;
 		auto nextFrame = frameTime;
 
-		while (window.isOpen())
+		// An unexpected error still saves the game before exiting
+		try
 		{
-			if (QuitRequested)
+			while (window.isOpen())
 			{
-				window.close();
-				break;
+				if (QuitRequested)
+				{
+					window.close();
+					break;
+				}
+
+				emulator.GetJoypad().SetKeysDown(window.hasFocus() ? KeysDown : JoypadKey::NoKey);
+
+				sf::Event event;
+				while (window.pollEvent(event))
+				{
+					if (event.type == sf::Event::Closed) window.close();
+					if (event.type == sf::Event::KeyPressed || event.type == sf::Event::KeyReleased) UpdateKeysDown(event);
+					if (event.type == sf::Event::LostFocus) KeysDown = JoypadKey::NoKey;
+				}
+
+				auto frame = emulator.GetFrame();
+				frameTexture.update(reinterpret_cast<sf::Uint8*>(frame));
+				screen.draw(frameSprite);
+				screen.display();
+				if (record) record.write(reinterpret_cast<char*>(frame), Graphics::HozPixels * Graphics::VertPixels * sizeof(*frame));
+
+				emulator.TakeAudioSamples(samples);
+				audio.Push(samples);
+				if (audio.getStatus() != sf::SoundStream::Playing) audio.play();
+
+				window.draw(screenSprite);
+				window.display();
+
+				if (--framesUntilSave == 0)
+				{
+					ReportSaveResult(saves.SaveIfChanged());
+					framesUntilSave = framesBetweenSaves;
+				}
+
+				auto now = clock.getElapsedTime();
+				if (now < nextFrame) sf::sleep(nextFrame - now);
+				else if (now - nextFrame > frameTime * 4.f) nextFrame = now; // fell well behind (e.g. window dragged): don't race to catch up
+				nextFrame += frameTime;
 			}
-
-			emulator.GetJoypad().SetKeysDown(window.hasFocus() ? KeysDown : JoypadKey::NoKey);
-
-			sf::Event event;
-			while (window.pollEvent(event))
-			{
-				if (event.type == sf::Event::Closed) window.close();
-				if (event.type == sf::Event::KeyPressed || event.type == sf::Event::KeyReleased) UpdateKeysDown(event);
-				if (event.type == sf::Event::LostFocus) KeysDown = JoypadKey::NoKey;
-			}
-
-			auto frame = emulator.GetFrame();
-			frameTexture.update(reinterpret_cast<sf::Uint8*>(frame));
-			screen.draw(frameSprite);
-			screen.display();
-			if (record) record.write(reinterpret_cast<char*>(frame), Graphics::HozPixels * Graphics::VertPixels * sizeof(*frame));
-
-			emulator.TakeAudioSamples(samples);
-			audio.Push(samples);
-			if (audio.getStatus() != sf::SoundStream::Playing) audio.play();
-
-			window.draw(screenSprite);
-			window.display();
-
-			if (--framesUntilSave == 0)
-			{
-				ReportSaveResult(saves.SaveIfChanged());
-				framesUntilSave = framesBetweenSaves;
-			}
-
-			auto now = clock.getElapsedTime();
-			if (now < nextFrame) sf::sleep(nextFrame - now);
-			else if (now - nextFrame > frameTime * 4.f) nextFrame = now; // fell well behind (e.g. window dragged): don't race to catch up
-			nextFrame += frameTime;
+		}
+		catch (const std::exception& e)
+		{
+			std::cerr << "Emu Boy stopped after an error: " << e.what() << std::endl;
+			ReportSaveResult(saves.SaveOnExit());
+			return 1;
 		}
 
 		ReportSaveResult(saves.SaveOnExit());
