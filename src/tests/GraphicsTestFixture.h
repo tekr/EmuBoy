@@ -3,7 +3,7 @@
 #include "TestCpu.h"
 #include <gtest/gtest.h>
 #include "../core/Graphics.h"
-#include "../Core/SpriteManager.h"
+#include "../core/SpriteManager.h"
 
 class InputJoypad;
 
