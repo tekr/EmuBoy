@@ -183,6 +183,10 @@ protected:
 	unsigned int _framePosition{ 0 };
 	bool _frameCompleted{ false };
 
+	// Per https://gbdev.io/pandocs/LCDC.html#lcdc7--lcd-enable, the screen stays blank for the first frame after
+	// the LCD is turned on
+	bool _blankFrame{ false };
+
 	bool DisplayEnabled() const { return (_registers[RegLcdControl] & 0x80) != 0; }
 	bool WindowEnabled() const { return (_registers[RegLcdControl] & 0x20) != 0; }
 	bool BackgroundEnabled() const { return (_registers[RegLcdControl] & 0x1) != 0; }

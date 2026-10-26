@@ -571,6 +571,21 @@ TEST_F(PpuFrameTests, FrameTheLcdIsTurnedOnInEndsAtItsFirstVBlank)
 	EXPECT_TRUE(Graphics.TakeCompletedFrame());
 }
 
+TEST_F(PpuFrameTests, FirstFrameAfterTurningLcdOnIsBlank)
+{
+	// Per https://gbdev.io/pandocs/LCDC.html#lcdc7--lcd-enable. Background palette colour 0 is shade 3, not blank
+	WriteRegister(TestGraphics::RegBgWinPalette, 0xff);
+	TurnOn(0x01);
+
+	RunTo(Graphics::VertPixels, 4);
+	ASSERT_TRUE(Graphics.TakeCompletedFrame());
+	EXPECT_EQ(-1, Graphics.Bitmap[0]);
+
+	Run(Graphics::FrameClocks);
+	ASSERT_TRUE(Graphics.TakeCompletedFrame());
+	EXPECT_EQ(Graphics::ShadeColour(3), Graphics.Bitmap[0]);
+}
+
 TEST_F(PpuFrameTests, FrameWhileLcdIsOffIsBlank)
 {
 	DrawFirstLine(0x01);

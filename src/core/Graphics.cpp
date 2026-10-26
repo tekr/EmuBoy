@@ -228,6 +228,7 @@ void Graphics::TurnOn()
 	_currentWindowScanline = 0;
 	_registers[RegLineCount] = 0;
 	_linePosition = FirstLineStart;
+	_blankFrame = true;
 
 	_mode = LcdcStatus::HBlankMode;
 	_interruptMode = NoInterruptMode;
@@ -252,7 +253,8 @@ void Graphics::TurnOff()
 
 void Graphics::CompleteFrame()
 {
-	if (!DisplayEnabled()) std::fill(std::begin(Bitmap), std::end(Bitmap), BlankColour);
+	if (!DisplayEnabled() || _blankFrame) std::fill(std::begin(Bitmap), std::end(Bitmap), BlankColour);
+	_blankFrame = false;
 
 	_frameCompleted = true;
 
