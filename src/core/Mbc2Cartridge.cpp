@@ -24,7 +24,8 @@ void Mbc2Cartridge::RomWriteByte(unsigned short address, unsigned char value)
 
 unsigned char Mbc2Cartridge::RamReadByte(unsigned short address) const
 {
-	// Only the lower nibble is stored; the upper one reads as 1s. The 512 bytes echo through $A000-$BFFF
+	// Only the lower nibble is stored; the upper one reads as 1s (as mooneye-test-suite's mbc2/ram checks). The 512
+	// bytes echo through $A000-$BFFF
 	return _ramEnabled ? ReadRamBank(0, address) | 0xf0 : 0xff;
 }
 

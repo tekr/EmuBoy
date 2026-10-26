@@ -44,6 +44,7 @@ unsigned char Mbc3Cartridge::RamReadByte(unsigned short address) const
 
 	if (_ramBankOrClockRegister < RamBankCount) return ReadRamBank(_ramBankOrClockRegister, address);
 
+	// Pan Docs doesn't define other values; they read as open bus
 	auto reg = SelectedClockRegister();
 	return reg >= 0 ? _clock.ReadRegister(reg) : 0xff;
 }

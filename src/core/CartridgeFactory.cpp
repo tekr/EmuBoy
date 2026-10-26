@@ -95,9 +95,10 @@ bool CartridgeFactory::ReadFile(const std::string& filePath, std::vector<unsigne
 	if (!ifs) return false;
 
 	auto size = ifs.tellg();
+	if (size < 0) return false;
+
 	contents = std::vector<unsigned char>(static_cast<size_t>(size));
 
 	ifs.seekg(0, std::ios::beg);
-	ifs.read(reinterpret_cast<char*>(contents.data()), size);
-	return true;
+	return static_cast<bool>(ifs.read(reinterpret_cast<char*>(contents.data()), size));
 }

@@ -20,8 +20,8 @@ public:
 
 	struct Result
 	{
-		Outcome Outcome;
-		Registers Registers;
+		MooneyeRomRunner::Outcome Outcome;
+		::Registers Registers;
 	};
 
 	// The slowest MBC tests take around 12 seconds of emulated time; a minute leaves plenty of margin

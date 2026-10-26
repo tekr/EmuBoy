@@ -346,7 +346,7 @@ public:
 
 	const Registers& GetRegisters() const { return _registers; }
 
-	// Whether LD B,B has been executed, which test ROMs use to signal they have finished
+	// Whether LD B,B has ever been executed, which test ROMs use to signal they have finished
 	bool SoftwareBreakpointHit() const { return _softwareBreakpointHit; }
 
 	// Simulates an IRQ
