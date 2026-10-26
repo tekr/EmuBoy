@@ -15,6 +15,24 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="CartridgeFactoryTests.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="RealTimeClockTests.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Mbc5Tests.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Mbc3Tests.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Mbc2Tests.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Mbc1Tests.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="ApuTests.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -83,6 +101,9 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="CartridgeTestHelpers.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="ApuTestHelpers.h">
       <Filter>Header Files</Filter>
     </ClInclude>

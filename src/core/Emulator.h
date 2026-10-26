@@ -9,6 +9,7 @@
 
 class Emulator
 {
+	std::shared_ptr<Cartridge> EmuCartridge;
 	InputJoypad EmuJoypad;
 	MemoryMap EmuMemoryMap { EmuJoypad };
 	Cpu EmuCpu{ EmuMemoryMap };

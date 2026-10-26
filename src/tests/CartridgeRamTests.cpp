@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include <gtest/gtest.h>
 #include "../core/CartridgeFactory.h"
+#include "../core/Mbc1Cartridge.h"
 #include <cstdio>
 #include <fstream>
 #include <string>
@@ -9,7 +10,10 @@ namespace
 {
 	std::vector<unsigned char> RomWithRamSizeCode(unsigned char sizeCode)
 	{
+		const unsigned char mbc1RamBattery = 0x03;
+
 		auto rom = std::vector<unsigned char>(0x8000);
+		rom[CartridgeFactory::CartridgeTypeHeaderOffset] = mbc1RamBattery;
 		rom[CartridgeFactory::RamSizeHeaderOffset] = sizeCode;
 		return rom;
 	}
@@ -31,12 +35,16 @@ namespace
 		cartridge.RomWriteByte(0x4000, bank);
 	}
 
-	bool RamBankKeepsWrittenValue(Cartridge& cartridge, unsigned char bank)
+	// False if the bank mirrors bank 0, as it does when it is beyond the RAM's size
+	bool RamBankIsDistinctFromBank0(Cartridge& cartridge, unsigned char bank)
 	{
 		EnableRam(cartridge);
+		SelectRamBank(cartridge, 0);
+		cartridge.RamWriteByte(0x0000, 0x12);
 		SelectRamBank(cartridge, bank);
 		cartridge.RamWriteByte(0x0000, 0x56);
-		return cartridge.RamReadByte(0x0000) == 0x56;
+		SelectRamBank(cartridge, 0);
+		return cartridge.RamReadByte(0x0000) == 0x12;
 	}
 
 	// Named after the test, so test processes sharing a directory don't overwrite each other's file
@@ -72,7 +80,7 @@ TEST(CartridgeRamSizeTest, RamBanksFromUnknownOrMissingHeaderIsZero)
 
 TEST(CartridgeRamSizeTest, CartridgeWithoutRamReadsFfAndIgnoresWrites)
 {
-	Cartridge cartridge{ RomWithRamSizeCode(0), 0 };
+	Mbc1Cartridge cartridge{ RomWithRamSizeCode(0), 0 };
 	EnableRam(cartridge);
 
 	cartridge.RamWriteByte(0x0000, 0x12);
@@ -84,7 +92,7 @@ TEST(CartridgeRamSizeTest, CartridgeWithoutRamReadsFfAndIgnoresWrites)
 
 TEST(CartridgeRamSizeTest, RamKeepsWrittenValues)
 {
-	Cartridge cartridge{ RomWithRamSizeCode(2), 1 };
+	Mbc1Cartridge cartridge{ RomWithRamSizeCode(2), Cartridge::RamBankSize };
 	EnableRam(cartridge);
 
 	cartridge.RamWriteByte(0x0000, 0x12);
@@ -94,19 +102,12 @@ TEST(CartridgeRamSizeTest, RamKeepsWrittenValues)
 	EXPECT_EQ(0x34, cartridge.RamReadByte(0x1fff));
 }
 
-TEST(CartridgeRamSizeTest, BankBeyondCartridgeRamReadsFfAndIgnoresWrites)
+TEST(CartridgeRamSizeTest, BankBeyondCartridgeRamMirrorsLowerBanks)
 {
-	Cartridge cartridge{ RomWithRamSizeCode(2), 1 };
-	EnableRam(cartridge);
-	cartridge.RamWriteByte(0x0000, 0x12);
+	// The RAM chip's address lines stop at its size
+	Mbc1Cartridge cartridge{ RomWithRamSizeCode(2), Cartridge::RamBankSize };
 
-	SelectRamBank(cartridge, 3);
-	cartridge.RamWriteByte(0x0000, 0x56);
-
-	EXPECT_EQ(0xff, cartridge.RamReadByte(0x0000));
-
-	SelectRamBank(cartridge, 0);
-	EXPECT_EQ(0x12, cartridge.RamReadByte(0x0000));
+	EXPECT_FALSE(RamBankIsDistinctFromBank0(cartridge, 3));
 }
 
 TEST(CartridgeRamSizeTest, LoadFromFileSizesRamFromHeader)
@@ -116,7 +117,7 @@ TEST(CartridgeRamSizeTest, LoadFromFileSizesRamFromHeader)
 	std::remove(RomFilePath().c_str());
 
 	ASSERT_NE(nullptr, cartridge);
-	EXPECT_TRUE(RamBankKeepsWrittenValue(*cartridge, 3));
+	EXPECT_TRUE(RamBankIsDistinctFromBank0(*cartridge, 3));
 }
 
 TEST(CartridgeRamSizeTest, LoadFromFileWithRamBanksIgnoresHeader)
@@ -126,7 +127,7 @@ TEST(CartridgeRamSizeTest, LoadFromFileWithRamBanksIgnoresHeader)
 	std::remove(RomFilePath().c_str());
 
 	ASSERT_NE(nullptr, cartridge);
-	EXPECT_FALSE(RamBankKeepsWrittenValue(*cartridge, 3));
+	EXPECT_FALSE(RamBankIsDistinctFromBank0(*cartridge, 3));
 }
 
 TEST(CartridgeRamSizeTest, LoadFromMissingFileIsNull)

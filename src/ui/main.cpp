@@ -5,6 +5,7 @@
 #include "../core/InputJoypad.h"
 #include "AudioOutput.h"
 #include <fstream>
+#include <iostream>
 #include <string>
 #include <cstdlib>
 #include <algorithm>
@@ -60,7 +61,19 @@ int main(int argc, char* argv[])
 	sf::Sprite screenSprite(screen.getTexture());
 	screenSprite.scale(static_cast<float>(scale), static_cast<float>(scale));
 
-	auto cartridge = CartridgeFactory::LoadFromFile(argc > 1 ? argv[1] : "../../ROMs/gb-snake.gb");
+	std::vector<unsigned char> rom;
+	std::shared_ptr<Cartridge> cartridge;
+	if (CartridgeFactory::ReadFile(argc > 1 ? argv[1] : "../../ROMs/gb-snake.gb", rom))
+	{
+		if (!CartridgeFactory::TypeFromHeader(rom).IsSupported)
+		{
+			std::cerr << "Unsupported cartridge type $" << std::hex << static_cast<int>(rom[CartridgeFactory::CartridgeTypeHeaderOffset])
+				<< "; emulating it as MBC1, so it may not run correctly" << std::endl;
+		}
+
+		cartridge = CartridgeFactory::Create(std::move(rom));
+	}
+
 	if (cartridge != nullptr)
 	{
 		Emulator emulator{ cartridge };

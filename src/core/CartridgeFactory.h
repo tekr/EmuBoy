@@ -1,54 +1,46 @@
 #pragma once
 #include "Cartridge.h"
-#include <array>
-#include <fstream>
 #include <memory>
+#include <string>
 
+// Creates cartridges with the mapper named by the ROM header's cartridge type
 class CartridgeFactory
 {
 public:
+	static const size_t CartridgeTypeHeaderOffset = 0x147;
 	static const size_t RamSizeHeaderOffset = 0x149;
 
-	static int RamBanksFromHeader(const std::vector<unsigned char>& rom)
+	enum class MapperType
 	{
-		// 8 KB banks per RAM size code. Code 1 (2 KB) still needs a whole bank, and code 5 (64 KB) is smaller than code 4 (128 KB)
-		static const std::array<int, 6> ramBanksBySizeCode{ { 0, 1, 1, 4, 16, 8 } };
+		RomOnly,
+		Mbc1,
+		Mbc2,
+		Mbc3,
+		Mbc5
+	};
 
-		if (rom.size() <= RamSizeHeaderOffset) return 0;
-
-		auto sizeCode = rom[RamSizeHeaderOffset];
-		return sizeCode < ramBanksBySizeCode.size() ? ramBanksBySizeCode[sizeCode] : 0;
-	}
-
-	static std::shared_ptr<Cartridge> LoadFromFile(std::string filePath)
+	struct CartridgeType
 	{
-		std::vector<unsigned char> rom;
-		if (!ReadFile(filePath, rom)) return nullptr;
+		MapperType Mapper;
+		bool HasBattery;
+		bool HasClock;
+		bool HasRumble;
 
-		auto ramBanks = RamBanksFromHeader(rom);
-		return std::make_shared<Cartridge>(std::move(rom), ramBanks);
-	}
+		// False for mappers not emulated, which fall back to MBC1 as the most common
+		bool IsSupported;
+	};
 
-	static std::shared_ptr<Cartridge> LoadFromFile(std::string filePath, int ramBanks)
-	{
-		std::vector<unsigned char> rom;
-		if (!ReadFile(filePath, rom)) return nullptr;
+	static CartridgeType TypeFromHeader(const std::vector<unsigned char>& rom);
+	static int RamBanksFromHeader(const std::vector<unsigned char>& rom);
 
-		return std::make_shared<Cartridge>(std::move(rom), ramBanks);
-	}
+	static std::shared_ptr<Cartridge> Create(std::vector<unsigned char>&& rom);
 
-private:
-	static bool ReadFile(const std::string& filePath, std::vector<unsigned char>& contents)
-	{
-		std::ifstream ifs(filePath, std::ios::binary | std::ios::ate);
-		if (!ifs) return false;
+	// Overrides the header's RAM size, for ROMs that need RAM without declaring it
+	static std::shared_ptr<Cartridge> Create(std::vector<unsigned char>&& rom, int ramBanks);
 
-		auto pos = ifs.tellg();
+	// Returns null if the file can't be read
+	static std::shared_ptr<Cartridge> LoadFromFile(const std::string& filePath);
+	static std::shared_ptr<Cartridge> LoadFromFile(const std::string& filePath, int ramBanks);
 
-		contents = std::vector<unsigned char>(static_cast<int>(pos));
-
-		ifs.seekg(0, std::ios::beg);
-		ifs.read(reinterpret_cast<char*>(contents.data()), pos);
-		return true;
-	}
+	static bool ReadFile(const std::string& filePath, std::vector<unsigned char>& contents);
 };

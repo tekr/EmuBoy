@@ -147,6 +147,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="ApuTestHelpers.h" />
+    <ClInclude Include="CartridgeTestHelpers.h" />
     <ClInclude Include="CpuTestFixture.h" />
     <ClInclude Include="GraphicsTestFixture.h" />
     <ClInclude Include="stdafx.h" />
@@ -164,7 +165,13 @@
     <ClCompile Include="ApuTestsWaveNoise.cpp" />
     <ClCompile Include="ApuTestsQuirks.cpp" />
     <ClCompile Include="BlarggSoundTests.cpp" />
+    <ClCompile Include="CartridgeFactoryTests.cpp" />
     <ClCompile Include="CartridgeTests.cpp" />
+    <ClCompile Include="Mbc1Tests.cpp" />
+    <ClCompile Include="Mbc2Tests.cpp" />
+    <ClCompile Include="Mbc3Tests.cpp" />
+    <ClCompile Include="Mbc5Tests.cpp" />
+    <ClCompile Include="RealTimeClockTests.cpp" />
     <ClCompile Include="TimerTests.cpp" />
     <ClCompile Include="CartridgeRamTests.cpp" />
     <ClCompile Include="CpuTestFixture.cpp" />

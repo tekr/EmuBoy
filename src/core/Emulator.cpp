@@ -1,6 +1,5 @@
 #include "stdafx.h"
 #include "Emulator.h"
-#include "CartridgeFactory.h"
 
 void Emulator::Run(int& currentCycle, int cycleTarget)
 {
@@ -19,13 +18,15 @@ void Emulator::Run(int& currentCycle, int cycleTarget)
 			EmuTimer.RunCycles(cycles);
 		}
 
+		// The cartridge's clock counts seconds, so needn't run in step with each instruction
+		EmuCartridge->RunCycles(cyclesRun);
 		currentCycle += cyclesRun;
 	}
 
 	currentCycle = std::max(currentCycle, cycleTarget);
 }
 
-Emulator::Emulator(std::shared_ptr<Cartridge> cartridge)
+Emulator::Emulator(std::shared_ptr<Cartridge> cartridge) : EmuCartridge{ cartridge }
 {
 	EmuTimer.SetCpu(&EmuCpu);
 	EmuMemoryMap.SetTimer(&EmuTimer);

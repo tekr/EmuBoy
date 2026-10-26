@@ -152,7 +152,13 @@
     <ClInclude Include="GbInternalRom.h" />
     <ClInclude Include="Graphics.h" />
     <ClInclude Include="InputJoypad.h" />
+    <ClInclude Include="Mbc1Cartridge.h" />
+    <ClInclude Include="Mbc2Cartridge.h" />
+    <ClInclude Include="Mbc3Cartridge.h" />
+    <ClInclude Include="Mbc5Cartridge.h" />
     <ClInclude Include="MemoryMap.h" />
+    <ClInclude Include="RealTimeClock.h" />
+    <ClInclude Include="RomOnlyCartridge.h" />
     <ClInclude Include="SpriteManager.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="targetver.h" />
@@ -168,7 +174,12 @@
     <ClCompile Include="GbInternalRom.cpp" />
     <ClCompile Include="Graphics.cpp" />
     <ClCompile Include="InputJoypad.cpp" />
+    <ClCompile Include="Mbc1Cartridge.cpp" />
+    <ClCompile Include="Mbc2Cartridge.cpp" />
+    <ClCompile Include="Mbc3Cartridge.cpp" />
+    <ClCompile Include="Mbc5Cartridge.cpp" />
     <ClCompile Include="MemoryMap.cpp" />
+    <ClCompile Include="RealTimeClock.cpp" />
     <ClCompile Include="SpriteManager.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
