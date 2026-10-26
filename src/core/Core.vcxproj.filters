@@ -30,6 +30,9 @@
     <ClCompile Include="RealTimeClock.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="StateStream.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="Mbc5Cartridge.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -96,6 +99,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="RealTimeClock.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="StateStream.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Mbc5Cartridge.h">

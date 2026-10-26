@@ -196,6 +196,7 @@
     <ClCompile Include="CartridgeResetTests.cpp" />
     <ClCompile Include="MooneyeMbcTests.cpp" />
     <ClCompile Include="RealTimeClockTests.cpp" />
+    <ClCompile Include="StateStreamTests.cpp" />
     <ClCompile Include="Rtc3Tests.cpp" />
     <ClCompile Include="TimerTests.cpp" />
     <ClCompile Include="CartridgeRamTests.cpp" />

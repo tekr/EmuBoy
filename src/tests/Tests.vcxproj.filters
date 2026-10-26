@@ -66,6 +66,9 @@
     <ClCompile Include="RealTimeClockTests.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="StateStreamTests.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="Mbc5Tests.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
