@@ -113,11 +113,13 @@ int main(int argc, char* argv[])
 		std::ofstream record;
 		if (argc > 2) record.open(argv[2], std::ios::binary);
 
-		// Paced to the Game Boy's own frame rate (4194304 / 70224 = 59.73 Hz) against a running schedule, so
-		// sleep overshoot doesn't accumulate the way it does with setFramerateLimit
+		// Paced to the emulated clock (4194304 Hz) against a running schedule, so sleep overshoot doesn't accumulate
+		// the way it does with setFramerateLimit. Frames are usually FrameClocks apart (59.73 Hz), but not around the
+		// LCD being turned on, so pacing by frames would run the game and its sound too fast
 		const auto frameTime = sf::microseconds(1000000LL * Graphics::FrameClocks / Graphics::SystemClockHz);
 		sf::Clock clock;
-		auto nextFrame = frameTime;
+		auto pacedFrom = clock.getElapsedTime();
+		auto pacedFromClocks = emulator.GetCpuClocks();
 
 		// An unexpected error still saves the game before exiting
 		try
@@ -159,10 +161,16 @@ int main(int argc, char* argv[])
 					framesUntilSave = framesBetweenSaves;
 				}
 
+				auto clocks = emulator.GetCpuClocks();
+				auto due = pacedFrom + sf::microseconds(static_cast<sf::Int64>((clocks - pacedFromClocks) * 1000000 / Graphics::SystemClockHz));
 				auto now = clock.getElapsedTime();
-				if (now < nextFrame) sf::sleep(nextFrame - now);
-				else if (now - nextFrame > frameTime * 4.f) nextFrame = now; // fell well behind (e.g. window dragged): don't race to catch up
-				nextFrame += frameTime;
+				if (now < due) sf::sleep(due - now);
+				else if (now - due > frameTime * 4.f)
+				{
+					// Fell well behind (e.g. window dragged): don't race to catch up
+					pacedFrom = now;
+					pacedFromClocks = clocks;
+				}
 			}
 		}
 		catch (const std::exception& e)

@@ -29,7 +29,9 @@ public:
 	explicit Emulator(std::shared_ptr<Cartridge> cartridge);
 
 	// Runs until the PPU completes a frame and returns it. Frames come as V-Blank starts, so they're FrameClocks
-	// apart while the LCD stays on, and every FrameClocks while it's off
+	// apart while the LCD stays on, and every FrameClocks while it's off. Turning the LCD on moves the boundary: the
+	// next frame comes at its first V-Blank, so the frame it's turned on in lasts up to nearly two frames. Pace by
+	// GetCpuClocks rather than by frames
 	int* GetFrame();
 	InputJoypad& GetJoypad() { return EmuJoypad; }
 	MemoryMap& GetMemoryMap() { return EmuMemoryMap; }

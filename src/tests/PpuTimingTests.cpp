@@ -556,6 +556,21 @@ TEST_F(PpuFrameTests, FramesKeepTheirCadenceWhenLcdIsTurnedOff)
 	EXPECT_TRUE(Graphics.TakeCompletedFrame());
 }
 
+TEST_F(PpuFrameTests, FrameTheLcdIsTurnedOnInEndsAtItsFirstVBlank)
+{
+	// Line 0 starts 4 clocks in, so V-Blank (line 144, 4 clocks in) comes 144 lines after turning on
+	const int clocksOffBeforeTurnOn = 30000;
+	const int turnOnToVBlank = 144 * 456;
+
+	Run(clocksOffBeforeTurnOn);
+	TurnOn();
+	Run(turnOnToVBlank - 4);
+	EXPECT_FALSE(Graphics.TakeCompletedFrame());
+
+	Run(4);
+	EXPECT_TRUE(Graphics.TakeCompletedFrame());
+}
+
 TEST_F(PpuFrameTests, FrameWhileLcdIsOffIsBlank)
 {
 	DrawFirstLine(0x01);
