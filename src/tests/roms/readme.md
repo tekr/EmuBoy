@@ -18,3 +18,6 @@ at $A000.
 
 The `oam_bug` ROMs aren't run yet. They need the LCD's timing to advance every machine cycle and to restart when
 the LCD is turned on, as well as the corruption itself.
+
+`interrupt_time` isn't included. It's a Game Boy Color test (its header marks it CGB-only and its source sets
+`REQUIRE_CGB`) that times interrupts at both CPU speeds, so it needs the CGB's double-speed mode.
