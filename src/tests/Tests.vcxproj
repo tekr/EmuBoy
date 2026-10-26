@@ -148,6 +148,7 @@
   <ItemGroup>
     <ClInclude Include="BlarggRomRunner.h" />
     <ClInclude Include="SaveFileTestHelpers.h" />
+    <ClInclude Include="TestFiles.h" />
     <ClInclude Include="ApuTestHelpers.h" />
     <ClInclude Include="CartridgeTestHelpers.h" />
     <ClInclude Include="CpuTestFixture.h" />
@@ -179,6 +180,7 @@
     <ClCompile Include="IoPortTests.cpp" />
     <ClCompile Include="SaveFileTests.cpp" />
     <ClCompile Include="BatteryStoreTests.cpp" />
+    <ClCompile Include="FileIoTests.cpp" />
     <ClCompile Include="ApuTests.cpp" />
     <ClCompile Include="ApuTestsChannels.cpp" />
     <ClCompile Include="ApuTestsMixing.cpp" />

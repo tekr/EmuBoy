@@ -148,6 +148,7 @@
     <ClInclude Include="OamDma.h" />
     <ClInclude Include="SaveFile.h" />
     <ClInclude Include="BatteryStore.h" />
+    <ClInclude Include="FileIo.h" />
     <ClInclude Include="Apu.h" />
     <ClInclude Include="Cartridge.h" />
     <ClInclude Include="CartridgeFactory.h" />
@@ -175,6 +176,7 @@
     <ClCompile Include="OamDma.cpp" />
     <ClCompile Include="SaveFile.cpp" />
     <ClCompile Include="BatteryStore.cpp" />
+    <ClCompile Include="FileIo.cpp" />
     <ClCompile Include="Apu.cpp" />
     <ClCompile Include="Cartridge.cpp" />
     <ClCompile Include="CartridgeFactory.cpp" />

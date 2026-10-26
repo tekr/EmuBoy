@@ -27,6 +27,9 @@
     <ClCompile Include="BatteryStore.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="FileIo.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="RealTimeClock.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -99,6 +102,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="BatteryStore.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="FileIo.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="RealTimeClock.h">

@@ -4,85 +4,17 @@
 #include "../core/Emulator.h"
 #include "../core/RealTimeClock.h"
 #include "SaveFileTestHelpers.h"
+#include "TestFiles.h"
 #include <cstdio>
 #include <cstdint>
-#include <cstdlib>
 #include <initializer_list>
-#include <fstream>
 #include <string>
 
-#ifdef _WIN32
-#include <direct.h>
-#else
-#include <sys/stat.h>
-#include <unistd.h>
-#endif
-
 using namespace SaveFileTestHelpers;
+using namespace TestFiles;
 
 namespace
 {
-	bool MakeTestDirectory(const std::string& path)
-	{
-#ifdef _WIN32
-		return _mkdir(path.c_str()) == 0;
-#else
-		return mkdir(path.c_str(), 0700) == 0;
-#endif
-	}
-
-	void RemoveTestDirectory(const std::string& path)
-	{
-#ifdef _WIN32
-		_rmdir(path.c_str());
-#else
-		rmdir(path.c_str());
-#endif
-	}
-
-	// The system's directory for temporary files, read without MSVC's deprecation error for getenv
-	std::string TempDirectory()
-	{
-		for (auto name : { "TMPDIR", "TEMP" })
-		{
-#ifdef _MSC_VER
-			char* value = nullptr;
-			size_t length = 0;
-			if (_dupenv_s(&value, &length, name) != 0 || value == nullptr) continue;
-
-			std::string directory(value);
-			free(value);
-			return directory;
-#else
-			if (auto value = std::getenv(name)) return value;
-#endif
-		}
-
-#ifdef _WIN32
-		return ".";
-#else
-		return "/tmp";
-#endif
-	}
-
-	bool Exists(const std::string& path)
-	{
-		std::ifstream file(path);
-		return file.good();
-	}
-
-	std::vector<unsigned char> ReadAll(const std::string& path)
-	{
-		std::ifstream file(path, std::ios::binary);
-		return std::vector<unsigned char>(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
-	}
-
-	void WriteAll(const std::string& path, const std::vector<unsigned char>& data)
-	{
-		std::ofstream file(path, std::ios::binary);
-		file.write(reinterpret_cast<const char*>(data.data()), data.size());
-	}
-
 	// Each test gets its own save path in a fresh directory, removed afterwards
 	class BatteryStoreTest : public testing::Test
 	{
