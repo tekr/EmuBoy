@@ -3,13 +3,17 @@
 #include "SaveFile.h"
 #include <cerrno>
 #include <cstdio>
-#include <cstring>
 #include <ctime>
+#include <system_error>
 #include <utility>
 
 #ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
 #define NOMINMAX
+#endif
 #include <io.h>
 #include <windows.h>
 #else
@@ -20,13 +24,28 @@ namespace
 {
 	BatteryStore::Result Failure(const std::string& action, const std::string& path, int error)
 	{
-		return { false, "Couldn't " + action + " " + path + ": " + std::strerror(error) };
+		// generic_category gives strerror's text without MSVC's deprecation error for strerror (C4996 is an error
+		// with /sdl)
+		return { false, "Couldn't " + action + " " + path + ": " + std::generic_category().message(error) };
+	}
+
+	// fopen, without MSVC's deprecation error. Returns null with errno set on failure
+	std::FILE* OpenFile(const std::string& path, const char* mode)
+	{
+#ifdef _MSC_VER
+		std::FILE* file = nullptr;
+		auto error = fopen_s(&file, path.c_str(), mode);
+		if (error != 0) errno = error;
+		return file;
+#else
+		return std::fopen(path.c_str(), mode);
+#endif
 	}
 
 	// Reads the whole file. Returns false with errno set if it can't
-	bool ReadFile(const std::string& path, std::vector<unsigned char>& contents)
+	bool ReadWholeFile(const std::string& path, std::vector<unsigned char>& contents)
 	{
-		auto file = std::fopen(path.c_str(), "rb");
+		auto file = OpenFile(path, "rb");
 		if (file == nullptr) return false;
 
 		unsigned char buffer[4096];
@@ -52,7 +71,7 @@ namespace
 	}
 
 	// Renames over any existing file in one step, so the destination is always either the old or the new file
-	bool ReplaceFile(const std::string& from, const std::string& to)
+	bool ReplaceAtomically(const std::string& from, const std::string& to)
 	{
 #ifdef _WIN32
 		if (MoveFileExA(from.c_str(), to.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) return true;
@@ -68,7 +87,7 @@ namespace
 	{
 		auto tempPath = path + ".tmp";
 
-		auto file = std::fopen(tempPath.c_str(), "wb");
+		auto file = OpenFile(tempPath, "wb");
 		if (file == nullptr) return Failure("create", tempPath, errno);
 
 		auto written = std::fwrite(data.data(), 1, data.size(), file) == data.size() && FlushToDisk(file);
@@ -85,7 +104,7 @@ namespace
 			return Failure("write", tempPath, error);
 		}
 
-		if (!ReplaceFile(tempPath, path))
+		if (!ReplaceAtomically(tempPath, path))
 		{
 			error = errno;
 			std::remove(tempPath.c_str());
@@ -127,7 +146,7 @@ BatteryStore::Result BatteryStore::Load()
 	if (!IsNeeded()) return { true, "" };
 
 	std::vector<unsigned char> data;
-	if (!ReadFile(_savePath, data))
+	if (!ReadWholeFile(_savePath, data))
 	{
 		if (errno == ENOENT) return { true, "" };
 

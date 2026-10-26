@@ -5,7 +5,9 @@
 #include "../core/RealTimeClock.h"
 #include "SaveFileTestHelpers.h"
 #include <cstdio>
+#include <cstdint>
 #include <cstdlib>
+#include <initializer_list>
 #include <fstream>
 #include <string>
 
@@ -20,7 +22,7 @@ using namespace SaveFileTestHelpers;
 
 namespace
 {
-	bool MakeDirectory(const std::string& path)
+	bool MakeTestDirectory(const std::string& path)
 	{
 #ifdef _WIN32
 		return _mkdir(path.c_str()) == 0;
@@ -29,13 +31,34 @@ namespace
 #endif
 	}
 
-	void RemoveDirectory(const std::string& path)
+	void RemoveTestDirectory(const std::string& path)
 	{
 #ifdef _WIN32
 		_rmdir(path.c_str());
 #else
 		rmdir(path.c_str());
 #endif
+	}
+
+	// The system's directory for temporary files, read without MSVC's deprecation error for getenv
+	std::string TempDirectory()
+	{
+		for (auto name : { "TMPDIR", "TEMP" })
+		{
+#ifdef _MSC_VER
+			char* value = nullptr;
+			size_t length = 0;
+			if (_dupenv_s(&value, &length, name) != 0 || value == nullptr) continue;
+
+			std::string directory(value);
+			free(value);
+			return directory;
+#else
+			if (auto value = std::getenv(name)) return value;
+#endif
+		}
+
+		return ".";
 	}
 
 	bool Exists(const std::string& path)
@@ -69,22 +92,19 @@ namespace
 
 		BatteryStoreTest()
 		{
-			auto temp = std::getenv("TMPDIR");
-			if (temp == nullptr) temp = std::getenv("TEMP");
-
-			Directory = std::string(temp != nullptr ? temp : ".") + "/EmuBoyBatteryStoreTest-" +
+			Directory = TempDirectory() + "/EmuBoyBatteryStoreTest-" +
 				std::to_string(reinterpret_cast<uintptr_t>(this)) + "-" + std::to_string(_nextDirectory++);
-			MakeDirectory(Directory);
+			MakeTestDirectory(Directory);
 			SavePath = Directory + "/game.sav";
 		}
 
 		~BatteryStoreTest()
 		{
 			std::remove(SavePath.c_str());
-			RemoveDirectory(SavePath);
-			RemoveDirectory(SavePath + ".tmp");
+			RemoveTestDirectory(SavePath);
+			RemoveTestDirectory(SavePath + ".tmp");
 			std::remove((SavePath + ".tmp").c_str());
-			RemoveDirectory(Directory);
+			RemoveTestDirectory(Directory);
 		}
 
 		BatteryStore Store(std::shared_ptr<Cartridge> cartridge)
@@ -164,7 +184,7 @@ TEST_F(BatteryStoreTest, FailedWriteLeavesExistingSaveIntact)
 	// A directory where the temporary file should go stops it being written
 	std::vector<unsigned char> existing(Ram8KSize, 0x11);
 	WriteAll(SavePath, existing);
-	ASSERT_TRUE(MakeDirectory(SavePath + ".tmp"));
+	ASSERT_TRUE(MakeTestDirectory(SavePath + ".tmp"));
 	auto cartridge = CartridgeFactory::Create(Rom(Mbc1RamBattery, Ram8K));
 	FillRam(*cartridge, 3);
 	cartridge->MarkSaved();
@@ -182,7 +202,7 @@ TEST_F(BatteryStoreTest, FailedWriteLeavesExistingSaveIntact)
 TEST_F(BatteryStoreTest, FailedRenameRemovesTemporaryFile)
 {
 	// The save path being a directory stops the temporary file replacing it
-	ASSERT_TRUE(MakeDirectory(SavePath));
+	ASSERT_TRUE(MakeTestDirectory(SavePath));
 	auto cartridge = CartridgeFactory::Create(Rom(Mbc1RamBattery, Ram8K));
 
 	auto result = Store(cartridge).Save();
@@ -205,7 +225,7 @@ TEST_F(BatteryStoreTest, SaveIntoMissingDirectoryReportsError)
 TEST_F(BatteryStoreTest, UnreadableSaveIsReportedAndNotOverwritten)
 {
 	// A directory can't be read as a save
-	ASSERT_TRUE(MakeDirectory(SavePath));
+	ASSERT_TRUE(MakeTestDirectory(SavePath));
 	auto cartridge = CartridgeFactory::Create(Rom(Mbc1RamBattery, Ram8K));
 	auto store = Store(cartridge);
 
