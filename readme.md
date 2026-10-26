@@ -57,6 +57,21 @@ the time between the game last reading the clock and mGBA saving. MBC2 saves are
 VBA-M do; mGBA's 256-byte MBC2 saves can be loaded too. The clock catches up with the time that passed while Emu Boy
 wasn't running.
 
+Save states snapshot the whole Game Boy (CPU, memory, graphics, sound, timer, serial port, the cartridge's mapper,
+RAM and clock) so a game can carry on from that moment. There are four slots per game, kept next to the ROM as
+`<name>.ss1` to `<name>.ss4` (`Tetris.gb` saves slot 1 to `Tetris.ss1`). F5 saves to the selected slot and F8 loads
+from it; F6 and F7 select the previous and next slot. The window title briefly shows the slot selected and whether
+saving or loading worked, and the terminal shows the same messages with any error. A state only loads into the game
+it was saved from (it checks the title and checksums in the cartridge header) and into the same version of the
+state format; a state that doesn't match, or is damaged, is reported and the game carries on undisturbed. Saving
+and loading take well under a millisecond, and a state takes about 40 KB plus the cartridge's RAM.
+
+Loading a state also puts back the cartridge RAM as it was when the state was saved, and that becomes the game's
+battery save too: it is written to the `.sav` file within a few seconds, as if the game had just saved. This keeps
+the `.sav` in line with what the game sees, rather than mixing a state's RAM with the newer save. So loading an
+older state also takes the game's own save back to that point; copy the `.sav` first to keep a newer one. The
+real-time clock is restored as it was in the state, without catching up with the time since.
+
 ## Controls
 
 | Game Boy | Keyboard | Gamepad |
@@ -72,14 +87,17 @@ wasn't running.
 | Pause / resume | P |
 | Fast-forward (up to 8x) | Hold Space |
 | Reset (power off and on, keeping the save) | F2 |
+| Save state to the selected slot | F5 |
+| Select the previous / next save state slot (1-4) | F6 / F7 |
+| Load state from the selected slot | F8 |
 | Fullscreen on / off | F11; Ctrl+Cmd+F on a Mac (Escape also leaves fullscreen) |
 | Screenshot | F12 |
 
 The window title shows the game's title from the cartridge header, and whether it is paused or fast-forwarding.
 Fast-forward is silent. Screenshots are saved at the Game Boy's 160x144 resolution
 next to the ROM, named after it and numbered (`Tetris-1.png`, `Tetris-2.png`, ...), or in the working directory if the
-ROM's folder can't be written to. On a Mac keyboard whose top row controls brightness and volume, hold fn for F2 and
-F12. The emulator's commands are on the keyboard only.
+ROM's folder can't be written to. On a Mac keyboard whose top row controls brightness and volume, hold fn for F2,
+F5-F8 and F12. The emulator's commands are on the keyboard only.
 
 Gamepad buttons are numbered differently by each platform's drivers. The defaults suit Xbox-style pads: through
 DirectInput on Windows and the xpad driver on Linux (buttons 0, 1, 6 and 7), and Xbox One and Series pads over
@@ -118,10 +136,11 @@ As of now Emu Boy is still in its early stages and is very much a work in progre
   Boy's library. Other mappers are run as MBC1 with a warning. Passes the mooneye-test-suite's MBC1, MBC2 and MBC5
   test ROMs and rtc3test
 * Battery-backed saves, including the MBC3 real-time clock, compatible with other emulators' `.sav` files
+* Save states in four slots per game
 * Unit testing of most CPU instructions, the sound hardware and the cartridge mappers
 * Windows (Visual Studio 2015 solution), macOS and Linux (CMake), with CI builds and tests on macOS and Linux
 * Simulates the slow response-time of the Game Boy LCD screen and smoothes upsized jagged pixels
-* Keyboard and gamepad input, pause, fast-forward, reset, screenshots and fullscreen
+* Keyboard and gamepad input, pause, fast-forward, reset, save states, screenshots and fullscreen
 
 &nbsp;
 <p align="center" style="border: 5px solid red"><kbd><img src="http://codingthemachine.com/wp-content/uploads/2017/01/EmuBoyRun.gif" /></kbd></p>

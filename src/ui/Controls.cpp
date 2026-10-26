@@ -41,7 +41,11 @@ namespace
 			{ { Key::Space, NoModifiers }, Command::FastForward },
 			{ { Key::F2, NoModifiers }, Command::Reset },
 			{ fullscreenKey, Command::ToggleFullscreen },
-			{ { Key::F12, NoModifiers }, Command::Screenshot }
+			{ { Key::F12, NoModifiers }, Command::Screenshot },
+			{ { Key::F5, NoModifiers }, Command::SaveState },
+			{ { Key::F6, NoModifiers }, Command::PreviousStateSlot },
+			{ { Key::F7, NoModifiers }, Command::NextStateSlot },
+			{ { Key::F8, NoModifiers }, Command::LoadState }
 		};
 	}
 

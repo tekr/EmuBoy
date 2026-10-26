@@ -99,6 +99,9 @@
     <ClCompile Include="ScreenshotNamerTests.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="SaveStateSlotsTests.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="LetterboxTests.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -115,6 +118,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\frontend\Letterbox.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\frontend\SaveStateSlots.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Mbc3Tests.cpp">
@@ -240,6 +246,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\frontend\Letterbox.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\frontend\SaveStateSlots.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="targetver.h">

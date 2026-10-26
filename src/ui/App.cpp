@@ -19,6 +19,7 @@ void App::ReportSaveResult(const BatteryStore::Result& result)
 
 App::App(const Options& options, std::shared_ptr<Cartridge> cartridge, std::string gameTitle, BatteryStore& saves) :
 	_options(options), _cartridge{ std::move(cartridge) }, _gameTitle{ std::move(gameTitle) }, _saves(saves),
+	_stateSlots{ options.RomPath },
 	_emulator{ std::make_unique<Emulator>(_cartridge) }, _audio{ _emulator->GetAudioSampleRate() },
 	_input{ Controls::CreateInputMapper() }, _pacer{ Graphics::SystemClockHz, Graphics::FrameClocks },
 	_framesUntilSave{ FramesBetweenSaves }
@@ -40,7 +41,7 @@ App::App(const Options& options, std::shared_ptr<Cartridge> cartridge, std::stri
 
 void App::OpenWindow()
 {
-	_windowTitle = _runState.WindowTitle(_gameTitle);
+	_windowTitle = _runState.WindowTitle(_gameTitle, Now());
 
 	if (_fullscreen)
 	{
@@ -73,7 +74,7 @@ void App::FitScreenToWindow()
 
 void App::UpdateTitle()
 {
-	auto title = _runState.WindowTitle(_gameTitle);
+	auto title = _runState.WindowTitle(_gameTitle, Now());
 	if (title == _windowTitle) return;
 
 	_windowTitle = title;
@@ -157,6 +158,10 @@ void App::DoCommand(Command command)
 	case Command::Screenshot: SaveScreenshot(); break;
 	case Command::ToggleFullscreen: ToggleFullscreen(); break;
 	case Command::LeaveFullscreen: if (_fullscreen) ToggleFullscreen(); break;
+	case Command::SaveState: SaveToSlot(); break;
+	case Command::LoadState: LoadFromSlot(); break;
+	case Command::PreviousStateSlot: _stateSlots.PreviousSlot(); ShowSlot(); break;
+	case Command::NextStateSlot: _stateSlots.NextSlot(); ShowSlot(); break;
 
 	// Fast-forward lasts while its key is held, so is read in Run
 	case Command::FastForward:
@@ -172,9 +177,7 @@ void App::RunFrame(int speed)
 	_emulator->GetJoypad().SetKeysDown(_window.hasFocus() ? _input.GetKeysDown() : JoypadKey::NoKey);
 
 	auto frame = _emulator->GetFrame();
-	_frameTexture.update(reinterpret_cast<sf::Uint8*>(frame));
-	_screen.draw(_frameSprite);
-	_screen.display();
+	ShowFrame(frame);
 	if (_record) _record.write(reinterpret_cast<char*>(frame), Graphics::HozPixels * Graphics::VertPixels * sizeof(*frame));
 
 	// Fast-forward is silent: splicing together one frame's sound in every few buzzes at the frame rate, and playing
@@ -192,6 +195,13 @@ void App::RunFrame(int speed)
 		ReportSaveResult(_saves.SaveIfChanged());
 		_framesUntilSave = FramesBetweenSaves;
 	}
+}
+
+void App::ShowFrame(const int* frame)
+{
+	_frameTexture.update(reinterpret_cast<const sf::Uint8*>(frame));
+	_screen.draw(_frameSprite);
+	_screen.display();
 }
 
 void App::Present()
@@ -215,6 +225,37 @@ void App::Reset()
 	// The old game's last frames shouldn't fade out over the new one's first
 	_screen.clear();
 	_screen.display();
+}
+
+void App::ShowMessage(const std::string& message, bool log)
+{
+	_runState.ShowMessage(message, Now());
+	if (log) std::cerr << message << std::endl;
+}
+
+void App::SaveToSlot()
+{
+	ShowMessage(_stateSlots.Save(*_emulator).Message);
+}
+
+void App::LoadFromSlot()
+{
+	auto result = _stateSlots.Load(*_emulator);
+	ShowMessage(result.Message);
+	if (!result.Succeeded) return;
+
+	// The clocks carry on from the state's, so pacing starts again from them, and sound from before is dropped
+	_audio.Clear();
+	_pacer.Restart(Now(), _emulator->GetCpuClocks());
+
+	// The state's screen shows straight away, even while paused, without the old one fading out under it
+	_screen.clear();
+	ShowFrame(_emulator->GetScreen());
+}
+
+void App::ShowSlot()
+{
+	ShowMessage("State slot " + std::to_string(_stateSlots.GetSlot()), false);
 }
 
 void App::SaveScreenshot()

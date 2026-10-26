@@ -15,7 +15,11 @@ enum class Command
 	Reset,
 	Screenshot,
 	ToggleFullscreen,
-	LeaveFullscreen
+	LeaveFullscreen,
+	SaveState,
+	LoadState,
+	PreviousStateSlot,
+	NextStateSlot
 };
 
 // The gamepad axes used for directions. The front end translates its own library's axes to these

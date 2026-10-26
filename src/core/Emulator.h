@@ -34,6 +34,9 @@ public:
 	// GetCpuClocks rather than by frames
 	int* GetFrame();
 
+	// The frame as drawn so far, which between calls to GetFrame is the frame it returned
+	const int* GetScreen() const { return EmuGraphics.Bitmap; }
+
 	// Runs one instruction, interrupt dispatch or halted machine cycle. Returns true if that completed a frame, which
 	// GetFrame would have returned then. For stopping between frames, e.g. to save a state there
 	bool RunInstruction();
