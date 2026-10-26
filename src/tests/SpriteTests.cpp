@@ -195,17 +195,17 @@ TEST_F(SpriteTests, LowerHalfOfTallSpriteNotDrawnAfterSwitchToShortSprites)
 
 TEST_F(SpriteTests, YFlippedTallSpriteNotDrawnAfterSwitchToShortSprites)
 {
-	SetSprite(0, ScreenLeft, 0, SpriteFlags::YFlip);
+	// 8x16 sprite using tiles 2 (solid) and 3 (blank), Y-flipped so tile 2 is its lower half, on lines 0-7
+	SetTile(2, 0xff);
+	SetSprite(0, ScreenLeft, 2, SpriteFlags::YFlip);
 	Graphics.WriteRegister(LcdControlReg, LcdControl | 0x04);
 	Graphics.WriteOam(0, FirstLine - 8);
-	SetTile(0, 0xff);
 	RenderFirstLine();
 	ASSERT_EQ(Colour(1, TestGraphics::Palette::Sprite0), Pixel(0));
 
+	// As an 8x8 sprite it covers only the 8 lines above the screen
 	Graphics.WriteRegister(LcdControlReg, LcdControl);
-	Graphics.WriteRegister(Sprite0PaletteReg, 0x0c);
 	Graphics.RenderLine();
 
-	// The background is tile 0 too, in a palette that differs from the sprite's
-	EXPECT_EQ(Colour(1, TestGraphics::Palette::BgAndWindow), Pixel(0, 1));
+	EXPECT_EQ(Colour(0, TestGraphics::Palette::BgAndWindow), Pixel(0, 1));
 }
