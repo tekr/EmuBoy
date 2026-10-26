@@ -1435,7 +1435,10 @@ TEST_F(CpuTestFixture, CbPrefixOpcodes)
 			reg.F = test[1];
 			std::get<2>(sources[i])(reg, test[0]);
 
-			EXPECT_EQ(std::get<0>(sources[i]), Cpu.DoNextInstruction());
+			// BIT n,(HL) only reads (HL), so takes a machine cycle less than the other (HL) operations, which also
+			// write it back (https://gbdev.io/gb-opcodes/optables/, confirmed by blargg's instr_timing ROM)
+			auto expectedCycles = i == 6 && test[2] == Bit ? ThreeCycles : std::get<0>(sources[i]);
+			EXPECT_EQ(expectedCycles, Cpu.DoNextInstruction());
 
 			EXPECT_EQ(test[4], std::get<1>(sources[i])(reg));
 			EXPECT_EQ(test[5], reg.F);

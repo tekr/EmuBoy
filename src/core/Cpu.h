@@ -57,54 +57,62 @@ struct Registers
 	}
 };
 
+// Hardware that runs alongside the CPU, such as the timer. The CPU runs it one machine cycle at a time as each
+// instruction executes, so that every memory access sees it as it is at that point in the instruction
+class ClockedHardware
+{
+public:
+	virtual ~ClockedHardware() = default;
+
+	// T-cycles (4194304 Hz)
+	virtual void RunCycles(int cycles) = 0;
+};
+
 // Gameboy LR35902 CPU
 class Cpu
 {
-	//Machine cycles in terms of system clocks
-	static const int OneCycle	 = 4;
-	static const int TwoCycles	 = OneCycle * 2;
-	static const int ThreeCycles = OneCycle * 3;
-	static const int FourCycles  = OneCycle * 4;
-	static const int FiveCycles  = OneCycle * 5;
-	static const int SixCycles   = OneCycle * 6;
+	// Machine cycle in terms of system clocks
+	static const int OneCycle = 4;
+
+	// Joypad wake-up from STOP waits 2^16 cycles to let the crystal oscillator stabilise
+	static const int StopWakeCycles = OneCycle * 65536;
 
 	static const unsigned short HiMemBaseAddress = 0xff00;
 	static const unsigned short WaitingInterruptsAddress = 0xff0f;
 	static const unsigned short EnabledInterruptsAddress = 0xffff;
 
-	const std::vector<std::pair<InterruptFlags, unsigned char>> _intVectors
-	{
-		{ InterruptFlags::VBlankInt,  0x40 },
-		{ InterruptFlags::LcdStatInt, 0x48 },
-		{ InterruptFlags::TimerInt,   0x50 },
-		{ InterruptFlags::SerialInt,  0x58 },
-		{ InterruptFlags::JoypadInt,  0x60 },
-	};
+	static const unsigned char FirstInterruptVector = 0x40;
 
 protected:
 	MemoryMap& _memoryMap;
+	ClockedHardware* _hardware;
 	Registers _registers;
 
 	CpuState _state;
 	uint64_t _totalCycles;
-	int _extraCyclesConsumed;
 
+	// Cycles run so far by the current instruction
+	int _instructionCycles;
+
+	// Set by the HALT bug: the next opcode fetch doesn't increment PC, so the byte after HALT is read twice
 	bool _skipNextPCIncrement;
 
-	// Master interrupt enable
+	// Master interrupt enable (IME)
 	bool _interruptsEnabled;
+
+	// EI enables interrupts only after the instruction that follows it
+	bool _enableInterruptsAfterNext;
+	bool _enableInterruptsAfterThis;
 
 	// Interrupt enable/waiting flags. Not typed as InterruptFlags to facilitate bit operations
 	unsigned char _enabledInterrupts;
 	unsigned char _waitingInterrupts;
 
-	bool _interruptCheckRequired;
-
 	const std::vector<unsigned char(*)(unsigned char& dest, unsigned char src, bool carry)> _aluOps;
 	const std::vector<void(*)(unsigned char& dest, unsigned char& flags)> _prefixCbOps;
 
 	// Jump table for all top-level opcodes
-	const std::vector<int(Cpu::*)(unsigned char opcode)> _opcodeJumpTable;
+	const std::vector<void(Cpu::*)(unsigned char opcode)> _opcodeJumpTable;
 
 	unsigned char GetNextProgramByte()
 	{
@@ -117,10 +125,16 @@ protected:
 	}
 
 	unsigned char GetByteOperand() { return GetNextProgramByte(); }
-	unsigned short GetWordOperand() { return GetByteOperand() | GetByteOperand() << 8; }
+	unsigned short GetWordOperand()
+	{
+		unsigned short low = GetByteOperand();
+		return low | GetByteOperand() << 8;
+	}
 
+	// PUSH, CALL and RST spend a machine cycle decrementing SP before writing to the stack
 	void PushWord(unsigned short word)
 	{
+		InternalCycle();
 		WriteByte(--_registers.SP, word >> 8);
 		WriteByte(--_registers.SP, word & 0xff);
 	}
@@ -202,8 +216,22 @@ protected:
 		return *_regRefs2[opcode & 0x7];
 	}
 
-	unsigned char ReadByte(unsigned short address) const
+	unsigned char PendingInterrupts() const { return _waitingInterrupts & _enabledInterrupts; }
+
+	// Runs one machine cycle of the rest of the hardware. Every memory access takes one, and is made at its end
+	void Tick()
 	{
+		_instructionCycles += OneCycle;
+		if (_hardware != nullptr) _hardware->RunCycles(OneCycle);
+	}
+
+	// A machine cycle with no memory access
+	void InternalCycle() { Tick(); }
+
+	unsigned char ReadByte(unsigned short address)
+	{
+		Tick();
+
 		switch (address)
 		{
 		case WaitingInterruptsAddress:
@@ -219,19 +247,16 @@ protected:
 
 	void WriteByte(unsigned short address, unsigned char value)
 	{
-		// TODO: Not great that every memory write pays the cost of checking whether interrupt
-		// registers are being updated. Could move this to the memory map address decoder and
-		// have it notify the CPU to check interrupts on the next instruction
+		Tick();
+
 		switch (address)
 		{
 		case EnabledInterruptsAddress:
 			_enabledInterrupts = value & InterruptFlags::AllInt;
-			_interruptCheckRequired = true;
 			break;
 
 		case WaitingInterruptsAddress:
 			_waitingInterrupts = value & InterruptFlags::AllInt;
-			_interruptCheckRequired = true;
 			break;
 
 		default:
@@ -242,108 +267,112 @@ protected:
 	// Returns true if condition for conditional instruction is met
 	bool ConditionMet(unsigned char opcode) const;
 
-	bool InterruptTriggered();
+	void DispatchInterrupt();
+	void RunHalted();
 
-	int Nop(unsigned char opcode);
+	void Nop(unsigned char opcode);
 
-	int Ld16RegImm(unsigned char opcode);
+	void Ld16RegImm(unsigned char opcode);
 
-	int St8MemRegAcc(unsigned char opcode);
+	void St8MemRegAcc(unsigned char opcode);
 
-	int Inc16Reg(unsigned char opcode);
+	void Inc16Reg(unsigned char opcode);
 
-	int Dec16Reg(unsigned char opcode);
+	void Dec16Reg(unsigned char opcode);
 
-	int IncDec8RegOrMem(unsigned char opcode);
+	void IncDec8RegOrMem(unsigned char opcode);
 
-	int Ld8RegOrMemImm(unsigned char opcode);
+	void Ld8RegOrMemImm(unsigned char opcode);
 
-	int Rlca(unsigned char opcode);
+	void Rlca(unsigned char opcode);
 
-	int Rla(unsigned char opcode);
+	void Rla(unsigned char opcode);
 
-	int Rrca(unsigned char opcode);
+	void Rrca(unsigned char opcode);
 
-	int Rra(unsigned char opcode);
+	void Rra(unsigned char opcode);
 
-	int St16MemSp(unsigned char opcode);
+	void St16MemSp(unsigned char opcode);
 
-	int Add16RegReg(unsigned char opcode);
+	void Add16RegReg(unsigned char opcode);
 
-	int Ld8AccMem(unsigned char opcode);
+	void Ld8AccMem(unsigned char opcode);
 
-	int Stop(unsigned char opcode);
+	void Stop(unsigned char opcode);
 
-	int Jr(unsigned char opcode);
+	void Jr(unsigned char opcode);
 
-	int Daa(unsigned char opcode);
+	void Daa(unsigned char opcode);
 
-	int Cpl(unsigned char opcode);
+	void Cpl(unsigned char opcode);
 
-	int Scf(unsigned char opcode);
+	void Scf(unsigned char opcode);
 
-	int Ccf(unsigned char opcode);
+	void Ccf(unsigned char opcode);
 
-	int Ld8RegOrMemRegOrMem(unsigned char opcode);
+	void Ld8RegOrMemRegOrMem(unsigned char opcode);
 
-	int Halt(unsigned char opcode);
+	void Halt(unsigned char opcode);
 
-	int AluOp8AccRegOrMem(unsigned char opcode);
+	void AluOp8AccRegOrMem(unsigned char opcode);
 
-	int Di(unsigned char opcode);
+	void Di(unsigned char opcode);
 
-	int Ei(unsigned char opcode);
+	void Ei(unsigned char opcode);
 
-	int Ret(unsigned char opcode);
+	void Ret(unsigned char opcode);
 
-	int Push16Reg(unsigned char opcode);
+	void Push16Reg(unsigned char opcode);
 
-	int Pop16Reg(unsigned char opcode);
+	void Pop16Reg(unsigned char opcode);
 
-	int Jp(unsigned char opcode);
+	void Jp(unsigned char opcode);
 
-	int Call(unsigned char opcode);
+	void Call(unsigned char opcode);
 
-	int AluOp8AccImm(unsigned char opcode);
+	void AluOp8AccImm(unsigned char opcode);
 
-	int Rst(unsigned char opcode);
+	void Rst(unsigned char opcode);
 
-	int St8HiMemImmAcc(unsigned char opcode);
+	void St8HiMemImmAcc(unsigned char opcode);
 
-	int St8HiMemCAcc(unsigned char opcode);
+	void St8HiMemCAcc(unsigned char opcode);
 
-	int Ld8AccHiMemImm(unsigned char opcode);
+	void Ld8AccHiMemImm(unsigned char opcode);
 
-	int Ld8AccHiMemC(unsigned char opcode);
+	void Ld8AccHiMemC(unsigned char opcode);
 
-	int Add8SpImm(unsigned char opcode);
+	void Add8SpImm(unsigned char opcode);
 
-	int Ld16HlSpImm(unsigned char opcode);
+	void Ld16HlSpImm(unsigned char opcode);
 
-	int JpHl(unsigned char opcode);
+	void JpHl(unsigned char opcode);
 
-	int Ld8AccMemImm(unsigned char opcode);
+	void Ld8AccMemImm(unsigned char opcode);
 
-	int St8MemImmAcc(unsigned char opcode);
+	void St8MemImmAcc(unsigned char opcode);
 
-	int Ld16SpHl(unsigned char opcode);
+	void Ld16SpHl(unsigned char opcode);
 
-	int PrefixCb(unsigned char opcode);
+	void PrefixCb(unsigned char opcode);
 
-	int InvalidOp(unsigned char opcode);
+	void InvalidOp(unsigned char opcode);
 
 public:
 	explicit Cpu(MemoryMap& memory);
 
+	void SetClockedHardware(ClockedHardware* hardware) { _hardware = hardware; }
+
 	bool IsClockRunning() const	{ return _state == CpuState::Running; }
 
-	// Gets the total number of elapsed emulated CPU cycles (does not count when CPU is stopped/halted)
+	// Gets the total number of elapsed emulated CPU cycles, including while halted
 	uint64_t GetTotalCycles() const { return _totalCycles; }
 
 	// Simulates an IRQ
 	void RequestInterrupt(InterruptFlags interruptFlags);
 
-	// Executes the next emulated CPU instruction. Returns emulated CPU cycles elapsed
+	// Executes the next emulated CPU instruction, dispatches an interrupt, or runs a machine cycle while halted.
+	// Runs the clocked hardware alongside. Returns emulated CPU cycles elapsed
 	int DoNextInstruction();
 };
 

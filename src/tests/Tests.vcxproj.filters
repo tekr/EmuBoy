@@ -15,6 +15,9 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="CpuTimingTests.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="BlarggCpuTests.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>

@@ -8,7 +8,7 @@
 #include "Serial.h"
 #include <vector>
 
-class Emulator
+class Emulator : ClockedHardware
 {
 	InputJoypad EmuJoypad;
 	MemoryMap EmuMemoryMap { EmuJoypad };
@@ -20,6 +20,9 @@ class Emulator
 	Serial EmuSerial;
 
 	void Run(int& currentCycle, int cycleTarget);
+
+	// Called by the CPU for each machine cycle
+	void RunCycles(int cycles) override;
 
 public:
 	explicit Emulator(std::shared_ptr<Cartridge> cartridge);
