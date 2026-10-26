@@ -22,7 +22,7 @@ static unsigned char _rotr8(unsigned char value, unsigned char shift)
 
 Cpu::Cpu(MemoryMap& memory) :
 	_memoryMap(memory), _hardware(nullptr), _state(CpuState::Running), _totalCycles(0), _instructionCycles(0),
-	_skipNextPCIncrement(false), _interruptsEnabled(true), _enableInterruptsAfterNext(false),
+	_skipNextPCIncrement(false), _interruptsEnabled(false), _enableInterruptsAfterNext(false),
 	_enableInterruptsAfterThis(false), _enabledInterrupts(InterruptFlags::NoInt), _waitingInterrupts(InterruptFlags::NoInt),
 	_softwareBreakpointHit(false),
 	_aluOps
@@ -715,30 +715,34 @@ void Cpu::DispatchInterrupt()
 	}
 }
 
-void Cpu::RunHalted()
+bool Cpu::RunHalted()
 {
-	if (!PendingInterrupts())
-	{
-		InternalCycle();
-		return;
-	}
-
-	// A pending interrupt ends the halt, whether or not interrupts are enabled, and waking takes a machine cycle
-	_state = CpuState::Running;
 	InternalCycle();
+	if (!PendingInterrupts()) return false;
+
+	// A pending interrupt ends the halt, whether or not interrupts are enabled
+	_state = CpuState::Running;
+	return true;
 }
 
 int Cpu::DoNextInstruction()
 {
 	_instructionCycles = 0;
 
-	if (_state == CpuState::Halted) RunHalted();
+	// Per mooneye-test-suite's halt_ime1_timing2-GS and halt_ime0_nointr_timing, the CPU leaves HALT with the same
+	// timing as if it had been running NOPs: the halted machine cycle that sees the interrupt stands in for the
+	// opcode fetch, so a dispatch or the next instruction follows straight on
+	auto wokenFromHalt = _state == CpuState::Halted && RunHalted();
 
-	if (_state == CpuState::Running)
+	if (wokenFromHalt && _interruptsEnabled)
+	{
+		DispatchInterrupt();
+	}
+	else if (_state == CpuState::Running)
 	{
 		// The CPU checks for interrupts as it fetches the next opcode, so it sees one requested during the last
 		// machine cycle of the previous instruction. A dispatch discards the opcode and leaves PC unchanged
-		auto opcode = ReadByte(_registers.PC);
+		auto opcode = wokenFromHalt ? ReadBus(_registers.PC) : ReadByte(_registers.PC);
 
 		if (_interruptsEnabled && PendingInterrupts())
 		{

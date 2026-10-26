@@ -419,14 +419,16 @@ TEST_F(CpuHaltTests, HaltedCpuRunsOneMachineCycleAtATime)
 	EXPECT_EQ(0, Cpu.Registers().A);
 }
 
+// Per mooneye-test-suite's halt_ime0_nointr_timing and halt_ime1_timing2-GS, the CPU leaves HALT with the same timing
+// as if it had been running NOPs: the halted machine cycle that sees the interrupt stands in for an opcode fetch
 TEST_F(CpuHaltTests, InterruptWakesCpuWithoutDispatchWhenImeIsClear)
 {
 	Cpu.DoNextInstruction();
 	Cpu.DoNextInstruction();
 	Cpu.RequestInterrupt(InterruptFlags::TimerInt);
 
-	// A machine cycle to wake up, then INC A
-	EXPECT_EQ(2 * MachineCycle, Cpu.DoNextInstruction());
+	// The halted cycle fetches INC A, which then completes
+	EXPECT_EQ(MachineCycle, Cpu.DoNextInstruction());
 	EXPECT_EQ(2, Cpu.Registers().PC);
 	EXPECT_EQ(1, Cpu.Registers().A);
 	EXPECT_EQ(InterruptFlags::TimerInt, Cpu.WaitingInterrupts());
@@ -438,10 +440,30 @@ TEST_F(CpuHaltTests, InterruptWakesCpuAndIsDispatchedWhenImeIsSet)
 	Cpu.DoNextInstruction();
 	Cpu.RequestInterrupt(InterruptFlags::TimerInt);
 
-	// A machine cycle to wake up, then five to dispatch
-	EXPECT_EQ(6 * MachineCycle, Cpu.DoNextInstruction());
+	// The halted cycle, then the dispatch's four other cycles, as when an interrupt arrives during a NOP
+	EXPECT_EQ(5 * MachineCycle, Cpu.DoNextInstruction());
 	EXPECT_EQ(0x50, Cpu.Registers().PC);
 	EXPECT_EQ(1, MemoryMap.ReadByte(StackTop - 2));
+}
+
+TEST_F(CpuHaltTests, InterruptDuringHaltTakesSameTimeAsDuringNops)
+{
+	Cpu.InterruptsEnabled() = true;
+	Cpu.DoNextInstruction();
+	Cpu.RequestInterrupt(InterruptFlags::TimerInt);
+	auto haltedCycles = Cpu.DoNextInstruction();
+	EXPECT_EQ(0x50, Cpu.Registers().PC);
+
+	// The same interrupt arriving while the CPU runs NOPs
+	MemoryMap.SetBytes(0x10, { 0x00, 0x00 });
+	Cpu.Registers().PC = 0x10;
+	Cpu.InterruptsEnabled() = true;
+	Cpu.DoNextInstruction();
+	Cpu.RequestInterrupt(InterruptFlags::TimerInt);
+	auto nopCycles = Cpu.DoNextInstruction();
+	EXPECT_EQ(0x50, Cpu.Registers().PC);
+
+	EXPECT_EQ(nopCycles, haltedCycles);
 }
 
 TEST_F(CpuHaltTests, InterruptsNotEnabledInIeDoNotWakeCpu)

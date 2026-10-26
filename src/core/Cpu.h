@@ -228,7 +228,12 @@ protected:
 	unsigned char ReadByte(unsigned short address)
 	{
 		Tick();
+		return ReadBus(address);
+	}
 
+	// A read at the end of the current machine cycle
+	unsigned char ReadBus(unsigned short address)
+	{
 		switch (address)
 		{
 		case WaitingInterruptsAddress:
@@ -265,7 +270,7 @@ protected:
 	bool ConditionMet(unsigned char opcode) const;
 
 	void DispatchInterrupt();
-	void RunHalted();
+	bool RunHalted();
 
 	void Nop(unsigned char opcode);
 
