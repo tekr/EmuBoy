@@ -6,30 +6,25 @@ void Emulator::Run(int& currentCycle, int cycleTarget)
 {
 	while (currentCycle < cycleTarget)
 	{
-		auto cyclesToRun = std::min(cycleTarget - currentCycle, EmuTimer.GetCyclesToNextEvent());
-		auto cyclesRun = 0;
-
-		while (cyclesRun < cyclesToRun)
-		{
-			auto cycles = EmuCpu.DoNextInstruction();
-			cyclesRun += cycles;
-			EmuApu.RunCycles(cycles);
-
-			// Timer register writes must see the current divider
-			EmuTimer.RunCycles(cycles);
-		}
-
-		currentCycle += cyclesRun;
+		currentCycle += EmuCpu.DoNextInstruction();
 	}
+}
 
-	currentCycle = std::max(currentCycle, cycleTarget);
+void Emulator::RunCycles(int cycles)
+{
+	EmuTimer.RunCycles(cycles);
+	EmuApu.RunCycles(cycles);
+	EmuSerial.RunCycles(cycles);
 }
 
 Emulator::Emulator(std::shared_ptr<Cartridge> cartridge)
 {
+	EmuCpu.SetClockedHardware(this);
 	EmuTimer.SetCpu(&EmuCpu);
 	EmuMemoryMap.SetTimer(&EmuTimer);
 	EmuMemoryMap.SetApu(&EmuApu);
+	EmuMemoryMap.SetSerial(&EmuSerial);
+	EmuSerial.SetCpu(&EmuCpu);
 	EmuMemoryMap.SetCartridge(cartridge);
 	EmuJoypad.SetCpu(&EmuCpu);
 }

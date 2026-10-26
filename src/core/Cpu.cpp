@@ -21,9 +21,9 @@ static unsigned char _rotr8(unsigned char value, unsigned char shift)
 #endif
 
 Cpu::Cpu(MemoryMap& memory) :
-	_memoryMap(memory), _state(CpuState::Running), _totalCycles(0), _extraCyclesConsumed(0), _skipNextPCIncrement(false),
-	_interruptsEnabled(true), _enabledInterrupts(InterruptFlags::NoInt), _waitingInterrupts(InterruptFlags::NoInt),
-	_interruptCheckRequired(false),
+	_memoryMap(memory), _hardware(nullptr), _state(CpuState::Running), _totalCycles(0), _instructionCycles(0),
+	_skipNextPCIncrement(false), _interruptsEnabled(true), _enableInterruptsAfterNext(false),
+	_enableInterruptsAfterThis(false), _enabledInterrupts(InterruptFlags::NoInt), _waitingInterrupts(InterruptFlags::NoInt),
 	_aluOps
 	{
 		// ADD
@@ -266,39 +266,20 @@ bool Cpu::ConditionMet(unsigned char opcode) const
 	return ((_registers.F & condition) != 0) ^ invert;
 }
 
-bool Cpu::InterruptTriggered()
+// Instruction timings and the machine cycle of each memory access follow https://gbdev.io/gb-opcodes/optables/
+// and blargg's instr_timing and mem_timing test ROMs. Opcode and operand fetches, and every read and write, take a
+// machine cycle each; any other cycles are internal.
+
+void Cpu::Nop(unsigned char opcode)
 {
-	auto pendingInterrupts = _waitingInterrupts & _enabledInterrupts;
-	auto interruptTriggered = _interruptsEnabled && pendingInterrupts;
-
-	if (interruptTriggered)
-	{
-		_interruptsEnabled = false;
-
-		auto entry = std::find_if(_intVectors.begin(), _intVectors.end(), [pendingInterrupts]
-					(const std::pair<InterruptFlags, unsigned char>& e){ return pendingInterrupts & e.first; });
-
-		_waitingInterrupts ^= entry->first;
-
-		PushWord(_registers.PC);
-		_registers.PC = entry->second;
-	}
-
-	return interruptTriggered;
 }
 
-int Cpu::Nop(unsigned char opcode)
-{
-	return OneCycle;
-}
-
-int Cpu::Ld16RegImm(unsigned char opcode)
+void Cpu::Ld16RegImm(unsigned char opcode)
 {
 	GetReg16Ref1(opcode) = GetWordOperand();
-	return ThreeCycles;
 }
 
-int Cpu::St8MemRegAcc(unsigned char opcode)
+void Cpu::St8MemRegAcc(unsigned char opcode)
 {
 	auto& ref = GetReg16Ref2(opcode);
 	WriteByte(ref, _registers.A);
@@ -312,26 +293,23 @@ int Cpu::St8MemRegAcc(unsigned char opcode)
 		ref--;
 		break;
 	}
-
-	return TwoCycles;
 }
 
-int Cpu::Inc16Reg(unsigned char opcode)
+void Cpu::Inc16Reg(unsigned char opcode)
 {
 	GetReg16Ref1(opcode)++;
-	return TwoCycles;
+	InternalCycle();
 }
 
-int Cpu::Dec16Reg(unsigned char opcode)
+void Cpu::Dec16Reg(unsigned char opcode)
 {
 	GetReg16Ref1(opcode)--;
-	return TwoCycles;
+	InternalCycle();
 }
 
-int Cpu::IncDec8RegOrMem(unsigned char opcode)
+void Cpu::IncDec8RegOrMem(unsigned char opcode)
 {
 	auto inc = !(opcode & 1);
-	auto cycleCount = OneCycle;
 	unsigned char flags = _registers.F & CarryFlag;
 	unsigned char newData;
 
@@ -344,71 +322,63 @@ int Cpu::IncDec8RegOrMem(unsigned char opcode)
 	{
 		newData = ReadByte(_registers.HL);
 		WriteByte(_registers.HL, inc ? ++newData : --newData);
-		cycleCount = ThreeCycles;
 	}
 
 	flags |= newData == 0 ? ZeroFlag : NoFlags;
 	flags |= inc ? 0 : SubFlag;
 	_registers.F = flags | (inc && (newData & 0xf) == 0 || !inc && (newData & 0xf) == 0xf ? HalfCarryFlag : NoFlags);
-
-	return cycleCount;
 }
 
-int Cpu::Ld8RegOrMemImm(unsigned char opcode)
+void Cpu::Ld8RegOrMemImm(unsigned char opcode)
 {
 	auto operand = GetByteOperand();
 
 	if ((opcode & 0x38) != 0x30)
 	{
 		GetReg8Ref1(opcode) = operand;
-		return TwoCycles;
 	}
-
-	WriteByte(_registers.HL, operand);
-	return ThreeCycles;
+	else
+	{
+		WriteByte(_registers.HL, operand);
+	}
 }
 
-int Cpu::Rlca(unsigned char opcode)
+void Cpu::Rlca(unsigned char opcode)
 {
 	auto newAcc = _rotl8(_registers.A, 1);
 	_registers.A = newAcc;
 	_registers.F = newAcc & 1 ? CarryFlag : NoFlags;
-	return OneCycle;
 }
 
-int Cpu::Rla(unsigned char opcode)
+void Cpu::Rla(unsigned char opcode)
 {
 	auto newAcc = _registers.A << 1;
 	_registers.A = static_cast<unsigned char>(newAcc | (_registers.F & 0x10) >> 4);
 	_registers.F = (newAcc & 0x100) >> 4;
-	return OneCycle;
 }
 
-int Cpu::Rrca(unsigned char opcode)
+void Cpu::Rrca(unsigned char opcode)
 {
 	auto newVal = _rotr8(_registers.A, 1);
 	_registers.A = newVal;
 	_registers.F = newVal & 0x80 ? CarryFlag : NoFlags;
-	return OneCycle;
 }
 
-int Cpu::Rra(unsigned char opcode)
+void Cpu::Rra(unsigned char opcode)
 {
 	auto newFlags = (_registers.A & 1) << 4;
 	_registers.A = static_cast<unsigned char>(_registers.A >> 1 | (_registers.F & 0x10) << 3);
 	_registers.F = newFlags;
-	return OneCycle;
 }
 
-int Cpu::St16MemSp(unsigned char opcode)
+void Cpu::St16MemSp(unsigned char opcode)
 {
 	auto address = GetWordOperand();
 	WriteByte(address++, _registers.SP & 0xff);
 	WriteByte(address, _registers.SP >> 8);
-	return FiveCycles;
 }
 
-int Cpu::Add16RegReg(unsigned char opcode)
+void Cpu::Add16RegReg(unsigned char opcode)
 {
 	auto& regRef = GetReg16Ref1(opcode);
 	auto res = _registers.HL + regRef;
@@ -419,10 +389,10 @@ int Cpu::Add16RegReg(unsigned char opcode)
 	_registers.HL = static_cast<unsigned short>(res);
 	_registers.F = flags;
 
-	return TwoCycles;
+	InternalCycle();
 }
 
-int Cpu::Ld8AccMem(unsigned char opcode)
+void Cpu::Ld8AccMem(unsigned char opcode)
 {
 	auto& ref = GetReg16Ref2(opcode);
 	_registers.A = ReadByte(ref);
@@ -436,33 +406,26 @@ int Cpu::Ld8AccMem(unsigned char opcode)
 		ref--;
 		break;
 	}
-
-	return TwoCycles;
 }
 
-int Cpu::Stop(unsigned char opcode)
+void Cpu::Stop(unsigned char opcode)
 {
-	//_state = CpuState::Stopped;
-	return OneCycle;
 }
 
-int Cpu::Jr(unsigned char opcode)
+void Cpu::Jr(unsigned char opcode)
 {
 	auto condition = (opcode & 0x10) != 0 ? CarryFlag : ZeroFlag;
 	auto invert = (opcode & 0x8) == 0;
 	auto offset = static_cast<char>(GetByteOperand());
-	auto cycleCount = TwoCycles;
 
 	if (opcode == 0x18 || ((_registers.F & condition) != 0) ^ invert)
 	{
 		_registers.PC += offset;
-		cycleCount = ThreeCycles;
+		InternalCycle();
 	}
-
-	return cycleCount;
 }
 
-int Cpu::Daa(unsigned char opcode)
+void Cpu::Daa(unsigned char opcode)
 {
 	int accValue = _registers.A;
 	auto flags = _registers.F & SubFlag;
@@ -486,44 +449,27 @@ int Cpu::Daa(unsigned char opcode)
 
 	_registers.A = accValue;
 	_registers.F = flags;
-
-	return OneCycle;
 }
 
-int Cpu::Cpl(unsigned char opcode)
+void Cpu::Cpl(unsigned char opcode)
 {
 	_registers.A = ~_registers.A;
 	_registers.F |= SubFlag | HalfCarryFlag;
-
-	return OneCycle;
 }
 
-int Cpu::Scf(unsigned char opcode)
+void Cpu::Scf(unsigned char opcode)
 {
 	_registers.F = _registers.F & ZeroFlag | CarryFlag;
-	return OneCycle;
 }
 
-int Cpu::Ccf(unsigned char opcode)
+void Cpu::Ccf(unsigned char opcode)
 {
 	_registers.F = _registers.F & (ZeroFlag | CarryFlag) ^ CarryFlag;
-	return OneCycle;
 }
 
-int Cpu::Ld8RegOrMemRegOrMem(unsigned char opcode)
+void Cpu::Ld8RegOrMemRegOrMem(unsigned char opcode)
 {
-	unsigned char val;
-	auto cycleCount = OneCycle;
-
-	if ((opcode & 0x7) != 0x6)
-	{
-		val = GetReg8Ref2(opcode);
-	}
-	else
-	{
-		val = ReadByte(_registers.HL);
-		cycleCount = TwoCycles;
-	}
+	auto val = (opcode & 0x7) != 0x6 ? GetReg8Ref2(opcode) : ReadByte(_registers.HL);
 
 	if ((opcode & 0x78) != 0x70)
 	{
@@ -532,212 +478,161 @@ int Cpu::Ld8RegOrMemRegOrMem(unsigned char opcode)
 	else
 	{
 		WriteByte(_registers.HL, val);
-		cycleCount = TwoCycles;
 	}
-
-	return cycleCount;
 }
 
-int Cpu::Halt(unsigned char opcode)
+void Cpu::Halt(unsigned char opcode)
 {
-	// Hardware bug that causes no halt and next PC increment to be skipped
-	if (!_interruptsEnabled & (_waitingInterrupts & _enabledInterrupts)) _skipNextPCIncrement = true;
+	// Per https://gbdev.io/pandocs/halt.html, with IME clear and an interrupt already pending the CPU doesn't
+	// halt, and a hardware bug stops the next opcode fetch from incrementing PC
+	if (!_interruptsEnabled && PendingInterrupts()) _skipNextPCIncrement = true;
 	else _state = CpuState::Halted;
-
-	return OneCycle;
 }
 
-int Cpu::AluOp8AccRegOrMem(unsigned char opcode)
+void Cpu::AluOp8AccRegOrMem(unsigned char opcode)
 {
-	auto cycleCount = OneCycle;
-	unsigned char operand1;
-
-	if ((opcode & 0x7) != 0x6)
-	{
-		operand1 = GetReg8Ref2(opcode);
-	}
-	else
-	{
-		operand1 = ReadByte(_registers.HL);
-		cycleCount = TwoCycles;
-	}
-
-	_registers.F = _aluOps[(opcode & 0x38) >> 3](_registers.A, operand1, (_registers.F & CarryFlag) != 0);
-
-	return cycleCount;
+	auto operand = (opcode & 0x7) != 0x6 ? GetReg8Ref2(opcode) : ReadByte(_registers.HL);
+	_registers.F = _aluOps[(opcode & 0x38) >> 3](_registers.A, operand, (_registers.F & CarryFlag) != 0);
 }
 
-int Cpu::Di(unsigned char opcode)
+void Cpu::Di(unsigned char opcode)
 {
 	_interruptsEnabled = false;
-	return OneCycle;
+
+	// Cancels an EI just before
+	_enableInterruptsAfterThis = false;
 }
 
-int Cpu::Ei(unsigned char opcode)
+void Cpu::Ei(unsigned char opcode)
 {
-	// TODO: GB CPU enables interrupts after the instruction following this one
-	_interruptsEnabled = true;
-	_interruptCheckRequired = true;
-
-	return OneCycle;
+	// With interrupts already enabled EI does nothing, so it can't re-enable them inside a handler dispatched
+	// straight after it
+	if (!_interruptsEnabled) _enableInterruptsAfterNext = true;
 }
 
-int Cpu::Ret(unsigned char opcode)
+void Cpu::Ret(unsigned char opcode)
 {
-	auto cycleCount = TwoCycles;
+	auto unconditional = (opcode & 0x1) != 0;
 
-	if ((opcode & 0x1) != 0 || ConditionMet(opcode))
+	// A conditional return spends a machine cycle checking the condition
+	if (!unconditional) InternalCycle();
+
+	if (unconditional || ConditionMet(opcode))
 	{
 		_registers.PC = PopWord();
-		cycleCount = (opcode & 0x1) != 0 ? FourCycles : FiveCycles;
+		InternalCycle();
 
-		if (opcode == 0xd9) // RETI
-		{
-			Ei(opcode);
-		}
+		// RETI enables interrupts straight away, unlike EI
+		if (opcode == 0xd9) _interruptsEnabled = true;
 	}
-
-	return cycleCount;
 }
 
-int Cpu::Push16Reg(unsigned char opcode)
+void Cpu::Push16Reg(unsigned char opcode)
 {
 	PushWord(GetReg16Ref3(opcode));
-	return FourCycles;
 }
 
-int Cpu::Pop16Reg(unsigned char opcode)
+void Cpu::Pop16Reg(unsigned char opcode)
 {
 	GetReg16Ref3(opcode) = PopWord();
 
 	// Ensure lower nibble of F is zero after possible pop into it
 	_registers.F &= 0xf0;
-
-	return ThreeCycles;
 }
 
-int Cpu::Jp(unsigned char opcode)
+void Cpu::Jp(unsigned char opcode)
 {
 	auto address = GetWordOperand();
-	auto cycleCount = ThreeCycles;
 
 	if (opcode == 0xc3 || ConditionMet(opcode))
 	{
 		_registers.PC = address;
-		cycleCount = FourCycles;
+		InternalCycle();
 	}
-
-	return cycleCount;
 }
 
-int Cpu::Call(unsigned char opcode)
+void Cpu::Call(unsigned char opcode)
 {
 	auto address = GetWordOperand();
-	auto cycleCount = ThreeCycles;
 
 	if (opcode == 0xcd || ConditionMet(opcode))
 	{
 		PushWord(_registers.PC);
 		_registers.PC = address;
-		cycleCount = SixCycles;
 	}
-
-	return cycleCount;
 }
 
-int Cpu::AluOp8AccImm(unsigned char opcode)
+void Cpu::AluOp8AccImm(unsigned char opcode)
 {
 	auto operand = GetByteOperand();
 	_registers.F = _aluOps[(opcode & 0x38) >> 3](_registers.A, operand, (_registers.F & CarryFlag) != 0);
-
-	return TwoCycles;
 }
 
-int Cpu::Rst(unsigned char opcode)
+void Cpu::Rst(unsigned char opcode)
 {
 	PushWord(_registers.PC);
 	_registers.PC = opcode - 0xc7;
-
-	return FourCycles;
 }
 
-int Cpu::St8HiMemImmAcc(unsigned char opcode)
+void Cpu::St8HiMemImmAcc(unsigned char opcode)
 {
 	WriteByte(HiMemBaseAddress + GetByteOperand(), _registers.A);
-	return ThreeCycles;
 }
 
-int Cpu::St8HiMemCAcc(unsigned char opcode)
+void Cpu::St8HiMemCAcc(unsigned char opcode)
 {
 	WriteByte(HiMemBaseAddress + _registers.C, _registers.A);
-	return TwoCycles;
 }
 
-int Cpu::Ld8AccHiMemImm(unsigned char opcode)
+void Cpu::Ld8AccHiMemImm(unsigned char opcode)
 {
 	_registers.A = ReadByte(HiMemBaseAddress + GetByteOperand());
-	return ThreeCycles;
 }
 
-int Cpu::Ld8AccHiMemC(unsigned char opcode)
+void Cpu::Ld8AccHiMemC(unsigned char opcode)
 {
 	_registers.A = ReadByte(HiMemBaseAddress + _registers.C);
-	return ThreeCycles;
 }
 
-int Cpu::Add8SpImm(unsigned char opcode)
+void Cpu::Add8SpImm(unsigned char opcode)
 {
 	_registers.SP = AddSpImm();
-	return FourCycles;
+	InternalCycle();
+	InternalCycle();
 }
 
-int Cpu::Ld16HlSpImm(unsigned char opcode)
+void Cpu::Ld16HlSpImm(unsigned char opcode)
 {
 	_registers.HL = AddSpImm();
-	return ThreeCycles;
+	InternalCycle();
 }
 
-int Cpu::JpHl(unsigned char opcode)
+void Cpu::JpHl(unsigned char opcode)
 {
 	_registers.PC = _registers.HL;
-	return OneCycle;
 }
 
-int Cpu::Ld8AccMemImm(unsigned char opcode)
+void Cpu::Ld8AccMemImm(unsigned char opcode)
 {
 	_registers.A = ReadByte(GetWordOperand());
-	return FourCycles;
 }
 
-int Cpu::St8MemImmAcc(unsigned char opcode)
+void Cpu::St8MemImmAcc(unsigned char opcode)
 {
 	WriteByte(GetWordOperand(), _registers.A);
-	return FourCycles;
 }
 
-int Cpu::Ld16SpHl(unsigned char opcode)
+void Cpu::Ld16SpHl(unsigned char opcode)
 {
 	_registers.SP = _registers.HL;
-	return TwoCycles;
+	InternalCycle();
 }
 
-int Cpu::PrefixCb(unsigned char opcode)
+void Cpu::PrefixCb(unsigned char opcode)
 {
 	auto nextOpcode = GetNextProgramByte();
-
-	unsigned char val;
-	auto cycleCount = TwoCycles;
 	auto isReg = (nextOpcode & 0x7) != 0x6;
-
-	if (isReg)
-	{
-		val = GetReg8Ref2(nextOpcode);
-	}
-	else
-	{
-		val = ReadByte(_registers.HL);
-		cycleCount = FourCycles;
-	}
+	auto val = isReg ? GetReg8Ref2(nextOpcode) : ReadByte(_registers.HL);
 
 	_prefixCbOps[nextOpcode >> 3](val, _registers.F);
 
@@ -748,7 +643,7 @@ int Cpu::PrefixCb(unsigned char opcode)
 		_registers.F = _registers.F & ~ZeroFlag | (val == 0 ? ZeroFlag : NoFlags);
 	}
 
-	// Opcodes within this range don't write a result (other than flags)
+	// Opcodes within this range (BIT) don't write a result (other than flags)
 	if (nextOpcode < 0x40 || nextOpcode > 0x7f)
 	{
 		if (isReg)
@@ -760,11 +655,9 @@ int Cpu::PrefixCb(unsigned char opcode)
 			WriteByte(_registers.HL, val);
 		}
 	}
-
-	return cycleCount;
 }
 
-int Cpu::InvalidOp(unsigned char opcode)
+void Cpu::InvalidOp(unsigned char opcode)
 {
 	std::cout << "Invalid opcode " << std::hex << opcode << " encountered" << std::endl;
 	throw std::runtime_error("Invalid operation");
@@ -774,46 +667,100 @@ void Cpu::RequestInterrupt(InterruptFlags interruptFlags)
 {
 	_waitingInterrupts |= interruptFlags;
 
-	// Master interrupt enable is not required to wake from halt
-	if (_state == CpuState::Halted && _waitingInterrupts & _enabledInterrupts)
+	if (_state == CpuState::Stopped && interruptFlags & InterruptFlags::JoypadInt)
 	{
 		_state = CpuState::Running;
-		_extraCyclesConsumed = OneCycle;
+		_instructionCycles += StopWakeCycles;
 	}
-	else if (_state == CpuState::Stopped && interruptFlags & InterruptFlags::JoypadInt)
+}
+
+void Cpu::DispatchInterrupt()
+{
+	// Per https://gbdev.io/pandocs/Interrupts.html#interrupt-handling, dispatch takes five machine cycles: two
+	// wait states, two to push PC and one to jump to the handler. The first wait state is the opcode fetch the
+	// dispatch replaces, which DoNextInstruction has already made. An EI still waiting to take effect (the first
+	// of EI; EI) is dropped, so the handler runs with interrupts disabled
+	_interruptsEnabled = false;
+	_enableInterruptsAfterNext = false;
+	InternalCycle();
+
+	// The opcode fetch that the dispatch replaced didn't increment PC if the HALT bug struck, so the handler
+	// returns to the HALT
+	if (_skipNextPCIncrement)
 	{
-		_state = CpuState::Running;
-
-		// GB hardware waits 2^16 cycles to let xtal oscillator stabilise
-		_extraCyclesConsumed = OneCycle * 65536;
+		_skipNextPCIncrement = false;
+		_registers.PC--;
 	}
 
-	_interruptCheckRequired = true;
+	WriteByte(--_registers.SP, _registers.PC >> 8);
+
+	// The interrupt is chosen only after the high byte of PC is pushed. If that push overwrote IE so that no
+	// interrupt is still pending, the CPU jumps to 0
+	auto pendingInterrupts = PendingInterrupts();
+	WriteByte(--_registers.SP, _registers.PC & 0xff);
+	InternalCycle();
+
+	_registers.PC = 0;
+
+	for (auto i = 0; i < 5; i++)
+	{
+		if (pendingInterrupts & 1 << i)
+		{
+			_waitingInterrupts &= ~(1 << i);
+			_registers.PC = FirstInterruptVector + i * 8;
+			break;
+		}
+	}
+}
+
+void Cpu::RunHalted()
+{
+	if (!PendingInterrupts())
+	{
+		InternalCycle();
+		return;
+	}
+
+	// A pending interrupt ends the halt, whether or not interrupts are enabled, and waking takes a machine cycle
+	_state = CpuState::Running;
+	InternalCycle();
 }
 
 int Cpu::DoNextInstruction()
 {
-	if (_state != CpuState::Running) return OneCycle;
+	_instructionCycles = 0;
 
-	auto cycles = _extraCyclesConsumed;
-	_extraCyclesConsumed = 0;
+	if (_state == CpuState::Halted) RunHalted();
 
-	if (_interruptCheckRequired)
+	if (_state == CpuState::Running)
 	{
-		// Interrupt takes five cycles per section 4.9 of
-		// https://github.com/AntonioND/giibiiadvance/blob/master/docs/TCAGBD.pdf
-		if (InterruptTriggered()) cycles += FiveCycles;
-		else _interruptCheckRequired = false;
+		// The CPU checks for interrupts as it fetches the next opcode, so it sees one requested during the last
+		// machine cycle of the previous instruction. A dispatch discards the opcode and leaves PC unchanged
+		auto opcode = ReadByte(_registers.PC);
+
+		if (_interruptsEnabled && PendingInterrupts())
+		{
+			DispatchInterrupt();
+		}
+		else
+		{
+			if (!_skipNextPCIncrement) ++_registers.PC;
+			_skipNextPCIncrement = false;
+
+			// An EI before this instruction takes effect once it completes, unless this instruction is DI
+			_enableInterruptsAfterThis = _enableInterruptsAfterNext;
+			_enableInterruptsAfterNext = false;
+
+			(this->*_opcodeJumpTable[opcode])(opcode);
+
+			if (_enableInterruptsAfterThis) _interruptsEnabled = true;
+		}
+	}
+	else if (_state == CpuState::Stopped)
+	{
+		InternalCycle();
 	}
 
-	if (cycles == 0)
-	{
-		auto opcode = GetNextProgramByte();
-
-		auto opPtr = _opcodeJumpTable[opcode];
-		cycles = (this->*opPtr)(opcode);
-	}
-
-	_totalCycles += cycles;
-	return cycles;
+	_totalCycles += _instructionCycles;
+	return _instructionCycles;
 }
