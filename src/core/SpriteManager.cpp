@@ -36,6 +36,13 @@ void SpriteManager::SpriteMoved(SpriteData& spriteData)
 	_yOrderedSprites.insert(&spriteData);
 }
 
+void SpriteManager::IndexAllSprites(SpriteData* sprites)
+{
+	_yOrderedSprites.clear();
+	_visibleSprites.clear();
+	for (auto sprite = 0; sprite < MaxSprites; sprite++) _yOrderedSprites.insert(&sprites[sprite]);
+}
+
 unsigned char SpriteManager::GetSpriteColour(SpriteData& spriteData, int x, int y, unsigned char* vram) const
 {
 	auto patternX = x - spriteData.XPos + SpriteXOffset;

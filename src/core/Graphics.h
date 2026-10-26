@@ -238,6 +238,9 @@ protected:
 
 	void SpriteChanged(unsigned short address);
 
+	// Whether a line event is ever scheduled on the line, so a save state can't have the PPU draw a V-Blank line
+	static bool EventHappensOnLine(LineEvent event, unsigned int line);
+
 	void WriteBitmap(StateWriter& writer) const;
 	void ReadBitmap(StateReader& reader);
 

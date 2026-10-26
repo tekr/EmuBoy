@@ -202,7 +202,8 @@ TEST_F(SaveStateTest, RejectsTruncatedStates)
 		State.size() / 2, State.size() - CrcSize, State.size() - 1 })
 	{
 		SCOPED_TRACE(size);
-		ExpectRejected(Bytes(State.begin(), State.begin() + size), size < 8 ? "isn't an Emu Boy save state" : "");
+		ExpectRejected(Bytes(State.begin(), State.begin() + size),
+			size < 8 ? "isn't an Emu Boy save state" : size < 16 ? "truncated" : "checksum doesn't match");
 	}
 }
 
@@ -271,6 +272,23 @@ TEST_F(SaveStateTest, RejectsOutOfRangeValues)
 	FixCrc(state);
 
 	ExpectRejected(state, "invalid in its CPU section: a value is 3, outside 0 to 2");
+}
+
+TEST_F(SaveStateTest, RejectsAPpuEventThatCantHappenOnItsLine)
+{
+	// The line and the next event in it follow VRAM, OAM and the 12 registers. Drawing on a V-Blank line would draw
+	// past the end of the frame
+	const size_t lineOffset = 0x2000 + 160 + 12;
+	const size_t eventOffset = lineOffset + 16;
+	const uint32_t drawEvent = 2;
+
+	auto state = State;
+	auto ppu = FindSection(state, "PPU ");
+	WriteU32(state, ppu + lineOffset, 150);
+	WriteU32(state, ppu + eventOffset, drawEvent);
+	FixCrc(state);
+
+	ExpectRejected(state, "invalid in its PPU section: its next event can't happen on line 150");
 }
 
 TEST_F(SaveStateTest, RejectsASectionWithAnotherLength)

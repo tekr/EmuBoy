@@ -58,6 +58,10 @@ public:
 
 	void SpriteMoved(SpriteData& spriteData);
 
+	// Indexes every sprite afresh, after all of OAM has been replaced at once (as by loading a save state). Moving
+	// the sprites one at a time would leave the others in the index under their old positions, which breaks it
+	void IndexAllSprites(SpriteData* sprites);
+
 	unsigned char GetSpriteColour(SpriteData& spriteData, int x, int y, unsigned char* vram) const;
 };
 

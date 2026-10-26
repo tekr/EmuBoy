@@ -1,9 +1,11 @@
 #include "stdafx.h"
 #include "SaveState.h"
 #include "StateStream.h"
+#include <algorithm>
 #include <array>
 #include <cstring>
 #include <memory>
+#include <new>
 
 namespace
 {
@@ -150,7 +152,7 @@ std::vector<unsigned char> SaveState::Create(const Emulator& emulator)
 
 	auto& data = writer.GetData();
 	writer.WriteU32(Crc32(data.data(), data.size()));
-	return data;
+	return writer.TakeData();
 }
 
 std::string SaveState::Restore(Emulator& emulator, const std::vector<unsigned char>& state)
@@ -163,6 +165,10 @@ std::string SaveState::Restore(Emulator& emulator, const std::vector<unsigned ch
 	catch (const StateError& e)
 	{
 		return e.what();
+	}
+	catch (const std::bad_alloc&)
+	{
+		return "There isn't enough memory to load the save state";
 	}
 
 	// Reading depends only on the state and the cartridge, so having loaded into the copy, it loads here too

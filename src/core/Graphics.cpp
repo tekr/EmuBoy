@@ -595,7 +595,7 @@ void Graphics::WriteState(StateWriter& writer) const
 		writer.WriteBool(flag);
 	}
 
-	writer.WriteU32(_framePosition);
+	writer.WriteInt(static_cast<int>(_framePosition));
 	WriteBitmap(writer);
 
 	writer.EndSection();
@@ -616,6 +616,7 @@ void Graphics::ReadState(StateReader& reader)
 	_linePosition = reader.ReadInt(0, ScanlineClocks);
 	_nextEventPosition = reader.ReadInt(0, ScanlineClocks);
 	_nextEvent = reader.ReadEnum(LineEvent::LineEnd);
+	if (!EventHappensOnLine(_nextEvent, _currentScanline)) reader.Fail("its next event can't happen on line " + std::to_string(_currentScanline));
 	_mode = reader.ReadEnum(LcdcStatus::OamAndVramReadMode);
 	_interruptMode = reader.ReadInt(NoInterruptMode, LcdcStatus::OamReadMode);
 	_lyForComparison = reader.ReadInt(NoComparison, FrameLines - 1);
@@ -626,14 +627,37 @@ void Graphics::ReadState(StateReader& reader)
 		*flag = reader.ReadBool();
 	}
 
-	_framePosition = reader.ReadU32();
+	// Frames come at least every FrameClocks, except that the frame the LCD is turned on in lasts nearly two
+	_framePosition = static_cast<unsigned int>(reader.ReadInt(0, 2 * FrameClocks));
 	ReadBitmap(reader);
 
 	reader.EndSection();
 
 	// The sprite manager indexes OAM rather than keeping state of its own
 	_spriteManager.SetUseTallSprites(_registers[RegLcdControl] & 0x4);
-	for (unsigned short sprite = 0; sprite < OamSize; sprite += sizeof(SpriteData)) SpriteChanged(sprite);
+	_spriteManager.IndexAllSprites(reinterpret_cast<SpriteData*>(_oam));
+}
+
+bool Graphics::EventHappensOnLine(LineEvent event, unsigned int line)
+{
+	switch (event)
+	{
+	case LineEvent::OamScan:
+	case LineEvent::OamScanLastCycle:
+	case LineEvent::Draw:
+	case LineEvent::HBlank:
+		return line < VertPixels;
+
+	case LineEvent::VBlankCompare:
+		return line >= VertPixels;
+
+	case LineEvent::Line153StopCompare:
+	case LineEvent::Line153CompareZero:
+		return line == FrameLines - 1;
+
+	default:
+		return true;
+	}
 }
 
 void Graphics::WriteBitmap(StateWriter& writer) const

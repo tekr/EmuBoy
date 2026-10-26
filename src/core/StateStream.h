@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
 // Thrown when a save state can't be read: it is truncated or corrupt, or doesn't match the emulator
@@ -38,6 +39,9 @@ public:
 	void WriteTag(const char* tag);
 
 	const std::vector<unsigned char>& GetData() const { return _data; }
+
+	// Moves the data out, leaving the writer empty
+	std::vector<unsigned char> TakeData() { return std::move(_data); }
 };
 
 // Reads what a StateWriter wrote, checking as it goes. Every read throws StateError if it would run past the end of

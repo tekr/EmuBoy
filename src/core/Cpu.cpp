@@ -807,6 +807,9 @@ void Cpu::ReadState(StateReader& reader)
 		*pair = reader.ReadU16();
 	}
 
+	// F's low four bits always read 0
+	_registers.F &= 0xf0;
+
 	_state = reader.ReadEnum(CpuState::Stopped);
 	_totalCycles = reader.ReadU64();
 	_skipNextPCIncrement = reader.ReadBool();

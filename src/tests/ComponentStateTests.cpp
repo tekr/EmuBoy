@@ -204,3 +204,39 @@ TEST(PpuStateTest, RestoresSpritesWhereverTheRestoredPpuHadThem)
 	EXPECT_EQ(Graphics::ShadeColour(3), restored.Ppu.Bitmap[(40 - SpriteManager::SpriteYOffset) * Graphics::HozPixels + 40 - SpriteManager::SpriteXOffset]);
 	EXPECT_TRUE(std::equal(saved.Ppu.Bitmap, saved.Ppu.Bitmap + Graphics::HozPixels * Graphics::VertPixels, restored.Ppu.Bitmap));
 }
+
+TEST(PpuStateTest, RestoresManySpritesOverOthers)
+{
+	// Restoring into a PPU whose OAM already holds other sprites replaces them all at once, which the sprite
+	// manager's index must keep up with
+	PpuRig saved;
+	PpuRig restored;
+	auto fillOam = [](PpuRig& rig, unsigned seed)
+	{
+		for (unsigned short address = 0; address < Graphics::OamSize; address++)
+		{
+			seed = seed * 1103515245 + 12345;
+			auto value = static_cast<unsigned char>(seed >> 16);
+
+			// Keep the sprites' Y on screen, so most lines have some
+			rig.Ppu.WriteOam(address, address % 4 == 0 ? static_cast<unsigned char>(value % 160) : value);
+		}
+	};
+	fillOam(saved, 1);
+	fillOam(restored, 2);
+
+	for (unsigned short address = 0; address < 256 * 16; address++) saved.Ppu.WriteVram(address, static_cast<unsigned char>(address * 7));
+	saved.Ppu.WriteRegister(TestGraphics::RegSprite0Palette, 0xe4);
+	saved.Ppu.WriteRegister(TestGraphics::RegSprite1Palette, 0x1b);
+	saved.Ppu.WriteRegister(TestGraphics::RegBgWinPalette, 0xe4);
+	saved.Ppu.WriteRegister(TestGraphics::RegLcdControl, 0x80 | 0x02);
+	restored.Ppu.WriteRegister(TestGraphics::RegLcdControl, 0x80 | 0x02);
+	restored.Run(Graphics::FrameClocks);
+	saved.Run(Graphics::FrameClocks);
+
+	CopyState(saved.Ppu, restored.Ppu);
+	saved.Run(Graphics::FrameClocks);
+	restored.Run(Graphics::FrameClocks);
+
+	EXPECT_TRUE(std::equal(saved.Ppu.Bitmap, saved.Ppu.Bitmap + Graphics::HozPixels * Graphics::VertPixels, restored.Ppu.Bitmap));
+}
