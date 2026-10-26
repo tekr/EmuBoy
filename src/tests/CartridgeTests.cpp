@@ -1,7 +1,7 @@
 #include "stdafx.h"
 #include <gtest/gtest.h>
 #include "../core/MemoryMap.h"
-#include "../core/Cartridge.h"
+#include "../core/Mbc1Cartridge.h"
 
 class CartridgeRamTest : public testing::Test
 {
@@ -11,7 +11,7 @@ public:
 
 	CartridgeRamTest()
 	{
-		Memory.SetCartridge(std::make_shared<Cartridge>(std::vector<unsigned char>(2 * MemoryMap::RomBankSize), 1));
+		Memory.SetCartridge(std::make_shared<Mbc1Cartridge>(std::vector<unsigned char>(2 * MemoryMap::RomBankSize), MemoryMap::RamBankSize));
 	}
 };
 
@@ -41,8 +41,9 @@ TEST_F(CartridgeRamTest, EnabledOnlyByLowNibbleOfA)
 	Memory.WriteByte(0x0000, 0x0a);
 	Memory.WriteByte(0xa000, 0x12);
 
+	// Disabled RAM reads as open bus
 	Memory.WriteByte(0x0000, 0x0b);
-	EXPECT_EQ(0x0, Memory.ReadByte(0xa000));
+	EXPECT_EQ(0xff, Memory.ReadByte(0xa000));
 
 	Memory.WriteByte(0x0000, 0x1a);
 	EXPECT_EQ(0x12, Memory.ReadByte(0xa000));

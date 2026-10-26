@@ -1,70 +1,47 @@
 #include "stdafx.h"
 #include "Cartridge.h"
-#include "MemoryMap.h"
-#include <algorithm>
-#include <cassert>
 
-Cartridge::Cartridge(std::vector<unsigned char>&& rom, int ramBanks) : _rom{ std::move(rom) },
-			_ram(ramBanks * MemoryMap::RamBankSize), _ramEnabled(false)
+namespace
 {
-}
-
-unsigned char Cartridge::RomReadByte(unsigned short address) const
-{
-	auto bank = address < MemoryMap::RomBankSize ? 0 : _selectedRomBank;
-	auto index = (address & MemoryMap::RomBankSize - 1) + bank * MemoryMap::RomBankSize;
-
-	assert(index < _rom.size());
-	return _rom[index];
-}
-
-size_t Cartridge::RamIndex(unsigned short address) const
-{
-	return address + _selectedRamBank * MemoryMap::RamBankSize;
-}
-
-unsigned char Cartridge::RamReadByte(unsigned short address) const
-{
-	if (!_ramEnabled) return 0x0;
-
-	// Reads from RAM the cartridge doesn't have return 0xff, as on hardware
-	auto index = RamIndex(address);
-	return index < _ram.size() ? _ram[index] : 0xff;
-}
-
-void Cartridge::RomWriteByte(unsigned short address, unsigned char value)
-{
-	if (address < 0x2000)
+	size_t RomBankCount(size_t romSize)
 	{
-		_ramEnabled = (value & 0xf) == 0xa;
-	}
-	else if (address >= 0x2000 && address < 0x4000)
-	{
-		_selectedRomBank = (_selectedRomBank & 0x60) | std::max(1, value & 0x1f);
-	}
-	else if (address < 0x6000)
-	{
-		if (_mode == Mode::FourMbRom)
-		{
-			_selectedRamBank = value & 0x3;
-		}
-		else
-		{
-			_selectedRomBank = (_selectedRomBank & 0x1f) | (value & 0x3) << 5;
-		}
-	}
-	else
-	{
-		_mode = value & 0x1 ? Mode::FourMbRom : Mode::SixteenMbRom;
+		// Real ROMs are a power-of-two number of banks; rounding others up keeps bank masking simple
+		size_t banks = 1;
+		while (banks * Cartridge::RomBankSize < romSize) banks <<= 1;
+		return banks;
 	}
 }
 
-void Cartridge::RamWriteByte(unsigned short address, unsigned char value)
+Cartridge::Cartridge(std::vector<unsigned char>&& rom, size_t ramSize, bool hasBattery) : _rom{ std::move(rom) },
+	_ram(ramSize), _hasBattery(hasBattery)
 {
-	auto index = RamIndex(address);
+	auto banks = RomBankCount(_rom.size());
 
-	if (_ramEnabled && index < _ram.size())
-	{
-		_ram[index] = value;
-	}
+	// Padding reads as $FF, like an absent ROM chip
+	_rom.resize(banks * RomBankSize, 0xff);
+	_romBankMask = static_cast<int>(banks - 1);
+
+	SetRomBanks(0, 1);
+}
+
+void Cartridge::SetRomBanks(int bank0, int bank1)
+{
+	_romBank0Offset = (bank0 & _romBankMask) * RomBankSize;
+	_romBank1Offset = (bank1 & _romBankMask) * RomBankSize;
+}
+
+size_t Cartridge::RamIndex(int bank, unsigned short address) const
+{
+	auto banks = (_ram.size() + RamBankSize - 1) / RamBankSize;
+	return (bank % banks * RamBankSize + (address & (RamBankSize - 1))) % _ram.size();
+}
+
+unsigned char Cartridge::ReadRamBank(int bank, unsigned short address) const
+{
+	return _ram.empty() ? 0xff : _ram[RamIndex(bank, address)];
+}
+
+void Cartridge::WriteRamBank(int bank, unsigned short address, unsigned char value)
+{
+	if (!_ram.empty()) _ram[RamIndex(bank, address)] = value;
 }

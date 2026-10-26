@@ -24,6 +24,7 @@ Cpu::Cpu(MemoryMap& memory) :
 	_memoryMap(memory), _hardware(nullptr), _state(CpuState::Running), _totalCycles(0), _instructionCycles(0),
 	_skipNextPCIncrement(false), _interruptsEnabled(true), _enableInterruptsAfterNext(false),
 	_enableInterruptsAfterThis(false), _enabledInterrupts(InterruptFlags::NoInt), _waitingInterrupts(InterruptFlags::NoInt),
+	_softwareBreakpointHit(false),
 	_aluOps
 	{
 		// ADD
@@ -470,6 +471,7 @@ void Cpu::Ccf(unsigned char opcode)
 void Cpu::Ld8RegOrMemRegOrMem(unsigned char opcode)
 {
 	auto val = (opcode & 0x7) != 0x6 ? GetReg8Ref2(opcode) : ReadByte(_registers.HL);
+	if (opcode == LdBB) _softwareBreakpointHit = true;
 
 	if ((opcode & 0x78) != 0x70)
 	{

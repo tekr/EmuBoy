@@ -1,12 +1,15 @@
 #include "stdafx.h"
 #include "Emulator.h"
-#include "CartridgeFactory.h"
 
 void Emulator::Run(int& currentCycle, int cycleTarget)
 {
 	while (currentCycle < cycleTarget)
 	{
-		currentCycle += EmuCpu.DoNextInstruction();
+		auto cycles = EmuCpu.DoNextInstruction();
+
+		// The cartridge's clock counts seconds, so it runs once per instruction rather than every machine cycle
+		EmuCartridge->RunCycles(cycles);
+		currentCycle += cycles;
 	}
 }
 
@@ -17,7 +20,7 @@ void Emulator::RunCycles(int cycles)
 	EmuSerial.RunCycles(cycles);
 }
 
-Emulator::Emulator(std::shared_ptr<Cartridge> cartridge)
+Emulator::Emulator(std::shared_ptr<Cartridge> cartridge) : EmuCartridge{ cartridge }
 {
 	EmuCpu.SetClockedHardware(this);
 	EmuTimer.SetCpu(&EmuCpu);
