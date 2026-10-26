@@ -5,7 +5,7 @@
 
 namespace
 {
-	enum TestKey { KeyRight = 1, KeyLeft, KeyUp, KeyDown, KeyA, KeyA2, KeyPause, KeyFastForward };
+	enum TestKey { KeyRight = 1, KeyLeft, KeyUp, KeyDown, KeyA, KeyA2, KeyPause, KeyFastForward, KeyF };
 
 	const unsigned ButtonA = 1;
 	const unsigned ButtonB = 0;
@@ -22,7 +22,9 @@ namespace
 		return InputMapper{
 			{ { KeyRight, JoypadKey::Right }, { KeyLeft, JoypadKey::Left }, { KeyUp, JoypadKey::Up },
 				{ KeyDown, JoypadKey::Down }, { KeyA, JoypadKey::A }, { KeyA2, JoypadKey::A } },
-			{ { KeyPause, Command::TogglePause }, { KeyFastForward, Command::FastForward } },
+			{ { { KeyPause, NoModifiers }, Command::TogglePause }, { { KeyFastForward, NoModifiers }, Command::FastForward },
+				{ { KeyF, ControlModifier | SystemModifier }, Command::ToggleFullscreen },
+				{ { KeyF, ShiftModifier }, Command::Screenshot } },
 			Layout(hatUpIsPositive) };
 	}
 
@@ -109,9 +111,71 @@ TEST(InputMapperTest, HeldCommandLastsUntilItsKeyIsReleased)
 TEST(InputMapperTest, RejectsKeyMappedTwice)
 {
 	EXPECT_THROW((InputMapper{ { { 1, JoypadKey::A }, { 1, JoypadKey::B } }, {}, Layout() }), std::invalid_argument);
-	EXPECT_THROW((InputMapper{ { { 1, JoypadKey::A } }, { { 1, Command::Reset } }, Layout() }), std::invalid_argument);
-	EXPECT_THROW((InputMapper{ {}, { { 2, Command::Reset }, { 2, Command::Screenshot } }, Layout() }),
+	EXPECT_THROW((InputMapper{ { { 1, JoypadKey::A } }, { { { 1, NoModifiers }, Command::Reset } }, Layout() }),
 		std::invalid_argument);
+	EXPECT_THROW((InputMapper{ {}, { { { 2, NoModifiers }, Command::Reset }, { { 2, NoModifiers }, Command::Screenshot } },
+		Layout() }), std::invalid_argument);
+}
+
+TEST(InputMapperTest, RejectsGameKeyInChord)
+{
+	// The game button would be pressed along with the command
+	EXPECT_THROW((InputMapper{ { { 1, JoypadKey::A } }, { { { 1, ControlModifier }, Command::Reset } }, Layout() }),
+		std::invalid_argument);
+}
+
+TEST(InputMapperTest, ChordNeedsItsModifiers)
+{
+	auto mapper = Mapper();
+
+	EXPECT_EQ(Command::None, mapper.KeyPressed(KeyF));
+	mapper.KeyReleased(KeyF);
+	EXPECT_EQ(Command::None, mapper.KeyPressed(KeyF, ControlModifier));
+	mapper.KeyReleased(KeyF);
+
+	EXPECT_EQ(Command::ToggleFullscreen, mapper.KeyPressed(KeyF, ControlModifier | SystemModifier));
+}
+
+TEST(InputMapperTest, ChordNeedsExactlyItsModifiers)
+{
+	auto mapper = Mapper();
+
+	EXPECT_EQ(Command::None, mapper.KeyPressed(KeyF, ControlModifier | SystemModifier | ShiftModifier));
+	mapper.KeyReleased(KeyF);
+	EXPECT_EQ(Command::None, mapper.KeyPressed(KeyPause, AltModifier));
+}
+
+TEST(InputMapperTest, SameKeyWithOtherModifiersIsAnotherCommand)
+{
+	auto mapper = Mapper();
+
+	EXPECT_EQ(Command::Screenshot, mapper.KeyPressed(KeyF, ShiftModifier));
+}
+
+TEST(InputMapperTest, ChordDoesntRepeatWhileHeld)
+{
+	auto mapper = Mapper();
+
+	EXPECT_EQ(Command::ToggleFullscreen, mapper.KeyPressed(KeyF, ControlModifier | SystemModifier));
+	EXPECT_EQ(Command::None, mapper.KeyPressed(KeyF, ControlModifier | SystemModifier));
+}
+
+TEST(InputMapperTest, GameKeysIgnoreModifiers)
+{
+	auto mapper = Mapper();
+
+	mapper.KeyPressed(KeyA, ShiftModifier);
+
+	EXPECT_EQ(JoypadKey::A, mapper.GetKeysDown());
+}
+
+TEST(InputMapperTest, HeldCommandNeedsItsModifiersWhenPressed)
+{
+	auto mapper = Mapper();
+
+	mapper.KeyPressed(KeyFastForward, ShiftModifier);
+
+	EXPECT_FALSE(mapper.IsHeld(Command::FastForward));
 }
 
 TEST(InputMapperTest, GamepadButtonsPressTheirButtons)

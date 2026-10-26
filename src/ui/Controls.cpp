@@ -24,14 +24,21 @@ namespace
 
 	InputMapper::CommandMap CommandKeys()
 	{
+#ifdef __APPLE__
+		// macOS takes F11 for Show Desktop before the app sees it; Ctrl+Cmd+F is the Mac's own fullscreen shortcut
+		const KeyChord fullscreenKey{ Key::F, ControlModifier | SystemModifier };
+#else
+		const KeyChord fullscreenKey{ Key::F11, NoModifiers };
+#endif
+
 		return
 		{
-			{ Key::P, Command::TogglePause },
-			{ Key::Escape, Command::LeaveFullscreen },
-			{ Key::Space, Command::FastForward },
-			{ Key::F2, Command::Reset },
-			{ Key::F11, Command::ToggleFullscreen },
-			{ Key::F12, Command::Screenshot }
+			{ { Key::P, NoModifiers }, Command::TogglePause },
+			{ { Key::Escape, NoModifiers }, Command::LeaveFullscreen },
+			{ { Key::Space, NoModifiers }, Command::FastForward },
+			{ { Key::F2, NoModifiers }, Command::Reset },
+			{ fullscreenKey, Command::ToggleFullscreen },
+			{ { Key::F12, NoModifiers }, Command::Screenshot }
 		};
 	}
 
@@ -91,7 +98,9 @@ Command Controls::HandleEvent(const sf::Event& event, InputMapper& input)
 	switch (event.type)
 	{
 	case sf::Event::KeyPressed:
-		return input.KeyPressed(event.key.code);
+		return input.KeyPressed(event.key.code, (event.key.control ? ControlModifier : NoModifiers) |
+			(event.key.alt ? AltModifier : NoModifiers) | (event.key.shift ? ShiftModifier : NoModifiers) |
+			(event.key.system ? SystemModifier : NoModifiers));
 
 	case sf::Event::KeyReleased:
 		input.KeyReleased(event.key.code);

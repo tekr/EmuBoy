@@ -40,19 +40,25 @@ InputMapper::InputMapper(const KeyMap& keys, const CommandMap& commands, Gamepad
 
 	for (auto& command : commands)
 	{
-		if (_keys.count(command.first) != 0 || !_commands.insert(command).second)
+		auto& chord = command.first;
+		if (_keys.count(chord.Key) != 0 || !_commands.insert({ { chord.Key, chord.Modifiers }, command.second }).second)
 		{
-			throw std::invalid_argument("Key " + std::to_string(command.first) + " is mapped twice");
+			throw std::invalid_argument("Key " + std::to_string(chord.Key) + " is mapped twice");
 		}
 	}
 }
 
-Command InputMapper::KeyPressed(int key)
+Command InputMapper::FindCommand(int key, unsigned modifiers) const
 {
-	if (!_keysHeld.insert(key).second) return Command::None;
-
-	auto command = _commands.find(key);
+	auto command = _commands.find({ key, modifiers });
 	return command != _commands.end() ? command->second : Command::None;
+}
+
+Command InputMapper::KeyPressed(int key, unsigned modifiers)
+{
+	if (!_keysHeld.insert({ key, modifiers }).second) return Command::None;
+
+	return FindCommand(key, modifiers);
 }
 
 void InputMapper::KeyReleased(int key)
@@ -106,9 +112,9 @@ JoypadKey InputMapper::GetKeysDown() const
 {
 	auto keys = JoypadKey::NoKey;
 
-	for (auto key : _keysHeld)
+	for (auto& key : _keysHeld)
 	{
-		auto mapping = _keys.find(key);
+		auto mapping = _keys.find(key.first);
 		if (mapping != _keys.end()) keys = Combine(keys, mapping->second);
 	}
 
@@ -119,10 +125,9 @@ JoypadKey InputMapper::GetKeysDown() const
 
 bool InputMapper::IsHeld(Command command) const
 {
-	for (auto key : _keysHeld)
+	for (auto& key : _keysHeld)
 	{
-		auto mapping = _commands.find(key);
-		if (mapping != _commands.end() && mapping->second == command) return true;
+		if (FindCommand(key.first, key.second) == command) return true;
 	}
 
 	return false;

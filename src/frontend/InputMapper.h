@@ -2,6 +2,7 @@
 #include "../core/InputJoypad.h"
 #include <map>
 #include <set>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -26,6 +27,23 @@ enum class GamepadAxis
 	HatY
 };
 
+// Modifier keys held with a key, as flags. System is Cmd on a Mac and the Windows key on a PC
+enum KeyModifiers : unsigned
+{
+	NoModifiers = 0,
+	ControlModifier = 1 << 0,
+	AltModifier = 1 << 1,
+	ShiftModifier = 1 << 2,
+	SystemModifier = 1 << 3
+};
+
+// A key pressed with exactly these modifiers
+struct KeyChord
+{
+	int Key;
+	unsigned Modifiers;
+};
+
 // Which gamepad buttons press which Game Boy buttons, and how its axes are read
 struct GamepadLayout
 {
@@ -46,14 +64,15 @@ class InputMapper
 {
 public:
 	using KeyMap = std::vector<std::pair<int, JoypadKey>>;
-	using CommandMap = std::vector<std::pair<int, Command>>;
+	using CommandMap = std::vector<std::pair<KeyChord, Command>>;
 
-	// Throws std::invalid_argument if a key is mapped twice, so a command can't clash with a game button
+	// Throws std::invalid_argument if a key or chord is mapped twice, or a game key is also used in a chord, so a
+	// command can't clash with a game button
 	InputMapper(const KeyMap& keys, const CommandMap& commands, GamepadLayout gamepad);
 
-	// Returns the command a key starts, or Command::None. Repeats of a key already held return Command::None, so
-	// toggles don't flicker with key repeat
-	Command KeyPressed(int key);
+	// Returns the command a key starts with the modifiers held, or Command::None. Game keys ignore modifiers.
+	// Repeats of a key already held return Command::None, so toggles don't flicker with key repeat
+	Command KeyPressed(int key, unsigned modifiers = NoModifiers);
 	void KeyReleased(int key);
 
 	void ButtonPressed(unsigned gamepad, unsigned button);
@@ -71,7 +90,8 @@ public:
 
 	JoypadKey GetKeysDown() const;
 
-	// Whether a key for a held command (like fast-forward) is down
+	// Whether a chord for a held command (like fast-forward) is down, judged by the modifiers held when its key was
+	// pressed
 	bool IsHeld(Command command) const;
 
 private:
@@ -82,10 +102,13 @@ private:
 	};
 
 	std::map<int, JoypadKey> _keys;
-	std::map<int, Command> _commands;
+	std::map<std::pair<int, unsigned>, Command> _commands;
 	GamepadLayout _layout;
 
-	std::set<int> _keysHeld;
+	// Each key held, with the modifiers held when it was pressed
+	std::map<int, unsigned> _keysHeld;
+
+	Command FindCommand(int key, unsigned modifiers) const;
 	std::map<unsigned, GamepadState> _gamepads;
 
 	JoypadKey GamepadKeys(const GamepadState& state) const;
