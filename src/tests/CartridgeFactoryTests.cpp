@@ -229,3 +229,77 @@ TEST(CartridgeTest, RomBankCountRoundsUpToPowerOfTwo)
 	cartridge.RomWriteByte(0x2000, 0x04);
 	EXPECT_EQ(0, Bank1(cartridge));
 }
+
+namespace
+{
+	// A ROM with the given bytes at the title's place in the header, $0134-$0143
+	std::vector<unsigned char> RomWithTitle(const std::vector<unsigned char>& titleBytes)
+	{
+		std::vector<unsigned char> rom(0x8000);
+		std::copy(titleBytes.begin(), titleBytes.end(), rom.begin() + 0x134);
+		return rom;
+	}
+
+	std::vector<unsigned char> Bytes(const std::string& text)
+	{
+		return { text.begin(), text.end() };
+	}
+}
+
+// Title format from https://gbdev.io/pandocs/The_Cartridge_Header.html#0134-0143--title
+
+TEST(CartridgeTitleTest, StopsAtPadding)
+{
+	EXPECT_EQ("TETRIS", CartridgeFactory::TitleFromHeader(RomWithTitle(Bytes("TETRIS"))));
+}
+
+TEST(CartridgeTitleTest, UsesAllSixteenBytes)
+{
+	EXPECT_EQ("SUPER MARIOLAND!", CartridgeFactory::TitleFromHeader(RomWithTitle(Bytes("SUPER MARIOLAND!"))));
+}
+
+TEST(CartridgeTitleTest, DoesntReadPastHeader)
+{
+	auto rom = RomWithTitle(Bytes("ABCDEFGHIJKLMNOP"));
+	rom[0x144] = 'Q';
+
+	EXPECT_EQ("ABCDEFGHIJKLMNOP", CartridgeFactory::TitleFromHeader(rom));
+}
+
+TEST(CartridgeTitleTest, StopsAtColourFlag)
+{
+	auto bytes = Bytes("POKEMON YELLOW");
+	bytes.resize(15);
+	bytes.push_back(0x80);
+
+	EXPECT_EQ("POKEMON YELLOW", CartridgeFactory::TitleFromHeader(RomWithTitle(bytes)));
+}
+
+TEST(CartridgeTitleTest, StopsAtNonPrintableBytes)
+{
+	EXPECT_EQ("AB", CartridgeFactory::TitleFromHeader(RomWithTitle({ 'A', 'B', 0x0a, 'C' })));
+	EXPECT_EQ("AB", CartridgeFactory::TitleFromHeader(RomWithTitle({ 'A', 'B', 0xc3, 'C' })));
+	EXPECT_EQ("AB", CartridgeFactory::TitleFromHeader(RomWithTitle({ 'A', 'B', 0x7f, 'C' })));
+}
+
+TEST(CartridgeTitleTest, TrimsSpaces)
+{
+	EXPECT_EQ("DR. MARIO", CartridgeFactory::TitleFromHeader(RomWithTitle(Bytes("  DR. MARIO     "))));
+}
+
+TEST(CartridgeTitleTest, EmptyWhenBlankOrMissing)
+{
+	EXPECT_EQ("", CartridgeFactory::TitleFromHeader(RomWithTitle({})));
+	EXPECT_EQ("", CartridgeFactory::TitleFromHeader(RomWithTitle(Bytes("    "))));
+	EXPECT_EQ("", CartridgeFactory::TitleFromHeader(std::vector<unsigned char>(0x100)));
+}
+
+TEST(CartridgeTitleTest, ShortRomGivesWhatItHas)
+{
+	std::vector<unsigned char> rom(0x137);
+	rom[0x134] = 'A';
+	rom[0x135] = 'B';
+	rom[0x136] = 'C';
+
+	EXPECT_EQ("ABC", CartridgeFactory::TitleFromHeader(rom));
+}

@@ -5,6 +5,7 @@
 #include "Mbc2Cartridge.h"
 #include "Mbc3Cartridge.h"
 #include "Mbc5Cartridge.h"
+#include <algorithm>
 #include <array>
 #include <fstream>
 
@@ -41,6 +42,24 @@ int CartridgeFactory::RamBanksFromHeader(const std::vector<unsigned char>& rom)
 
 	auto sizeCode = rom[RamSizeHeaderOffset];
 	return sizeCode < ramBanksBySizeCode.size() ? ramBanksBySizeCode[sizeCode] : 0;
+}
+
+std::string CartridgeFactory::TitleFromHeader(const std::vector<unsigned char>& rom)
+{
+	const size_t titleOffset = 0x134;
+	const size_t titleEnd = 0x144;
+
+	std::string title;
+	for (auto i = titleOffset; i < std::min(titleEnd, rom.size()); i++)
+	{
+		auto c = rom[i];
+		if (c < 0x20 || c > 0x7e) break;
+		title += static_cast<char>(c);
+	}
+
+	auto first = title.find_first_not_of(' ');
+	if (first == std::string::npos) return "";
+	return title.substr(first, title.find_last_not_of(' ') - first + 1);
 }
 
 std::shared_ptr<Cartridge> CartridgeFactory::Create(std::vector<unsigned char>&& rom)
