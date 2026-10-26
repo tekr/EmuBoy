@@ -257,3 +257,8 @@ paket-files/
 
 # CMake build output
 build/
+
+# Bundled OpenAL runtime (see src/ui/redist/readme.md)
+!src/ui/redist/
+!src/ui/redist/x86/
+!src/ui/redist/x64/

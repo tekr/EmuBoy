@@ -1,7 +1,7 @@
 #include "stdafx.h"
 #include "MemoryMap.h"
 
-MemoryMap::MemoryMap(InputJoypad& joypad) : _graphics(nullptr), _timer(nullptr), _joypad(joypad)
+MemoryMap::MemoryMap(InputJoypad& joypad) : _graphics(nullptr), _timer(nullptr), _apu(nullptr), _joypad(joypad)
 {
 }
 
@@ -58,10 +58,15 @@ unsigned char MemoryMap::ReadByte(unsigned short address) const
 		return _timer->ReadRegister(address - TimerPorts);
 	}
 
-	if (address < VramRegisters)
+	if (address < SoundPorts)
 	{
 		// TODO: IO ports
 		return 0xff;
+	}
+
+	if (address < VramRegisters)
+	{
+		return _apu != nullptr ? _apu->ReadRegister(address) : 0xff;
 	}
 
 	if (address < UnusableArea2)
@@ -90,7 +95,7 @@ void MemoryMap::WriteByte(unsigned short address, unsigned char value)
 	}
 	else if (address < RamFixed)
 	{
-		_cartridge->RamWriteByte(address - RamFixed, value);
+		_cartridge->RamWriteByte(address - RamSwitched, value);
 	}
 	// Includes near-complete repeat of fixed RAM from 0xe000 to OAM RAM start
 	else if (address < RamOam)
@@ -114,10 +119,16 @@ void MemoryMap::WriteByte(unsigned short address, unsigned char value)
 	else if (address < AfterTimerPorts)
 	{
 		_timer->WriteRegister(address - TimerPorts, value);
+
+		if (address == TimerPorts && _apu != nullptr) _apu->ResetDivider();
+	}
+	else if (address < SoundPorts)
+	{
+		// TODO: I/O ports
 	}
 	else if (address < VramRegisters)
 	{
-		// TODO: I/O ports
+		if (_apu != nullptr) _apu->WriteRegister(address, value);
 	}
 	else if (address < UnusableArea2)
 	{

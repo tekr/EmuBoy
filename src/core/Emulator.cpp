@@ -13,6 +13,7 @@ void Emulator::Run(int& currentCycle, int cycleTarget)
 		{
 			auto cycles = EmuCpu.DoNextInstruction();
 			cyclesRun += cycles;
+			EmuApu.RunCycles(cycles);
 
 			// Timer register writes must see the current divider
 			EmuTimer.RunCycles(cycles);
@@ -28,6 +29,7 @@ Emulator::Emulator(std::shared_ptr<Cartridge> cartridge)
 {
 	EmuTimer.SetCpu(&EmuCpu);
 	EmuMemoryMap.SetTimer(&EmuTimer);
+	EmuMemoryMap.SetApu(&EmuApu);
 	EmuMemoryMap.SetCartridge(cartridge);
 	EmuJoypad.SetCpu(&EmuCpu);
 }

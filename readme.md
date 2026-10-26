@@ -28,11 +28,14 @@ Emu Boy uses [SFML](http://www.sfml-dev.org) for outputting video & audio, and [
 Install the dependencies with [Homebrew](https://brew.sh), then build with CMake:
 
 ```sh
-brew install cmake boost sfml@2
-cmake -S . -B build -DSFML_DIR="$(brew --prefix sfml@2)/lib/cmake/SFML" -DCMAKE_PREFIX_PATH="$(brew --prefix boost)"
+brew install cmake boost sfml@2 googletest
+cmake -S . -B build -DSFML_DIR="$(brew --prefix sfml@2)/lib/cmake/SFML" -DCMAKE_PREFIX_PATH="$(brew --prefix boost);$(brew --prefix googletest)"
 cmake --build build
 ./build/EmuBoy ROMs/gb-snake.gb
 ```
+
+Run the unit tests with `ctest --test-dir build` (or run `../../build/Tests` from `src/tests`). Google Test is optional;
+without it, only the emulator is built.
 
 `EmuBoy [rom] [record-file] [scale]`: `scale` sets the window size as a multiple of the Game Boy's 160x144 screen
 (default 4). If `record-file` is given, every frame is appended to it as raw 160x144 RGBA, which is useful for making
@@ -45,7 +48,9 @@ As of now Emu Boy is still in its early stages and is very much a work in progre
 * Fairly cycle-accurate emulation of the LR35902 CPU (all documented instructions + interrupts)
 * Full graphics implementation (sprites + background + window support)
 * Runs (at least) the included snake and Super Mario Land
-* Unit testing of most CPU instructions
+* Sound: all four channels of the original Game Boy's sound hardware, including its documented quirks. Passes all of
+  blargg's dmg_sound test ROMs
+* Unit testing of most CPU instructions and the sound hardware
 * Windows (Visual Studio 2015 solution) and macOS (CMake)
 * Simulates the slow response-time of the Game Boy LCD screen and smoothes upsized jagged pixels
 * Keyboard input
@@ -56,7 +61,6 @@ As of now Emu Boy is still in its early stages and is very much a work in progre
 ## To-do list
 Various features remain to be added including:
 
-* Sound
 * Menus & ROM file selector
-* Linux/Mac OSX support
+* Linux support
 * Performance optimisation

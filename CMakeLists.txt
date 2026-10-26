@@ -8,13 +8,28 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 find_package(Boost REQUIRED)
-find_package(SFML 2.5 COMPONENTS graphics window system REQUIRED)
+find_package(SFML 2.5 COMPONENTS graphics window audio system REQUIRED)
 
-file(GLOB CORE_SOURCES src/core/*.cpp)
+file(GLOB CORE_SOURCES CONFIGURE_DEPENDS src/core/*.cpp)
 list(FILTER CORE_SOURCES EXCLUDE REGEX "stdafx\\.cpp$")
 add_library(core STATIC ${CORE_SOURCES})
 target_include_directories(core PUBLIC src/core)
 target_link_libraries(core PUBLIC Boost::boost)
 
-add_executable(EmuBoy src/ui/main.cpp)
-target_link_libraries(EmuBoy PRIVATE core sfml-graphics sfml-window sfml-system)
+add_executable(EmuBoy src/ui/main.cpp src/ui/AudioOutput.cpp)
+target_link_libraries(EmuBoy PRIVATE core sfml-graphics sfml-window sfml-audio sfml-system)
+
+# Unit tests (Google Test). Run with ctest, or run Tests from src/tests, which the tests' file paths are relative to
+find_package(GTest)
+if(GTest_FOUND)
+	enable_testing()
+	file(GLOB TEST_SOURCES CONFIGURE_DEPENDS src/tests/*.cpp)
+	list(FILTER TEST_SOURCES EXCLUDE REGEX "stdafx\\.cpp$")
+	add_executable(Tests ${TEST_SOURCES})
+	target_link_libraries(Tests PRIVATE core GTest::gtest)
+	# The tests use INSTANTIATE_TEST_CASE_P so they also build with the Google Test 1.7 used on Windows
+	if(NOT MSVC)
+		target_compile_options(Tests PRIVATE -Wno-deprecated-declarations)
+	endif()
+	add_test(NAME Tests COMMAND Tests WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/src/tests)
+endif()
