@@ -442,3 +442,24 @@ TEST(SaveStateCartridgeTest, RestoresMbc5Registers)
 	cartridge->RomWriteByte(0x2000, 0x12);
 	EXPECT_EQ(0x112, CartridgeTestHelpers::Bank1(*cartridge));
 }
+
+TEST(SaveStateCartridgeTest, CloneSharesTheRomButNotTheRegistersOrRam)
+{
+	auto rom = CartridgeTestHelpers::BankNumberedRom(8);
+	rom[CartridgeFactory::CartridgeTypeHeaderOffset] = Mbc1RamBattery;
+	rom[CartridgeFactory::RamSizeHeaderOffset] = Ram8K;
+	auto cartridge = CartridgeFactory::Create(std::move(rom));
+	cartridge->RomWriteByte(0x0000, 0x0a);
+	cartridge->RomWriteByte(0x2000, 3);
+	cartridge->RamWriteByte(0, 0x12);
+
+	auto clone = cartridge->Clone();
+	clone->RomWriteByte(0x2000, 5);
+	clone->RamWriteByte(0, 0x34);
+
+	EXPECT_EQ(&cartridge->GetRom(), &clone->GetRom());
+	EXPECT_EQ(3, CartridgeTestHelpers::Bank1(*cartridge));
+	EXPECT_EQ(5, CartridgeTestHelpers::Bank1(*clone));
+	EXPECT_EQ(0x12, cartridge->RamReadByte(0));
+	EXPECT_EQ(0x34, clone->RamReadByte(0));
+}

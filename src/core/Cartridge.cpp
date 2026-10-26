@@ -13,14 +13,15 @@ namespace
 	}
 }
 
-Cartridge::Cartridge(std::vector<unsigned char>&& rom, size_t ramSize, bool hasBattery) : _rom{ std::move(rom) },
-	_ram(ramSize), _hasBattery(hasBattery)
+Cartridge::Cartridge(std::vector<unsigned char>&& rom, size_t ramSize, bool hasBattery) :
+	_rom{ std::make_shared<std::vector<unsigned char>>(std::move(rom)) }, _ram(ramSize), _hasBattery(hasBattery)
 {
-	auto banks = RomBankCount(_rom.size());
+	auto banks = RomBankCount(_rom->size());
 
 	// Padding reads as $FF, like an absent ROM chip
-	_rom.resize(banks * RomBankSize, 0xff);
+	_rom->resize(banks * RomBankSize, 0xff);
 	_romBankMask = static_cast<int>(banks - 1);
+	_romData = _rom->data();
 
 	SetRomBanks(0, 1);
 }

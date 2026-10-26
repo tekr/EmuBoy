@@ -21,8 +21,8 @@ public:
 	unsigned char RomReadByte(unsigned short address) const
 	{
 		return address < RomBankSize
-			? _rom[_romBank0Offset + address]
-			: _rom[_romBank1Offset + (address & (RomBankSize - 1))];
+			? _romData[_romBank0Offset + address]
+			: _romData[_romBank1Offset + (address & (RomBankSize - 1))];
 	}
 
 	// Writes to $0000-$7FFF set the mapper's registers
@@ -58,9 +58,10 @@ public:
 	void MarkSaved() { _hasUnsavedChanges = false; }
 
 	// The ROM, padded to a whole number of banks
-	const std::vector<unsigned char>& GetRom() const { return _rom; }
+	const std::vector<unsigned char>& GetRom() const { return *_rom; }
 
-	// A copy of the cartridge in its current state, e.g. to try loading a save state into
+	// A copy of the cartridge in its current state, e.g. to try loading a save state into. It shares the ROM, which
+	// doesn't change, so copying is quick however big the ROM
 	virtual std::unique_ptr<Cartridge> Clone() const = 0;
 
 	// Save states: the mapper's registers, the RAM and any clock, but not the ROM, which a state is tied to. Loading
@@ -69,7 +70,8 @@ public:
 	void ReadState(StateReader& reader);
 
 protected:
-	std::vector<unsigned char> _rom;
+	// Shared by clones
+	std::shared_ptr<std::vector<unsigned char>> _rom;
 	std::vector<unsigned char> _ram;
 
 	Cartridge(std::vector<unsigned char>&& rom, size_t ramSize, bool hasBattery);
@@ -96,6 +98,9 @@ private:
 	bool _hasBattery;
 	bool _hasUnsavedChanges{ false };
 	int _romBankMask;
+
+	// _rom's bytes, read on every instruction fetch
+	const unsigned char* _romData;
 	size_t _romBank0Offset{ 0 };
 	size_t _romBank1Offset{ 0 };
 
