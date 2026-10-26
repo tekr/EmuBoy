@@ -13,7 +13,9 @@ const int TransferCycles = 8 * 512;
 class SerialTests : public CpuTestFixture
 {
 public:
-	Serial Serial;
+	// Members named after their types qualify the type with :: so the name's meaning doesn't change within the
+	// class, which GCC rejects
+	::Serial Serial;
 	std::vector<unsigned char> Sent;
 
 	SerialTests()
