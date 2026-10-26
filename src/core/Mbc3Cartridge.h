@@ -22,6 +22,10 @@ class Mbc3Cartridge : public Cartridge
 	// Index of the selected clock register, or -1 if a RAM bank (or nothing) is selected
 	int SelectedClockRegister() const;
 
+protected:
+	// The clock chip is separate from the MBC and runs on the battery, so it keeps counting
+	void ResetRegisters() override;
+
 public:
 	Mbc3Cartridge(std::vector<unsigned char>&& rom, size_t ramSize, bool hasBattery = false, bool hasClock = false,
 		bool isMbc30 = false);

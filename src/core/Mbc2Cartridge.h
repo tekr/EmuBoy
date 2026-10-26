@@ -6,6 +6,9 @@ class Mbc2Cartridge : public Cartridge
 {
 	bool _ramEnabled{ false };
 
+protected:
+	void ResetRegisters() override { _ramEnabled = false; }
+
 public:
 	static const size_t RamSize = 512;
 

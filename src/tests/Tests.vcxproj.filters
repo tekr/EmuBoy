@@ -36,6 +36,9 @@
     <ClCompile Include="Mbc5Tests.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="CartridgeResetTests.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="Mbc3Tests.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>

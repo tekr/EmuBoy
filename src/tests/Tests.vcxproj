@@ -176,6 +176,7 @@
     <ClCompile Include="Mbc2Tests.cpp" />
     <ClCompile Include="Mbc3Tests.cpp" />
     <ClCompile Include="Mbc5Tests.cpp" />
+    <ClCompile Include="CartridgeResetTests.cpp" />
     <ClCompile Include="MooneyeMbcTests.cpp" />
     <ClCompile Include="RealTimeClockTests.cpp" />
     <ClCompile Include="Rtc3Tests.cpp" />

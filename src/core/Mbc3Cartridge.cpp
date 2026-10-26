@@ -28,6 +28,12 @@ int Mbc3Cartridge::SelectedClockRegister() const
 	return _hasClock && reg >= 0 && reg < RealTimeClock::RegisterCount ? reg : -1;
 }
 
+void Mbc3Cartridge::ResetRegisters()
+{
+	_ramBankOrClockRegister = 0;
+	_ramAndClockEnabled = false;
+}
+
 void Mbc3Cartridge::RomWriteByte(unsigned short address, unsigned char value)
 {
 	if (address < 0x2000)
