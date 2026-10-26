@@ -124,7 +124,6 @@ int Graphics::RenderLine()
 	if (_currentScanline == 0)
 	{
 		_registers[RegLineCount] = 0;
-		_spriteManager.SetScanline(0);
 		_currentWindowScanline = 0;
 	}
 
@@ -138,7 +137,8 @@ int Graphics::RenderLine()
 			auto backgroundY = _currentScanline + _registers[RegBgScrollY];
 			auto windowVisibleThisLine = WindowEnabled() && _currentScanline >= _registers[RegWindowY] && _registers[RegWindowX] < 167;
 
-			auto visibleSprites = _spriteManager.GetVisibleSprites();
+			_spriteManager.SelectSprites(_currentScanline);
+			auto& visibleSprites = _spriteManager.GetVisibleSprites();
 			auto firstSpriteNotLeftOfX = visibleSprites.cbegin();
 			auto firstSpriteBelowY = visibleSprites.cend();
 
@@ -211,7 +211,6 @@ int Graphics::RenderLine()
 
 	++_registers[RegLineCount];
 	++_currentScanline;
-	_spriteManager.NextScanline();
 
 	return ScanlineClocks;
 }
