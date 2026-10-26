@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "RealTimeClock.h"
+#include <algorithm>
 
 namespace
 {
@@ -97,4 +98,17 @@ void RealTimeClock::WriteRegister(int reg, unsigned char value)
 
 	_state.Counters[reg] = value;
 	_state.Latched[reg] = value;
+}
+
+void RealTimeClock::SetState(const State& state)
+{
+	_state = state;
+
+	for (auto reg = 0; reg < RegisterCount; reg++)
+	{
+		_state.Counters[reg] &= RegisterMasks[reg];
+		_state.Latched[reg] &= RegisterMasks[reg];
+	}
+
+	_state.CyclesIntoSecond = std::min(std::max(_state.CyclesIntoSecond, 0), CyclesPerSecond - 1);
 }

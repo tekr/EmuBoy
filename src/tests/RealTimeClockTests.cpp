@@ -291,3 +291,23 @@ TEST_F(RealTimeClockTest, StateRoundTrips)
 	EXPECT_EQ(1234, restored.GetState().CyclesIntoSecond);
 	EXPECT_TRUE(restored.GetState().LatchArmed);
 }
+
+TEST_F(RealTimeClockTest, SetStateKeepsOnlyRegisterBits)
+{
+	RealTimeClock::State state;
+	state.Counters.fill(0xff);
+	state.Latched.fill(0xff);
+	state.CyclesIntoSecond = 5 * CyclesPerSecond;
+
+	Clock.SetState(state);
+	auto& restored = Clock.GetState();
+
+	const std::array<unsigned char, RealTimeClock::RegisterCount> masks{ { 0x3f, 0x3f, 0x1f, 0xff, 0xc1 } };
+	EXPECT_EQ(masks, restored.Counters);
+	EXPECT_EQ(masks, restored.Latched);
+	EXPECT_EQ(CyclesPerSecond - 1, restored.CyclesIntoSecond);
+
+	state.CyclesIntoSecond = -1;
+	Clock.SetState(state);
+	EXPECT_EQ(0, Clock.GetState().CyclesIntoSecond);
+}

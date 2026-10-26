@@ -58,5 +58,7 @@ public:
 	void WriteRegister(int reg, unsigned char value);
 
 	const State& GetState() const { return _state; }
-	void SetState(const State& state) { _state = state; }
+
+	// Restores a saved state, keeping only bits the hardware has, so a corrupt state can't produce impossible values
+	void SetState(const State& state);
 };
