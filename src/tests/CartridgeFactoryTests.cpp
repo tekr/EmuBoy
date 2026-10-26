@@ -282,6 +282,28 @@ TEST(CartridgeTitleTest, StopsAtNonPrintableBytes)
 	EXPECT_EQ("AB", CartridgeFactory::TitleFromHeader(RomWithTitle({ 'A', 'B', 0x7f, 'C' })));
 }
 
+TEST(CartridgeTitleTest, LeavesOutManufacturerCode)
+{
+	auto bytes = Bytes("POKEMON_GLDAAUE");
+	bytes.push_back(0x80);
+
+	EXPECT_EQ("POKEMON_GLD", CartridgeFactory::TitleFromHeader(RomWithTitle(bytes)));
+}
+
+TEST(CartridgeTitleTest, KeepsFifteenCharacterColourTitle)
+{
+	// Not a manufacturer code, as it has a space
+	auto bytes = Bytes("SUPER GAME DX 2");
+	bytes.push_back(0xc0);
+
+	EXPECT_EQ("SUPER GAME DX 2", CartridgeFactory::TitleFromHeader(RomWithTitle(bytes)));
+}
+
+TEST(CartridgeTitleTest, NoManufacturerCodeWithoutColourFlag)
+{
+	EXPECT_EQ("ABCDEFGHIJKWXYZ", CartridgeFactory::TitleFromHeader(RomWithTitle(Bytes("ABCDEFGHIJKWXYZ"))));
+}
+
 TEST(CartridgeTitleTest, TrimsSpaces)
 {
 	EXPECT_EQ("DR. MARIO", CartridgeFactory::TitleFromHeader(RomWithTitle(Bytes("  DR. MARIO     "))));

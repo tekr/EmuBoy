@@ -34,7 +34,8 @@ public:
 	static int RamBanksFromHeader(const std::vector<unsigned char>& rom);
 
 	// The game's title from $0134-$0143, up to the first byte that isn't printable ASCII (the padding $00s, or on
-	// later cartridges the colour flag at $0143), with surrounding spaces trimmed. Empty if the ROM is too short
+	// later cartridges the colour flag at $0143), without a manufacturer code at $013F-$0142 and with surrounding
+	// spaces trimmed. Empty if the ROM is too short
 	static std::string TitleFromHeader(const std::vector<unsigned char>& rom);
 
 	static std::shared_ptr<Cartridge> Create(std::vector<unsigned char>&& rom);

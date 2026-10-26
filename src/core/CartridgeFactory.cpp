@@ -47,10 +47,21 @@ int CartridgeFactory::RamBanksFromHeader(const std::vector<unsigned char>& rom)
 std::string CartridgeFactory::TitleFromHeader(const std::vector<unsigned char>& rom)
 {
 	const size_t titleOffset = 0x134;
-	const size_t titleEnd = 0x144;
+	const size_t manufacturerCodeOffset = 0x13f;
+	const size_t colourFlagOffset = 0x143;
+	auto titleEnd = std::min<size_t>(0x144, rom.size());
+
+	// Colour-era cartridges may shorten the title to 11 characters, followed by a 4-character manufacturer code of
+	// capital letters and digits. The header doesn't say which, so a code is assumed only when one could be there
+	if (rom.size() > colourFlagOffset && (rom[colourFlagOffset] & 0x80) != 0 &&
+		std::all_of(rom.begin() + manufacturerCodeOffset, rom.begin() + colourFlagOffset,
+			[](unsigned char c) { return (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9'); }))
+	{
+		titleEnd = manufacturerCodeOffset;
+	}
 
 	std::string title;
-	for (auto i = titleOffset; i < std::min(titleEnd, rom.size()); i++)
+	for (auto i = titleOffset; i < titleEnd; i++)
 	{
 		auto c = rom[i];
 		if (c < 0x20 || c > 0x7e) break;
