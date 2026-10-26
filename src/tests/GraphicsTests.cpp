@@ -277,3 +277,14 @@ TEST_F(GraphicsTestFixture, RegistersHaveDefinedPowerOnValues)
 	graphics->~Graphics();
 	MemoryMap.SetGraphics(&Graphics);
 }
+
+TEST_F(GraphicsTestFixture, WritesToLineCountAreIgnored)
+{
+	MemoryMap.WriteByte(LcdControlAddress, DisplayOn);
+	Graphics.ResetFrame();
+	for (auto i = 0; i < 3; i++) Graphics.RenderLine();
+
+	MemoryMap.WriteByte(LineCountAddress, 0x55);
+
+	EXPECT_EQ(3, MemoryMap.ReadByte(LineCountAddress));
+}

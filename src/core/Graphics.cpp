@@ -91,9 +91,10 @@ void Graphics::WriteOam(unsigned short address, unsigned char value)
 
 void Graphics::WriteRegister(unsigned short address, unsigned char value)
 {
-	// Writing to the line count register resets it
-	if (address == RegLineCount) value = 0;
-	else if (address == RegLcdControl)
+	// LY is read-only (Pan Docs)
+	if (address == RegLineCount) return;
+
+	if (address == RegLcdControl)
 	{
 		_spriteManager.SetUseTallSprites(value & 0x4);
 
