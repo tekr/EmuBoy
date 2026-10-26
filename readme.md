@@ -41,6 +41,12 @@ without it, only the emulator is built.
 (default 4). If `record-file` is given, every frame is appended to it as raw 160x144 RGBA, which is useful for making
 screen captures.
 
+Games with battery-backed RAM keep their saves in a `.sav` file next to the ROM, named after it (`Tetris.gb` saves
+to `Tetris.sav`). It is loaded at start-up, written within a few seconds of the game changing it, and written again on
+exit (closing the window, Ctrl+C or closing the terminal). The format is the raw RAM dump most emulators use, with
+the BGB/VBA-M real-time clock footer for MBC3 clock cartridges, so saves can be moved to and from BGB, VBA-M, mGBA and
+SameBoy. The clock catches up with the time that passed while Emu Boy wasn't running.
+
 
 ## Current status
 As of now Emu Boy is still in its early stages and is very much a work in progress. It currently supports the following:
@@ -54,6 +60,7 @@ As of now Emu Boy is still in its early stages and is very much a work in progre
   MBC5 (including rumble cartridges), chosen from the cartridge header, which covers almost all of the original Game
   Boy's library. Other mappers are run as MBC1 with a warning. Passes the mooneye-test-suite's MBC1, MBC2 and MBC5
   test ROMs and rtc3test
+* Battery-backed saves, including the MBC3 real-time clock, compatible with other emulators' `.sav` files
 * Unit testing of most CPU instructions, the sound hardware and the cartridge mappers
 * Windows (Visual Studio 2015 solution) and macOS (CMake)
 * Simulates the slow response-time of the Game Boy LCD screen and smoothes upsized jagged pixels
