@@ -155,15 +155,19 @@ void Graphics::DrawLine()
 				unsigned char colour = 0;
 				auto windowX = x - _registers[RegWindowX] + 7;
 
-				if (windowVisibleThisLine && windowX >= 0)
+				// On the DMG, LCDC bit 0 blanks the window as well as the background
+				if (backgroundEnabled)
 				{
-					// Window is over background
-					colour = GetBgOrWinColour(windowX, _currentWindowScanline, TileType::Window);
-				}
-				else if (backgroundEnabled)
-				{
-					auto backgroundX = x + _registers[RegBgScrollX];
-					colour = GetBgOrWinColour(backgroundX, backgroundY, TileType::Background);
+					if (windowVisibleThisLine && windowX >= 0)
+					{
+						// Window is over background
+						colour = GetBgOrWinColour(windowX, _currentWindowScanline, TileType::Window);
+					}
+					else
+					{
+						auto backgroundX = x + _registers[RegBgScrollX];
+						colour = GetBgOrWinColour(backgroundX, backgroundY, TileType::Background);
+					}
 				}
 
 				auto spritePixelOnTop = false;
@@ -201,6 +205,8 @@ void Graphics::DrawLine()
 				}
 			}
 
+			// The window's line counter advances even while LCDC bit 0 blanks it, as in SameBoy, where that bit only
+			// affects the pixels output, not the window's fetching
 			if (windowVisibleThisLine)
 			{
 				++_currentWindowScanline;

@@ -208,3 +208,48 @@ TEST_F(GraphicsTestFixture, LineCompareOfZeroMatchesAtStartOfFrame)
 	EXPECT_EQ(CoincidenceFlag, MemoryMap.ReadByte(LcdStatusAddress) & CoincidenceFlag);
 	EXPECT_EQ(InterruptFlags::LcdStatInt, Cpu.WaitingInterrupts() & InterruptFlags::LcdStatInt);
 }
+
+TEST_F(GraphicsTestFixture, BackgroundDisableAlsoBlanksWindow)
+{
+	// Tile 0 is colour 3, and both tile maps use it
+	for (unsigned short i = 0; i < 16; i++) MemoryMap.WriteByte(MemoryMap::RamVideo + i, 0xff);
+	for (unsigned short i = 0; i < 2 * 32 * 32; i++) MemoryMap.WriteByte(MemoryMap::RamVideo + TestGraphics::TileMapBase1 + i, 0);
+
+	MemoryMap.WriteByte(MemoryMap::VramRegisters + TestGraphics::RegBgWinPalette, 0xe4);
+	MemoryMap.WriteByte(MemoryMap::VramRegisters + TestGraphics::RegWindowY, 0);
+	MemoryMap.WriteByte(MemoryMap::VramRegisters + TestGraphics::RegWindowX, 7);
+
+	// Display, window and tile data at 0x8000 on, background off
+	MemoryMap.WriteByte(LcdControlAddress, 0xb0);
+
+	Graphics.ResetFrame();
+	Graphics.RenderLine();
+
+	EXPECT_EQ(Graphics::ShadeColour(0), Graphics.Bitmap[0]);
+}
+
+TEST_F(GraphicsTestFixture, WindowLineCounterAdvancesWhileBackgroundDisabled)
+{
+	// Window rows alternate between colour 3 (even) and colour 0 (odd), so the row drawn shows the counter
+	for (unsigned short row = 0; row < 8; row++)
+	{
+		MemoryMap.WriteByte(MemoryMap::RamVideo + row * 2, row % 2 ? 0 : 0xff);
+		MemoryMap.WriteByte(MemoryMap::RamVideo + row * 2 + 1, row % 2 ? 0 : 0xff);
+	}
+	for (unsigned short i = 0; i < 2 * 32 * 32; i++) MemoryMap.WriteByte(MemoryMap::RamVideo + TestGraphics::TileMapBase1 + i, 0);
+
+	MemoryMap.WriteByte(MemoryMap::VramRegisters + TestGraphics::RegBgWinPalette, 0xe4);
+	MemoryMap.WriteByte(MemoryMap::VramRegisters + TestGraphics::RegWindowY, 0);
+	MemoryMap.WriteByte(MemoryMap::VramRegisters + TestGraphics::RegWindowX, 7);
+
+	// Line 0 with the background (and so the window) blanked, then line 1 with it on again
+	MemoryMap.WriteByte(LcdControlAddress, 0xb0);
+	Graphics.ResetFrame();
+	Graphics.RenderLine();
+
+	MemoryMap.WriteByte(LcdControlAddress, 0xb1);
+	Graphics.RenderLine();
+
+	// Window row 1 (colour 0) is drawn on line 1, not row 0 again
+	EXPECT_EQ(Graphics::ShadeColour(0), Graphics.Bitmap[Graphics::HozPixels]);
+}
