@@ -42,8 +42,13 @@ mooneye-test-suite
 
 `mooneye-test-suite/` holds test ROMs from Joonas Javanainen's (Gekkio's) mooneye-test-suite, with its licence,
 from the release build https://gekkio.fi/files/mooneye-test-suite/mts-20260714-0944-31510e1/ (source:
-https://github.com/Gekkio/mooneye-test-suite). `MooneyeMbcTests.cpp` runs the `emulator-only` MBC1, MBC2 and MBC5
-ROMs with `MooneyeRomRunner.h`, which detects the result each ROM leaves in the CPU registers.
+https://github.com/Gekkio/mooneye-test-suite). `MooneyeRomRunner.h` runs them, detecting the result each ROM leaves
+in the CPU registers. `MooneyeMbcTests.cpp` runs the `emulator-only` MBC1, MBC2 and MBC5 ROMs, and
+`MooneyeAcceptanceTests.cpp` the `acceptance` ROMs that apply to the DMG Emu Boy emulates, with its boot ROM. Those
+left out are for other models, as the suffix of their names says (`dmg0` for the early DMG, `S` for the Super Game
+Boys, `mgb` and `sgb`/`sgb2` for the Game Boy Pocket and Super Game Boys), and depend on those models' boot ROMs:
+`boot_div-dmg0`, `boot_div-S`, `boot_div2-S`, `boot_hwio-dmg0`, `boot_hwio-S`, `boot_regs-dmg0`, `boot_regs-mgb`,
+`boot_regs-sgb` and `boot_regs-sgb2`.
 
 rtc3test
 --------

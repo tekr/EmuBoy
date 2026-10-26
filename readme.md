@@ -76,7 +76,10 @@ tests as on macOS.
 As of now Emu Boy is still in its early stages and is very much a work in progress. It currently supports the following:
 
 * Fairly cycle-accurate emulation of the LR35902 CPU (all documented instructions + interrupts)
-* Full graphics implementation (sprites + background + window support)
+* Full graphics implementation (sprites + background + window support), with the LCD's timing, STAT interrupts,
+  OAM DMA and the CPU's access to video memory accurate to the machine cycle, and the DMG's OAM corruption bug.
+  Passes dmg-acid2, blargg's CPU, timing and oam_bug test ROMs, and the mooneye-test-suite acceptance tests that
+  apply to the DMG
 * Runs (at least) the included snake and Super Mario Land
 * Sound: all four channels of the original Game Boy's sound hardware, including its documented quirks. Passes all of
   blargg's dmg_sound test ROMs
