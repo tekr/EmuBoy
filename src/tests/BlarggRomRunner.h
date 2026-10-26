@@ -1,5 +1,11 @@
 #pragma once
+#include <functional>
 #include <string>
+
+class MemoryMap;
+
+// Called between frames, for a test to adjust the ROM's memory
+using BetweenFramesHook = std::function<void(MemoryMap&)>;
 
 // Runs one of blargg's Game Boy test ROMs (see roms/readme.md) until it reports a result. Older ROMs send their
 // text output through the serial port and finish with "Passed" or "Failed". Newer ones also write to cartridge
@@ -16,7 +22,7 @@ struct BlarggRomResult
 	std::string Output;
 };
 
-BlarggRomResult RunBlarggRom(const std::string& path, int maxFrames);
+BlarggRomResult RunBlarggRom(const std::string& path, int maxFrames, const BetweenFramesHook& betweenFrames = nullptr);
 
 // Google Test assertion that the ROM reports success within maxFrames, showing its output if not
-void ExpectBlarggRomPasses(const std::string& path, int maxFrames);
+void ExpectBlarggRomPasses(const std::string& path, int maxFrames, const BetweenFramesHook& betweenFrames = nullptr);

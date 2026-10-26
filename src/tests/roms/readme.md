@@ -19,10 +19,10 @@ at $A000.
 | `halt_bug/`     | The HALT bug                                             | `BlarggCpuTests.cpp`    |
 | `oam_bug/`      | OAM corruption by 16-bit increments and decrements       | `BlarggOamBugTests.cpp` |
 
-`oam_bug/7-timing_effect.gb` isn't run. It logs an OAM dump for each of the 20 timings in its range that corrupt OAM,
-over 8 KB of text, more than the cartridge RAM it logs to holds, so the log runs on into the test's own code in work
-RAM, which starts at $C000 straight after cartridge RAM, and it crashes. In a scratch build that kept its code from
-being overwritten, it passed the checksum it takes of that output.
+`oam_bug/7-timing_effect.gb` logs an OAM dump for each of the 20 timings in its range that corrupt OAM, over 8 KB of
+text, more than the cartridge RAM it logs to holds, so the log would run on into the test's own code in work RAM,
+which starts at $C000 straight after cartridge RAM, and crash it. Its test moves the log pointer back to the start of
+cartridge RAM between frames. The ROM checks a checksum of the text it prints, which the log doesn't affect.
 
 `interrupt_time` isn't included. It's a Game Boy Color test (its header marks it CGB-only and its source sets
 `REQUIRE_CGB`) that times interrupts at both CPU speeds, so it needs the CGB's double-speed mode.

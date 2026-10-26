@@ -33,7 +33,7 @@ namespace
 	}
 }
 
-BlarggRomResult RunBlarggRom(const std::string& path, int maxFrames)
+BlarggRomResult RunBlarggRom(const std::string& path, int maxFrames, const BetweenFramesHook& betweenFrames)
 {
 	BlarggRomResult result;
 
@@ -50,6 +50,7 @@ BlarggRomResult RunBlarggRom(const std::string& path, int maxFrames)
 	for (result.Frames = 1; result.Frames <= maxFrames; result.Frames++)
 	{
 		emulator.GetFrame();
+		if (betweenFrames) betweenFrames(memory);
 
 		// The serial output's last line is "Passed", or "Failed" possibly followed by a test number
 		if (EndsWith(serialText, "Passed\n") || serialText.find("Failed") != std::string::npos)
@@ -77,10 +78,10 @@ BlarggRomResult RunBlarggRom(const std::string& path, int maxFrames)
 	return result;
 }
 
-void ExpectBlarggRomPasses(const std::string& path, int maxFrames)
+void ExpectBlarggRomPasses(const std::string& path, int maxFrames, const BetweenFramesHook& betweenFrames)
 {
 	SCOPED_TRACE(path);
-	auto result = RunBlarggRom(path, maxFrames);
+	auto result = RunBlarggRom(path, maxFrames, betweenFrames);
 
 	ASSERT_TRUE(result.RomFound) << "ROM not found; run the tests from src/tests";
 	ASSERT_TRUE(result.Finished) << "No result after " << maxFrames << " frames. Output so far:\n" << result.Output;
