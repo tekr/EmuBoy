@@ -2,6 +2,7 @@
 #include "SFML/Graphics.hpp"
 #include "../core/Emulator.h"
 #include "../core/CartridgeFactory.h"
+#include "../core/BatteryStore.h"
 #include "../core/InputJoypad.h"
 #include "AudioOutput.h"
 #include <fstream>
@@ -9,6 +10,7 @@
 #include <string>
 #include <cstdlib>
 #include <algorithm>
+#include <csignal>
 
 using sfKey = sf::Keyboard::Key;
 
@@ -40,6 +42,19 @@ void UpdateKeysDown(const sf::Event& event)
 	}
 }
 
+// Set by Ctrl+C or the terminal closing, so the emulator can exit normally and save the game
+volatile std::sig_atomic_t QuitRequested = 0;
+
+void RequestQuit(int)
+{
+	QuitRequested = 1;
+}
+
+void ReportSaveResult(const BatteryStore::Result& result)
+{
+	if (!result.Message.empty()) std::cerr << result.Message << std::endl;
+}
+
 // Usage: EmuBoy [rom] [record-file] [scale]
 // With a record file, every frame is appended to it as raw 160x144 RGBA, as the emulator produced it
 int main(int argc, char* argv[])
@@ -61,9 +76,10 @@ int main(int argc, char* argv[])
 	sf::Sprite screenSprite(screen.getTexture());
 	screenSprite.scale(static_cast<float>(scale), static_cast<float>(scale));
 
+	std::string romPath = argc > 1 ? argv[1] : "../../ROMs/gb-snake.gb";
 	std::vector<unsigned char> rom;
 	std::shared_ptr<Cartridge> cartridge;
-	if (CartridgeFactory::ReadFile(argc > 1 ? argv[1] : "../../ROMs/gb-snake.gb", rom))
+	if (CartridgeFactory::ReadFile(romPath, rom))
 	{
 		if (!CartridgeFactory::TypeFromHeader(rom).IsSupported)
 		{
@@ -76,6 +92,20 @@ int main(int argc, char* argv[])
 
 	if (cartridge != nullptr)
 	{
+		BatteryStore saves{ cartridge, BatteryStore::SavePathForRom(romPath) };
+		ReportSaveResult(saves.Load());
+
+		std::signal(SIGINT, RequestQuit);
+		std::signal(SIGTERM, RequestQuit);
+#ifdef SIGHUP
+		std::signal(SIGHUP, RequestQuit);
+#endif
+
+		// Changes are saved within a few seconds, so a crash loses little, without writing the file on every frame of
+		// a game's multi-frame save routine
+		const auto framesBetweenSaves = 3 * Graphics::SystemClockHz / Graphics::FrameClocks;
+		auto framesUntilSave = framesBetweenSaves;
+
 		Emulator emulator{ cartridge };
 		AudioOutput audio{ emulator.GetAudioSampleRate() };
 		std::vector<short> samples;
@@ -90,6 +120,12 @@ int main(int argc, char* argv[])
 
 		while (window.isOpen())
 		{
+			if (QuitRequested)
+			{
+				window.close();
+				break;
+			}
+
 			emulator.GetJoypad().SetKeysDown(window.hasFocus() ? KeysDown : JoypadKey::NoKey);
 
 			sf::Event event;
@@ -113,12 +149,19 @@ int main(int argc, char* argv[])
 			window.draw(screenSprite);
 			window.display();
 
+			if (--framesUntilSave == 0)
+			{
+				ReportSaveResult(saves.SaveIfChanged());
+				framesUntilSave = framesBetweenSaves;
+			}
+
 			auto now = clock.getElapsedTime();
 			if (now < nextFrame) sf::sleep(nextFrame - now);
 			else if (now - nextFrame > frameTime * 4.f) nextFrame = now; // fell well behind (e.g. window dragged): don't race to catch up
 			nextFrame += frameTime;
 		}
 
+		ReportSaveResult(saves.Save());
 		return 0;
 	}
 
