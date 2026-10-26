@@ -1,6 +1,8 @@
 
 Emu Boy
 =======
+[![CI](https://github.com/tekr/EmuBoy/actions/workflows/ci.yml/badge.svg)](https://github.com/tekr/EmuBoy/actions/workflows/ci.yml)
+
 A Nintendo Game Boy emulator written in C++.
 
 ## Why another emulator?
@@ -42,6 +44,20 @@ without it, only the emulator is built.
 screen captures.
 
 
+## Building on Linux
+Install the dependencies with your package manager, then build with CMake. On Ubuntu 24.04 or Debian 12/13:
+
+```sh
+sudo apt-get install cmake g++ libboost-dev libsfml-dev libgtest-dev
+cmake -S . -B build
+cmake --build build
+./build/EmuBoy ROMs/gb-snake.gb
+```
+
+SFML 2.5 or 2.6 is needed; SFML 3 (the version packaged from Ubuntu 26.04) isn't supported yet. Run the unit
+tests as on macOS.
+
+
 ## Current status
 As of now Emu Boy is still in its early stages and is very much a work in progress. It currently supports the following:
 
@@ -51,7 +67,7 @@ As of now Emu Boy is still in its early stages and is very much a work in progre
 * Sound: all four channels of the original Game Boy's sound hardware, including its documented quirks. Passes all of
   blargg's dmg_sound test ROMs
 * Unit testing of most CPU instructions and the sound hardware
-* Windows (Visual Studio 2015 solution) and macOS (CMake)
+* Windows (Visual Studio 2015 solution), macOS and Linux (CMake), with CI builds and tests on macOS and Linux
 * Simulates the slow response-time of the Game Boy LCD screen and smoothes upsized jagged pixels
 * Keyboard input
 
@@ -62,5 +78,4 @@ As of now Emu Boy is still in its early stages and is very much a work in progre
 Various features remain to be added including:
 
 * Menus & ROM file selector
-* Linux support
 * Performance optimisation

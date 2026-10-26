@@ -7,7 +7,7 @@ if(NOT CMAKE_BUILD_TYPE)
 	set(CMAKE_BUILD_TYPE Release)
 endif()
 
-find_package(Boost REQUIRED)
+find_package(Boost CONFIG REQUIRED)
 find_package(SFML 2.5 COMPONENTS graphics window audio system REQUIRED)
 
 file(GLOB CORE_SOURCES CONFIGURE_DEPENDS src/core/*.cpp)
