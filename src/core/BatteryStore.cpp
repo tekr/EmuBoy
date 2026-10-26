@@ -3,6 +3,7 @@
 #include "FileIo.h"
 #include "SaveFile.h"
 #include <cerrno>
+#include <cstdio>
 #include <ctime>
 #include <utility>
 
@@ -110,27 +111,30 @@ BatteryStore::Result BatteryStore::SaveIfChanged()
 	return _cartridge->HasUnsavedChanges() ? Save() : Result{ true, "" };
 }
 
-BatteryStore::Result BatteryStore::BackUpBeforeNextSave()
+BatteryStore::Result BatteryStore::KeepSaveBeforeStateLoad()
 {
-	if (!IsNeeded() || _backedUpForState) return { true, "" };
-	_backedUpForState = true;
+	if (!IsNeeded()) return { true, "" };
 
-	// A save that loaded with a warning is already waiting to be backed up as it was loaded
-	if (_needsBackup || _loadFailed) return { true, "" };
+	// The save is only written every few seconds, and not while paused, so the RAM may be newer
+	auto saved = SaveIfChanged();
+	if (!saved.Succeeded)
+	{
+		return { false, saved.Message.empty() ? "Couldn't save the game to " + _savePath : saved.Message };
+	}
 
+	auto copyPath = GetStateLoadCopyPath();
 	std::vector<unsigned char> data;
 	if (!FileIo::ReadWholeFile(_savePath, data))
 	{
-		if (errno == ENOENT) return { true, "" };
+		if (errno != ENOENT) return Failure("read", _savePath, errno);
 
-		// Not overwritten, as it couldn't be backed up
-		_loadFailed = true;
-		return Failure("read", _savePath, errno);
+		// The game hasn't saved, so a copy from an earlier load would be misleading
+		std::remove(copyPath.c_str());
+		return { true, "" };
 	}
 
-	_saveToBackUp = std::move(data);
-	_needsBackup = true;
-	return { true, "" };
+	auto error = FileIo::WriteAtomically(copyPath, data);
+	return { error.empty(), error };
 }
 
 BatteryStore::Result BatteryStore::SaveOnExit()

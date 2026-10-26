@@ -36,7 +36,7 @@ namespace
 
 		~BatteryStoreTest()
 		{
-			for (auto suffix : { "", ".tmp", ".bak", ".bak.tmp" })
+			for (auto suffix : { "", ".tmp", ".bak", ".bak.tmp", ".before-state", ".before-state.tmp" })
 			{
 				auto path = SavePath + suffix;
 				std::remove(path.c_str());
@@ -433,49 +433,109 @@ TEST_F(BatteryStoreTest, ExitAlwaysSavesClockCartridgeWithCurrentTime)
 	EXPECT_EQ(Now, timeStamp);
 }
 
-TEST_F(BatteryStoreTest, BacksUpTheSaveBeforeItIsFirstReplacedAfterAStateLoads)
+TEST_F(BatteryStoreTest, BeforeAStateLoadsTheSaveIsCopiedAside)
 {
 	auto cartridge = CartridgeFactory::Create(Rom(Mbc1RamBattery, Ram8K));
 	auto store = Store(cartridge);
 	FillRam(*cartridge, 3);
 	ASSERT_TRUE(store.Save().Succeeded);
-	auto before = ReadAll(SavePath);
 
-	EXPECT_TRUE(store.BackUpBeforeNextSave().Succeeded);
+	EXPECT_TRUE(store.KeepSaveBeforeStateLoad().Succeeded);
+
+	EXPECT_EQ(SavePath + ".before-state", store.GetStateLoadCopyPath());
+	EXPECT_EQ(cartridge->GetRam(), ReadAll(store.GetStateLoadCopyPath()));
 	EXPECT_FALSE(Exists(SavePath + ".bak"));
-	FillRam(*cartridge, 5);
-	ASSERT_TRUE(store.Save().Succeeded);
-
-	EXPECT_EQ(before, ReadAll(SavePath + ".bak"));
-	EXPECT_EQ(cartridge->GetRam(), ReadAll(SavePath));
 }
 
-TEST_F(BatteryStoreTest, KeepsTheBackupFromBeforeTheFirstStateLoaded)
+TEST_F(BatteryStoreTest, RamChangedJustBeforeAStateLoadsIsSavedAndCopied)
+{
+	// The game saved since the last periodic save, so the change is only in memory
+	auto cartridge = CartridgeFactory::Create(Rom(Mbc1RamBattery, Ram8K));
+	auto store = Store(cartridge);
+	FillRam(*cartridge, 3);
+	ASSERT_TRUE(store.Save().Succeeded);
+	EnableRam(*cartridge);
+	cartridge->RamWriteByte(0, 0x22);
+
+	EXPECT_TRUE(store.KeepSaveBeforeStateLoad().Succeeded);
+
+	EXPECT_EQ(0x22, ReadAll(SavePath)[0]);
+	EXPECT_EQ(0x22, ReadAll(store.GetStateLoadCopyPath())[0]);
+	EXPECT_FALSE(cartridge->HasUnsavedChanges());
+}
+
+TEST_F(BatteryStoreTest, EachStateLoadRefreshesTheCopy)
 {
 	auto cartridge = CartridgeFactory::Create(Rom(Mbc1RamBattery, Ram8K));
 	auto store = Store(cartridge);
 	FillRam(*cartridge, 3);
 	ASSERT_TRUE(store.Save().Succeeded);
-	auto before = ReadAll(SavePath);
+	ASSERT_TRUE(store.KeepSaveBeforeStateLoad().Succeeded);
 
-	store.BackUpBeforeNextSave();
 	FillRam(*cartridge, 5);
 	ASSERT_TRUE(store.Save().Succeeded);
-	store.BackUpBeforeNextSave();
+	EXPECT_TRUE(store.KeepSaveBeforeStateLoad().Succeeded);
+
+	EXPECT_EQ(cartridge->GetRam(), ReadAll(store.GetStateLoadCopyPath()));
+}
+
+TEST_F(BatteryStoreTest, StateLoadLeavesAWrongSizeSavesBackupAlone)
+{
+	std::vector<unsigned char> original(100, 0x33);
+	WriteAll(SavePath, original);
+	auto cartridge = CartridgeFactory::Create(Rom(Mbc1RamBattery, Ram8K));
+	auto store = Store(cartridge);
+	store.Load();
+	ASSERT_TRUE(store.Save().Succeeded);
+	ASSERT_EQ(original, ReadAll(SavePath + ".bak"));
+
+	FillRam(*cartridge, 5);
+	EXPECT_TRUE(store.KeepSaveBeforeStateLoad().Succeeded);
 	FillRam(*cartridge, 7);
 	ASSERT_TRUE(store.Save().Succeeded);
 
-	EXPECT_EQ(before, ReadAll(SavePath + ".bak"));
+	EXPECT_EQ(original, ReadAll(SavePath + ".bak"));
 }
 
-TEST_F(BatteryStoreTest, NothingToBackUpWithoutASave)
+TEST_F(BatteryStoreTest, WrongSizeSaveIsBackedUpWhenItsFirstReplacedBeforeAStateLoads)
+{
+	std::vector<unsigned char> original(100, 0x33);
+	WriteAll(SavePath, original);
+	auto cartridge = CartridgeFactory::Create(Rom(Mbc1RamBattery, Ram8K));
+	auto store = Store(cartridge);
+	store.Load();
+	EnableRam(*cartridge);
+	cartridge->RamWriteByte(0, 0x44);
+
+	EXPECT_TRUE(store.KeepSaveBeforeStateLoad().Succeeded);
+
+	EXPECT_EQ(original, ReadAll(SavePath + ".bak"));
+	EXPECT_EQ(cartridge->GetRam(), ReadAll(store.GetStateLoadCopyPath()));
+}
+
+TEST_F(BatteryStoreTest, WithoutASaveThereIsNoCopy)
 {
 	auto cartridge = CartridgeFactory::Create(Rom(Mbc1RamBattery, Ram8K));
 	auto store = Store(cartridge);
+	WriteAll(store.GetStateLoadCopyPath(), { 1, 2, 3 });
 
-	EXPECT_TRUE(store.BackUpBeforeNextSave().Succeeded);
-	FillRam(*cartridge, 5);
-	ASSERT_TRUE(store.Save().Succeeded);
+	EXPECT_TRUE(store.KeepSaveBeforeStateLoad().Succeeded);
 
-	EXPECT_FALSE(Exists(SavePath + ".bak"));
+	EXPECT_FALSE(Exists(SavePath));
+	EXPECT_FALSE(Exists(store.GetStateLoadCopyPath()));
+}
+
+TEST_F(BatteryStoreTest, FailingToSaveBeforeAStateLoadsSaysWhy)
+{
+	auto cartridge = CartridgeFactory::Create(Rom(Mbc1RamBattery, Ram8K));
+	auto store = Store(cartridge);
+	EnableRam(*cartridge);
+	cartridge->RamWriteByte(0, 0x44);
+	ASSERT_TRUE(MakeTestDirectory(SavePath + ".tmp"));
+
+	auto result = store.KeepSaveBeforeStateLoad();
+
+	EXPECT_FALSE(result.Succeeded);
+	EXPECT_NE(std::string::npos, result.Message.find(SavePath)) << result.Message;
+	EXPECT_FALSE(Exists(store.GetStateLoadCopyPath()));
 }

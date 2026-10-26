@@ -240,6 +240,15 @@ void App::SaveToSlot()
 
 void App::LoadFromSlot()
 {
+	// The state's RAM replaces the game's battery save, so the save is brought up to date and copied first
+	auto kept = _saves.KeepSaveBeforeStateLoad();
+	if (!kept.Succeeded)
+	{
+		ShowMessage("Not loading state " + std::to_string(_stateSlots.GetSlot()) + ", as the battery save couldn't be "
+			"kept. " + kept.Message);
+		return;
+	}
+
 	auto result = _stateSlots.Load(*_emulator);
 	ShowMessage(result.Message);
 	if (!result.Succeeded) return;
@@ -252,9 +261,6 @@ void App::LoadFromSlot()
 	// are drawn partly transparent to build up like the slow LCD, so a few draws bring it to full brightness
 	_screen.clear();
 	for (auto i = 0; i < 4; i++) ShowFrame(_emulator->GetScreen());
-
-	// The game's battery save is rewritten from the state's RAM, so the one from before is kept
-	ReportSaveResult(_saves.BackUpBeforeNextSave());
 }
 
 void App::ShowSlot()
