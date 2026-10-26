@@ -11,6 +11,9 @@ class Mbc5Cartridge : public Cartridge
 	bool _hasRumble;
 	bool _rumbling{ false };
 
+protected:
+	void ResetRegisters() override;
+
 public:
 	Mbc5Cartridge(std::vector<unsigned char>&& rom, size_t ramSize, bool hasBattery = false, bool hasRumble = false);
 
