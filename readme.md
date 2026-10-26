@@ -74,7 +74,7 @@ wasn't running.
 | Screenshot | F12 |
 
 The window title shows the game's title from the cartridge header, and whether it is paused or fast-forwarding.
-Fast-forward plays only the sound of the frames it shows. Screenshots are saved at the Game Boy's 160x144 resolution
+Fast-forward is silent. Screenshots are saved at the Game Boy's 160x144 resolution
 next to the ROM, named after it and numbered (`Tetris-1.png`, `Tetris-2.png`, ...), or in the working directory if the
 ROM's folder can't be written to. On a Mac keyboard whose top row controls brightness and volume, hold fn for F2 and
 F12. The emulator's commands are on the keyboard only.

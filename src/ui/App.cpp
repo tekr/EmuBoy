@@ -173,14 +173,15 @@ void App::RunFrame(int speed)
 	_screen.display();
 	if (_record) _record.write(reinterpret_cast<char*>(frame), Graphics::HozPixels * Graphics::VertPixels * sizeof(*frame));
 
-	// Fast-forward only shows (and plays) some frames. Playing the sound of each shown frame, rather than all of it
-	// sped up, keeps the pitch and avoids building up a backlog the audio can't play in time
-	auto show = _pacer.ShouldPresent(Now(), speed);
+	// Fast-forward is silent: splicing together one frame's sound in every few buzzes at the frame rate, and playing
+	// all of it would build up a backlog. The samples are still taken so they don't pile up in the APU
 	_emulator->TakeAudioSamples(_samples);
-	if (show) _audio.Push(_samples);
+	if (speed == 1) _audio.Push(_samples);
+	else _audio.Clear();
 	if (_audio.getStatus() != sf::SoundStream::Playing) _audio.play();
 
-	if (show) Present();
+	// Fast-forward only shows frames at the normal frame rate, as showing more would only cost time
+	if (_pacer.ShouldPresent(Now(), speed)) Present();
 
 	if (--_framesUntilSave == 0)
 	{
