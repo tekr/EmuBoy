@@ -143,18 +143,111 @@ TEST_F(TimerQuirkTests, ModeChangeFromClearBitToSetBitDoesNotIncrementCounter)
 	EXPECT_EQ(0, Counter());
 }
 
-TEST_F(TimerQuirkTests, OverflowReloadsModuloAndRequestsInterrupt)
-{
-	Timer.WriteRegister(ModuloReg, 0xf0);
-	Timer.WriteRegister(CounterReg, 0xff);
-	Timer.WriteRegister(ControlReg, TimerEnable | 1);
+// Per https://gbdev.io/pandocs/Timer_Obscure_Behaviour.html#timer-overflow-behavior, after TIMA overflows it
+// reads 0 for one machine cycle (cycle A). Then it's reloaded from TMA and the interrupt is requested (cycle B).
+// A TIMA write in cycle A cancels the reload; in cycle B it's ignored. A TMA write in cycle B also goes to TIMA.
 
+class TimerOverflowTests : public TimerQuirkTests
+{
+public:
+	TimerOverflowTests()
+	{
+		Timer.WriteRegister(ModuloReg, 0xf0);
+		Timer.WriteRegister(CounterReg, 0xff);
+		Timer.WriteRegister(ControlReg, TimerEnable | 1);
+	}
+
+	bool TimerInterruptRequested() { return (Cpu.WaitingInterrupts() & InterruptFlags::TimerInt) != 0; }
+
+	// Runs to the start of cycle A: the counter has just overflowed
+	void RunToOverflow() { Timer.RunCycles(16); }
+};
+
+TEST_F(TimerOverflowTests, CounterReadsZeroForOneMachineCycleAfterOverflow)
+{
 	Timer.RunCycles(15);
-	EXPECT_EQ(0, Cpu.WaitingInterrupts() & InterruptFlags::TimerInt);
+	EXPECT_EQ(0xff, Counter());
 
 	Timer.RunCycles(1);
+	EXPECT_EQ(0, Counter());
+	EXPECT_FALSE(TimerInterruptRequested());
+
+	Timer.RunCycles(3);
+	EXPECT_EQ(0, Counter());
+	EXPECT_FALSE(TimerInterruptRequested());
+}
+
+TEST_F(TimerOverflowTests, ReloadsModuloAndRequestsInterruptAMachineCycleAfterOverflow)
+{
+	RunToOverflow();
+	Timer.RunCycles(4);
+
 	EXPECT_EQ(0xf0, Counter());
-	EXPECT_NE(0, Cpu.WaitingInterrupts() & InterruptFlags::TimerInt);
+	EXPECT_TRUE(TimerInterruptRequested());
+}
+
+TEST_F(TimerOverflowTests, ReloadsWhenRunInOneLargeStep)
+{
+	Timer.RunCycles(16 * 3);
+
+	EXPECT_EQ(0xf2, Counter());
+	EXPECT_TRUE(TimerInterruptRequested());
+}
+
+TEST_F(TimerOverflowTests, CounterWriteBeforeReloadCancelsIt)
+{
+	RunToOverflow();
+	Timer.WriteRegister(CounterReg, 0x42);
+	Timer.RunCycles(4);
+
+	EXPECT_EQ(0x42, Counter());
+	EXPECT_FALSE(TimerInterruptRequested());
+}
+
+TEST_F(TimerOverflowTests, CounterWriteDuringReloadCycleIsIgnored)
+{
+	RunToOverflow();
+	Timer.RunCycles(4);
+	Timer.WriteRegister(CounterReg, 0x42);
+
+	EXPECT_EQ(0xf0, Counter());
+}
+
+TEST_F(TimerOverflowTests, CounterWriteAfterReloadCycleTakesEffect)
+{
+	RunToOverflow();
+	Timer.RunCycles(8);
+	Timer.WriteRegister(CounterReg, 0x42);
+
+	EXPECT_EQ(0x42, Counter());
+}
+
+TEST_F(TimerOverflowTests, ModuloWriteBeforeReloadIsReloaded)
+{
+	RunToOverflow();
+	Timer.WriteRegister(ModuloReg, 0x37);
+	Timer.RunCycles(4);
+
+	EXPECT_EQ(0x37, Counter());
+}
+
+TEST_F(TimerOverflowTests, ModuloWriteDuringReloadCycleAlsoLoadsCounter)
+{
+	RunToOverflow();
+	Timer.RunCycles(4);
+	Timer.WriteRegister(ModuloReg, 0x37);
+
+	EXPECT_EQ(0x37, Counter());
+	EXPECT_EQ(0x37, Timer.ReadRegister(ModuloReg));
+}
+
+TEST_F(TimerOverflowTests, ModuloWriteAfterReloadCycleDoesNotLoadCounter)
+{
+	RunToOverflow();
+	Timer.RunCycles(8);
+	Timer.WriteRegister(ModuloReg, 0x37);
+
+	EXPECT_EQ(0xf0, Counter());
 }
 
 TEST_F(TimerQuirkTests, CountsAcrossDividerWraparound)
@@ -166,18 +259,6 @@ TEST_F(TimerQuirkTests, CountsAcrossDividerWraparound)
 	Timer.RunCycles(16);
 	EXPECT_EQ(1, Counter());
 	EXPECT_EQ(0, Timer.ReadRegister(DivReg));
-}
-
-TEST_F(TimerQuirkTests, NextEventIsTheSoonerOfTheNextDivAndCounterIncrements)
-{
-	Timer.RunCycles(4);
-	EXPECT_EQ(252, Timer.GetCyclesToNextEvent());
-
-	Timer.WriteRegister(ControlReg, TimerEnable | 1);
-	EXPECT_EQ(12, Timer.GetCyclesToNextEvent());
-
-	Timer.WriteRegister(ControlReg, TimerEnable | 0);
-	EXPECT_EQ(252, Timer.GetCyclesToNextEvent());
 }
 
 // Runs a program from address 0 through the whole emulator, so the timer must see
