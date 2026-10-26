@@ -131,6 +131,13 @@ public:
 
 	Graphics(Cpu& cpu, MemoryMap& memoryMap, SpriteManager& spriteManager);
 
+	// The Bitmap colour for a DMG shade, 0 (lightest) to 3 (darkest)
+	static int ShadeColour(unsigned char shade)
+	{
+		// 60% opacity to emulate the slow GB screen response time. Green tinge to look more like the original
+		return 0x99000000 | ((3 - shade) * 0x40504a);
+	}
+
 	unsigned char& Vram(unsigned short address) { return _status != LcdcStatus::OamAndVramReadMode ? _vram[address] : _dummy; }
 
 	unsigned char ReadOam(unsigned short address) { return _status != LcdcStatus::OamReadMode && _status != LcdcStatus::OamAndVramReadMode

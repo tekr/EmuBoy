@@ -169,6 +169,7 @@
     <ClCompile Include="CartridgeRamTests.cpp" />
     <ClCompile Include="CpuTestFixture.cpp" />
     <ClCompile Include="CpuTests.cpp" />
+    <ClCompile Include="DmgAcid2Tests.cpp" />
     <ClCompile Include="GraphicsTestFixture.cpp" />
     <ClCompile Include="GraphicsTests.cpp" />
     <ClCompile Include="SpriteTests.cpp" />

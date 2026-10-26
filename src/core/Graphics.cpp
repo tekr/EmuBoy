@@ -38,8 +38,7 @@ int Graphics::MapColour(unsigned char colour, Palette palette)
 										? RegSprite0Palette
 										: RegSprite1Palette];
 
-	// 60% opacity to emulate the slow GB screen response time. Green tinge to look more like the original
-	return 0x99000000 | ((3 - (paletteData >> (colour << 1) & 0x3)) * 0x40504a);
+	return ShadeColour(paletteData >> (colour << 1) & 0x3);
 }
 
 void Graphics::CheckLineCompare()
