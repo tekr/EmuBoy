@@ -160,10 +160,35 @@ TEST(SaveFileTest, ClockFooterFollowsRam)
 	auto save = SaveFile::Serialise(*cartridge, 0x0102030405060708);
 
 	auto expected = cartridge->GetRam();
-	auto footer = ClockSave({ { 1, 2, 3, 4, 0x41 } }, { { 5, 6, 7, 8, 0x01 } }, 0x0102030405060708);
+	// The clock registers go in the latched fields too, as mGBA reads only those
+	auto footer = ClockSave({ { 1, 2, 3, 4, 0x41 } }, { { 1, 2, 3, 4, 0x41 } }, 0x0102030405060708);
 	expected.insert(expected.end(), footer.begin(), footer.end());
 	EXPECT_EQ(expected, save);
 	EXPECT_EQ(32768u + 48, save.size());
+}
+
+TEST(SaveFileTest, MgbaReadsTheCurrentTimeFromTheLatchedFields)
+{
+	// mGBA restores its clock from the latched fields and the time stamp alone, so they must hold the current time
+	// even when the game last latched long ago
+	auto cartridge = CartridgeFactory::Create(Rom(Mbc3TimerBattery, NoRam));
+	SetCounters(*cartridge, { { 30, 45, 12, 100, 0 } }, { { 0, 0, 0, 0, 0 } });
+
+	auto save = SaveFile::Serialise(*cartridge, SaveTime);
+
+	EXPECT_EQ(ClockSave({ { 30, 45, 12, 100, 0 } }, { { 30, 45, 12, 100, 0 } }, SaveTime), save);
+}
+
+TEST(SaveFileTest, MgbaSaveLoadsItsClockRegisters)
+{
+	// mGBA's latched fields and time stamp are from the game's last latch, and its clock register fields from when it
+	// saved. Emu Boy pairs the clock registers with the time stamp, so runs ahead by the time between the two
+	auto cartridge = CartridgeFactory::Create(Rom(Mbc3TimerBattery, NoRam));
+	const auto latchTime = SaveTime - 20;
+
+	SaveFile::Deserialise(*cartridge, ClockSave({ { 20, 0, 0, 0, 0 } }, { { 0, 0, 0, 0, 0 } }, latchTime), SaveTime);
+
+	EXPECT_EQ((Registers{ { 40, 0, 0, 0, 0 } }), Counters(*cartridge));
 }
 
 TEST(SaveFileTest, ClockOnlyCartridgeSavesJustTheFooter)
@@ -184,7 +209,7 @@ TEST(SaveFileTest, ClockAndRamRoundTrip)
 
 	EXPECT_EQ(original->GetRam(), restored->GetRam());
 	EXPECT_EQ(original->GetRealTimeClock()->GetState().Counters, restored->GetRealTimeClock()->GetState().Counters);
-	EXPECT_EQ(original->GetRealTimeClock()->GetState().Latched, restored->GetRealTimeClock()->GetState().Latched);
+	EXPECT_EQ(original->GetRealTimeClock()->GetState().Counters, restored->GetRealTimeClock()->GetState().Latched);
 	EXPECT_EQ("", warning);
 }
 

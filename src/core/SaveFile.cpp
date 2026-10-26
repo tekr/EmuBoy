@@ -97,7 +97,7 @@ std::vector<unsigned char> SaveFile::Serialise(Cartridge& cartridge, int64_t uni
 	{
 		auto& state = clock->GetState();
 		AppendRegisters(data, state.Counters);
-		AppendRegisters(data, state.Latched);
+		AppendRegisters(data, state.Counters);
 		AppendLittleEndian(data, static_cast<uint64_t>(unixTime), RtcFooterSize - 2 * RealTimeClock::RegisterCount * RegisterFieldSize);
 	}
 
