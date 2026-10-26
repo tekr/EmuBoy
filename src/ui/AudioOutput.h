@@ -26,4 +26,7 @@ public:
 	~AudioOutput() override;
 
 	void Push(const std::vector<short>& samples);
+
+	// Drops the buffered samples, so sound stops at once rather than playing out its latency
+	void Clear();
 };

@@ -144,7 +144,11 @@ void App::DoCommand(Command command)
 {
 	switch (command)
 	{
-	case Command::TogglePause: _runState.TogglePause(); break;
+	case Command::TogglePause:
+		_runState.TogglePause();
+		if (_runState.IsPaused()) _audio.Clear();
+		break;
+
 	case Command::Reset: Reset(); break;
 	case Command::Screenshot: SaveScreenshot(); break;
 	case Command::ToggleFullscreen: ToggleFullscreen(); break;
@@ -196,6 +200,7 @@ void App::Reset()
 {
 	// Like switching the Game Boy off and on: the game starts again, keeping what the battery keeps
 	ReportSaveResult(_saves.SaveIfChanged());
+	_audio.Clear();
 	_cartridge->Reset();
 	_emulator = std::make_unique<Emulator>(_cartridge);
 
