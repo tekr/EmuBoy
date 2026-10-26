@@ -112,6 +112,94 @@ TEST(Mbc3Test, SelectsFourRamBanks)
 	}
 }
 
+TEST(Mbc3Test, RamBanks4To7MirrorBanks0To3)
+{
+	// Plain MBC3 has two RAM bank lines (as SameBoy and Gambatte emulate it)
+	Mbc3Cartridge cartridge{ BankNumberedRom(4), 4 * RamBankSize };
+	cartridge.RomWriteByte(0x0000, 0x0a);
+
+	for (auto bank = 0; bank < 4; bank++)
+	{
+		cartridge.RomWriteByte(0x4000, bank);
+		cartridge.RamWriteByte(0x0000, 0x30 + bank);
+	}
+
+	for (auto bank = 4; bank < 8; bank++)
+	{
+		cartridge.RomWriteByte(0x4000, bank);
+		EXPECT_EQ(0x30 + bank - 4, cartridge.RamReadByte(0x0000));
+	}
+
+	cartridge.RomWriteByte(0x4000, 0x07);
+	cartridge.RamWriteByte(0x0000, 0x55);
+	cartridge.RomWriteByte(0x4000, 0x03);
+	EXPECT_EQ(0x55, cartridge.RamReadByte(0x0000));
+}
+
+TEST(Mbc3Test, PlainMbc3IgnoresRomBankBit7)
+{
+	Mbc3Cartridge cartridge{ BankNumberedRom(256), 0 };
+
+	cartridge.RomWriteByte(0x2000, 0x81);
+	EXPECT_EQ(0x01, Bank1(cartridge));
+}
+
+TEST(Mbc3Test, RecognisesMbc30ByRomOrRamBeyondMbc3Limits)
+{
+	EXPECT_FALSE(Mbc3Cartridge::IsMbc30(2 << 20, 32 << 10));
+	EXPECT_TRUE(Mbc3Cartridge::IsMbc30(4 << 20, 32 << 10));
+	EXPECT_TRUE(Mbc3Cartridge::IsMbc30(2 << 20, 64 << 10));
+}
+
+TEST(Mbc30Test, SelectsEightBitRomBank)
+{
+	Mbc3Cartridge cartridge{ BankNumberedRom(256), 0, false, false, true };
+
+	cartridge.RomWriteByte(0x2000, 0x81);
+	EXPECT_EQ(0x81, Bank1(cartridge));
+
+	cartridge.RomWriteByte(0x2000, 0xff);
+	EXPECT_EQ(0xff, Bank1(cartridge));
+
+	cartridge.RomWriteByte(0x2000, 0x00);
+	EXPECT_EQ(1, Bank1(cartridge));
+
+	cartridge.RomWriteByte(0x2000, 0x80);
+	EXPECT_EQ(0x80, Bank1(cartridge));
+}
+
+TEST(Mbc30Test, SelectsEightRamBanks)
+{
+	Mbc3Cartridge cartridge{ BankNumberedRom(256), 8 * RamBankSize, true, false, true };
+	cartridge.RomWriteByte(0x0000, 0x0a);
+
+	for (auto bank = 0; bank < 8; bank++)
+	{
+		cartridge.RomWriteByte(0x4000, bank);
+		cartridge.RamWriteByte(0x1234, 0x40 + bank);
+	}
+
+	for (auto bank = 0; bank < 8; bank++)
+	{
+		cartridge.RomWriteByte(0x4000, bank);
+		EXPECT_EQ(0x40 + bank, cartridge.RamReadByte(0x1234));
+	}
+}
+
+TEST(Mbc30Test, ClockRegistersStayAt08To0c)
+{
+	Mbc3Cartridge cartridge{ BankNumberedRom(256), 8 * RamBankSize, true, true, true };
+	cartridge.RomWriteByte(0x0000, 0x0a);
+	cartridge.RomWriteByte(0x4000, 0x09);
+	cartridge.RamWriteByte(0x0000, 42);
+
+	EXPECT_EQ(42, cartridge.RamReadByte(0x0000));
+	EXPECT_EQ(42, cartridge.GetRealTimeClock()->GetState().Counters[RealTimeClock::Minutes]);
+
+	cartridge.RomWriteByte(0x4000, 0x07);
+	EXPECT_EQ(0x00, cartridge.RamReadByte(0x0000));
+}
+
 TEST(Mbc3Test, WithoutClockClockRegistersReadFf)
 {
 	Mbc3Cartridge cartridge{ BankNumberedRom(4), 4 * RamBankSize };
@@ -157,7 +245,7 @@ TEST_F(Mbc3ClockTest, UnmappedRegistersReadFf)
 	Cartridge.RomWriteByte(0x4000, 0x0d);
 	EXPECT_EQ(0xff, Cartridge.RamReadByte(0x0000));
 
-	Cartridge.RomWriteByte(0x4000, 0x04);
+	Cartridge.RomWriteByte(0x4000, 0xff);
 	EXPECT_EQ(0xff, Cartridge.RamReadByte(0x0000));
 }
 

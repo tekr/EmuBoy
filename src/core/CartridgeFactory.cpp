@@ -64,7 +64,10 @@ std::shared_ptr<Cartridge> CartridgeFactory::Create(std::vector<unsigned char>&&
 		return std::make_shared<Mbc2Cartridge>(std::move(rom), type.HasBattery);
 
 	case MapperType::Mbc3:
-		return std::make_shared<Mbc3Cartridge>(std::move(rom), ramSize, type.HasBattery, type.HasClock);
+	{
+		auto isMbc30 = Mbc3Cartridge::IsMbc30(rom.size(), ramSize);
+		return std::make_shared<Mbc3Cartridge>(std::move(rom), ramSize, type.HasBattery, type.HasClock, isMbc30);
+	}
 
 	case MapperType::Mbc5:
 		return std::make_shared<Mbc5Cartridge>(std::move(rom), ramSize, type.HasBattery, type.HasRumble);

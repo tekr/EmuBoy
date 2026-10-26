@@ -132,6 +132,30 @@ TEST(CartridgeFactoryTest, Mbc2HasBuiltInRamWhateverTheHeaderSays)
 	EXPECT_EQ(ramSize, CartridgeFactory::Create(RomWithHeader(0x06, 0x03))->GetRam().size());
 }
 
+TEST(CartridgeFactoryTest, CreatesMbc30ForRamOrRomBeyondMbc3Limits)
+{
+	// 64 KB RAM (code 5): bank 7 is distinct from bank 3
+	auto cartridge = CartridgeFactory::Create(RomWithHeader(0x13, 0x05));
+	cartridge->RomWriteByte(0x0000, 0x0a);
+	cartridge->RomWriteByte(0x4000, 0x03);
+	cartridge->RamWriteByte(0x0000, 0x12);
+	cartridge->RomWriteByte(0x4000, 0x07);
+	cartridge->RamWriteByte(0x0000, 0x34);
+	EXPECT_EQ(0x34, cartridge->RamReadByte(0x0000));
+	cartridge->RomWriteByte(0x4000, 0x03);
+	EXPECT_EQ(0x12, cartridge->RamReadByte(0x0000));
+
+	// 4 MB ROM: bank $81 is selectable
+	cartridge = CartridgeFactory::Create(RomWithHeader(0x10, 0x03, 256));
+	cartridge->RomWriteByte(0x2000, 0x81);
+	EXPECT_EQ(0x81, Bank1(*cartridge));
+
+	// 2 MB ROM and 32 KB RAM is plain MBC3
+	cartridge = CartridgeFactory::Create(RomWithHeader(0x13, 0x03, 128));
+	cartridge->RomWriteByte(0x2000, 0x81);
+	EXPECT_EQ(0x01, Bank1(*cartridge));
+}
+
 TEST(CartridgeFactoryTest, RumbleCartridgeUsesBit3ForMotor)
 {
 	auto cartridge = CartridgeFactory::Create(RomWithHeader(0x1c, 0x04));
