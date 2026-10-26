@@ -3,19 +3,16 @@
 #include <algorithm>
 
 
-SpriteManager::SpriteManager(): _currentScanline(0), _spriteHeight(NormalSpriteHeight)
+SpriteManager::SpriteManager(): _spriteHeight(NormalSpriteHeight)
 {
 }
 
-void SpriteManager::SetScanline(unsigned char scanline)
+void SpriteManager::SelectSprites(unsigned char scanline)
 {
-	// TODO: Test for excessive memory allocation/freeing in this method
-
-	_currentScanline = scanline;
 	_visibleSprites.clear();
 
-	auto firstSpriteNotAbove = _yOrderedSprites.upper_bound(_currentScanline + SpriteYOffset - _spriteHeight);
-	auto firstSpriteBelow = _yOrderedSprites.upper_bound(_currentScanline + SpriteYOffset);
+	auto firstSpriteNotAbove = _yOrderedSprites.upper_bound(scanline + SpriteYOffset - _spriteHeight);
+	auto firstSpriteBelow = _yOrderedSprites.upper_bound(scanline + SpriteYOffset);
 
 	// Hardware selects the first sprites in OAM order that are on this line, regardless of X.
 	// SpriteData objects overlay OAM, so address order is OAM order
@@ -34,7 +31,6 @@ void SpriteManager::SetScanline(unsigned char scanline)
 
 void SpriteManager::SpriteMoved(SpriteData& spriteData)
 {
-	_visibleSprites.get<1>().erase(spriteData.OrderedSpriteId());
 	_yOrderedSprites.get<1>().erase(spriteData.OrderedSpriteId());
 
 	_yOrderedSprites.insert(&spriteData);

@@ -1,6 +1,8 @@
 
 #include "stdafx.h"
 #include <gtest/gtest.h>
+#include <cstring>
+#include <new>
 #include "GraphicsTestFixture.h"
 #include "TestGraphics.h"
 #include "../core/CartridgeFactory.h"
@@ -129,4 +131,160 @@ TEST_F(GraphicsTestFixture, WindowDrawnFromWindowXPosition)
 	{
 		EXPECT_EQ(x < windowLeftEdge ? background : window, Graphics.Bitmap[x]) << "at x = " << x;
 	}
+}
+
+namespace
+{
+	const unsigned short LcdControlAddress = MemoryMap::VramRegisters + TestGraphics::RegLcdControl;
+	const unsigned short LcdStatusAddress = MemoryMap::VramRegisters + TestGraphics::RegLcdStatus;
+	const unsigned short LineCountAddress = MemoryMap::VramRegisters + TestGraphics::RegLineCount;
+	const unsigned short LineCompareAddress = MemoryMap::VramRegisters + TestGraphics::RegLineCompare;
+
+	const unsigned char DisplayOn = 0x80;
+	const unsigned char CoincidenceFlag = 0x04;
+	const unsigned char CoincidenceInterruptEnable = 0x40;
+}
+
+TEST_F(GraphicsTestFixture, LineCountIsLineAboutToBeDrawn)
+{
+	MemoryMap.WriteByte(LcdControlAddress, DisplayOn);
+	Graphics.ResetFrame();
+
+	EXPECT_EQ(0, MemoryMap.ReadByte(LineCountAddress));
+
+	for (auto line = 1; line < Graphics::FrameLines; line++)
+	{
+		Graphics.RenderLine();
+		EXPECT_EQ(line, MemoryMap.ReadByte(LineCountAddress));
+	}
+
+	// The last line of the frame is followed by line 0 of the next
+	Graphics.RenderLine();
+	EXPECT_EQ(0, MemoryMap.ReadByte(LineCountAddress));
+}
+
+TEST_F(GraphicsTestFixture, LineCountStaysZeroWhileDisplayOff)
+{
+	MemoryMap.WriteByte(LcdControlAddress, 0);
+	Graphics.ResetFrame();
+
+	for (auto i = 0; i < 3; i++) Graphics.RenderLine();
+
+	EXPECT_EQ(0, MemoryMap.ReadByte(LineCountAddress));
+}
+
+TEST_F(GraphicsTestFixture, LineCompareMatchesAtStartOfLine)
+{
+	const unsigned char compareLine = 5;
+
+	MemoryMap.WriteByte(LcdControlAddress, DisplayOn);
+	MemoryMap.WriteByte(LineCompareAddress, compareLine);
+	MemoryMap.WriteByte(LcdStatusAddress, CoincidenceInterruptEnable);
+	Graphics.ResetFrame();
+
+	for (auto line = 0; line < compareLine - 1; line++) Graphics.RenderLine();
+	Cpu.WaitingInterrupts() = 0;
+
+	// Line 4 is drawn, then line 5 starts
+	Graphics.RenderLine();
+
+	EXPECT_EQ(CoincidenceFlag, MemoryMap.ReadByte(LcdStatusAddress) & CoincidenceFlag);
+	EXPECT_EQ(InterruptFlags::LcdStatInt, Cpu.WaitingInterrupts() & InterruptFlags::LcdStatInt);
+
+	Graphics.RenderLine();
+	EXPECT_EQ(0, MemoryMap.ReadByte(LcdStatusAddress) & CoincidenceFlag);
+}
+
+TEST_F(GraphicsTestFixture, LineCompareOfZeroMatchesAtStartOfFrame)
+{
+	MemoryMap.WriteByte(LcdControlAddress, DisplayOn);
+	MemoryMap.WriteByte(LineCompareAddress, 0);
+	MemoryMap.WriteByte(LcdStatusAddress, CoincidenceInterruptEnable);
+	Graphics.ResetFrame();
+
+	for (auto line = 0; line < Graphics::FrameLines - 1; line++) Graphics.RenderLine();
+	Cpu.WaitingInterrupts() = 0;
+
+	Graphics.RenderLine();
+
+	EXPECT_EQ(CoincidenceFlag, MemoryMap.ReadByte(LcdStatusAddress) & CoincidenceFlag);
+	EXPECT_EQ(InterruptFlags::LcdStatInt, Cpu.WaitingInterrupts() & InterruptFlags::LcdStatInt);
+}
+
+TEST_F(GraphicsTestFixture, BackgroundDisableAlsoBlanksWindow)
+{
+	// Tile 0 is colour 3, and both tile maps use it
+	for (unsigned short i = 0; i < 16; i++) MemoryMap.WriteByte(MemoryMap::RamVideo + i, 0xff);
+	for (unsigned short i = 0; i < 2 * 32 * 32; i++) MemoryMap.WriteByte(MemoryMap::RamVideo + TestGraphics::TileMapBase1 + i, 0);
+
+	MemoryMap.WriteByte(MemoryMap::VramRegisters + TestGraphics::RegBgWinPalette, 0xe4);
+	MemoryMap.WriteByte(MemoryMap::VramRegisters + TestGraphics::RegWindowY, 0);
+	MemoryMap.WriteByte(MemoryMap::VramRegisters + TestGraphics::RegWindowX, 7);
+
+	// Display, window and tile data at 0x8000 on, background off
+	MemoryMap.WriteByte(LcdControlAddress, 0xb0);
+
+	Graphics.ResetFrame();
+	Graphics.RenderLine();
+
+	EXPECT_EQ(Graphics::ShadeColour(0), Graphics.Bitmap[0]);
+}
+
+TEST_F(GraphicsTestFixture, WindowLineCounterAdvancesWhileBackgroundDisabled)
+{
+	// Window rows alternate between colour 3 (even) and colour 0 (odd), so the row drawn shows the counter
+	for (unsigned short row = 0; row < 8; row++)
+	{
+		MemoryMap.WriteByte(MemoryMap::RamVideo + row * 2, row % 2 ? 0 : 0xff);
+		MemoryMap.WriteByte(MemoryMap::RamVideo + row * 2 + 1, row % 2 ? 0 : 0xff);
+	}
+	for (unsigned short i = 0; i < 2 * 32 * 32; i++) MemoryMap.WriteByte(MemoryMap::RamVideo + TestGraphics::TileMapBase1 + i, 0);
+
+	MemoryMap.WriteByte(MemoryMap::VramRegisters + TestGraphics::RegBgWinPalette, 0xe4);
+	MemoryMap.WriteByte(MemoryMap::VramRegisters + TestGraphics::RegWindowY, 0);
+	MemoryMap.WriteByte(MemoryMap::VramRegisters + TestGraphics::RegWindowX, 7);
+
+	// Line 0 with the background (and so the window) blanked, then line 1 with it on again
+	MemoryMap.WriteByte(LcdControlAddress, 0xb0);
+	Graphics.ResetFrame();
+	Graphics.RenderLine();
+
+	MemoryMap.WriteByte(LcdControlAddress, 0xb1);
+	Graphics.RenderLine();
+
+	// Window row 1 (colour 0) is drawn on line 1, not row 0 again
+	EXPECT_EQ(Graphics::ShadeColour(0), Graphics.Bitmap[Graphics::HozPixels]);
+}
+
+TEST_F(GraphicsTestFixture, RegistersHaveDefinedPowerOnValues)
+{
+	// Construct over non-zero memory, so uninitialised registers would show
+	alignas(::Graphics) unsigned char storage[sizeof(::Graphics)];
+	memset(storage, 0xaa, sizeof(storage));
+	auto graphics = new (storage) ::Graphics(Cpu, MemoryMap, SpriteManager);
+
+	// The boot ROM runs from power-on, with the display off. The palettes start as all colour 3, and STAT bit 7
+	// always reads as 1
+	for (unsigned short address = 0; address < TestGraphics::RegisterBlockSize; address++)
+	{
+		int expected = address == TestGraphics::RegLcdStatus ? 0x80
+			: address == TestGraphics::RegBgWinPalette || address == TestGraphics::RegSprite0Palette || address == TestGraphics::RegSprite1Palette ? 0xff
+			: 0;
+
+		EXPECT_EQ(expected, static_cast<int>(graphics->ReadRegister(address))) << "register " << address;
+	}
+
+	graphics->~Graphics();
+	MemoryMap.SetGraphics(&Graphics);
+}
+
+TEST_F(GraphicsTestFixture, WritesToLineCountAreIgnored)
+{
+	MemoryMap.WriteByte(LcdControlAddress, DisplayOn);
+	Graphics.ResetFrame();
+	for (auto i = 0; i < 3; i++) Graphics.RenderLine();
+
+	MemoryMap.WriteByte(LineCountAddress, 0x55);
+
+	EXPECT_EQ(3, MemoryMap.ReadByte(LineCountAddress));
 }
