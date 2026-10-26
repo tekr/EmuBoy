@@ -34,7 +34,9 @@ namespace
 class CpuTimerTests : public CpuTestFixture
 {
 public:
-	Timer Timer;
+	// Members named after their types qualify the type with :: so the name's meaning doesn't change within the
+	// class, which GCC rejects
+	::Timer Timer;
 	TimerHardware Hardware{ Timer };
 
 	CpuTimerTests()
