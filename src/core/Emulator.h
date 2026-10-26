@@ -26,6 +26,7 @@ public:
 	int* GetFrame();
 	InputJoypad& GetJoypad() { return EmuJoypad; }
 	MemoryMap& GetMemoryMap() { return EmuMemoryMap; }
+	const Cpu& GetCpu() const { return EmuCpu; }
 
 	// Interleaved stereo 16-bit samples at the APU's sample rate, produced since the last call
 	void TakeAudioSamples(std::vector<short>& out) { EmuApu.TakeSamples(out); }

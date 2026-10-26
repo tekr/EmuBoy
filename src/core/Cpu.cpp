@@ -23,7 +23,7 @@ static unsigned char _rotr8(unsigned char value, unsigned char shift)
 Cpu::Cpu(MemoryMap& memory) :
 	_memoryMap(memory), _state(CpuState::Running), _totalCycles(0), _extraCyclesConsumed(0), _skipNextPCIncrement(false),
 	_interruptsEnabled(true), _enabledInterrupts(InterruptFlags::NoInt), _waitingInterrupts(InterruptFlags::NoInt),
-	_interruptCheckRequired(false),
+	_interruptCheckRequired(false), _softwareBreakpointHit(false),
 	_aluOps
 	{
 		// ADD
@@ -518,6 +518,7 @@ int Cpu::Ld8RegOrMemRegOrMem(unsigned char opcode)
 	if ((opcode & 0x7) != 0x6)
 	{
 		val = GetReg8Ref2(opcode);
+		if (opcode == LdBB) _softwareBreakpointHit = true;
 	}
 	else
 	{

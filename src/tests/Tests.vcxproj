@@ -150,6 +150,7 @@
     <ClInclude Include="CartridgeTestHelpers.h" />
     <ClInclude Include="CpuTestFixture.h" />
     <ClInclude Include="GraphicsTestFixture.h" />
+    <ClInclude Include="MooneyeRomRunner.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="targetver.h" />
     <ClInclude Include="TestCpu.h" />
@@ -171,6 +172,7 @@
     <ClCompile Include="Mbc2Tests.cpp" />
     <ClCompile Include="Mbc3Tests.cpp" />
     <ClCompile Include="Mbc5Tests.cpp" />
+    <ClCompile Include="MooneyeMbcTests.cpp" />
     <ClCompile Include="RealTimeClockTests.cpp" />
     <ClCompile Include="TimerTests.cpp" />
     <ClCompile Include="CartridgeRamTests.cpp" />

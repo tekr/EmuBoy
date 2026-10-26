@@ -15,6 +15,9 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="MooneyeMbcTests.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="CartridgeFactoryTests.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -101,6 +104,9 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="MooneyeRomRunner.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="CartridgeTestHelpers.h">
       <Filter>Header Files</Filter>
     </ClInclude>

@@ -68,6 +68,9 @@ class Cpu
 	static const int FiveCycles  = OneCycle * 5;
 	static const int SixCycles   = OneCycle * 6;
 
+	// LD B,B, which debuggers and test ROMs use as a breakpoint
+	static const unsigned char LdBB = 0x40;
+
 	static const unsigned short HiMemBaseAddress = 0xff00;
 	static const unsigned short WaitingInterruptsAddress = 0xff0f;
 	static const unsigned short EnabledInterruptsAddress = 0xffff;
@@ -99,6 +102,7 @@ protected:
 	unsigned char _waitingInterrupts;
 
 	bool _interruptCheckRequired;
+	bool _softwareBreakpointHit;
 
 	const std::vector<unsigned char(*)(unsigned char& dest, unsigned char src, bool carry)> _aluOps;
 	const std::vector<void(*)(unsigned char& dest, unsigned char& flags)> _prefixCbOps;
@@ -339,6 +343,11 @@ public:
 
 	// Gets the total number of elapsed emulated CPU cycles (does not count when CPU is stopped/halted)
 	uint64_t GetTotalCycles() const { return _totalCycles; }
+
+	const Registers& GetRegisters() const { return _registers; }
+
+	// Whether LD B,B has been executed, which test ROMs use to signal they have finished
+	bool SoftwareBreakpointHit() const { return _softwareBreakpointHit; }
 
 	// Simulates an IRQ
 	void RequestInterrupt(InterruptFlags interruptFlags);
