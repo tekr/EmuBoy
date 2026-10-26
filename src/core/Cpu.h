@@ -114,15 +114,7 @@ protected:
 	// Jump table for all top-level opcodes
 	const std::vector<void(Cpu::*)(unsigned char opcode)> _opcodeJumpTable;
 
-	unsigned char GetNextProgramByte()
-	{
-		auto result = ReadByte(_registers.PC);
-
-		if (!_skipNextPCIncrement) ++_registers.PC;
-		_skipNextPCIncrement = false;
-
-		return result;
-	}
+	unsigned char GetNextProgramByte() { return ReadByte(_registers.PC++); }
 
 	unsigned char GetByteOperand() { return GetNextProgramByte(); }
 	unsigned short GetWordOperand()

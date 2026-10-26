@@ -675,9 +675,9 @@ void Cpu::RequestInterrupt(InterruptFlags interruptFlags)
 void Cpu::DispatchInterrupt()
 {
 	// Per https://gbdev.io/pandocs/Interrupts.html#interrupt-handling, dispatch takes five machine cycles: two
-	// wait states, two to push PC and one to jump to the handler
+	// wait states, two to push PC and one to jump to the handler. The first wait state is the opcode fetch the
+	// dispatch replaces, which DoNextInstruction has already made
 	_interruptsEnabled = false;
-	InternalCycle();
 	InternalCycle();
 
 	// The opcode fetch that the dispatch replaced didn't increment PC if the HALT bug struck, so the handler
@@ -730,17 +730,23 @@ int Cpu::DoNextInstruction()
 
 	if (_state == CpuState::Running)
 	{
+		// The CPU checks for interrupts as it fetches the next opcode, so it sees one requested during the last
+		// machine cycle of the previous instruction. A dispatch discards the opcode and leaves PC unchanged
+		auto opcode = ReadByte(_registers.PC);
+
 		if (_interruptsEnabled && PendingInterrupts())
 		{
 			DispatchInterrupt();
 		}
 		else
 		{
+			if (!_skipNextPCIncrement) ++_registers.PC;
+			_skipNextPCIncrement = false;
+
 			// An EI before this instruction takes effect once it completes, unless this instruction is DI
 			_enableInterruptsAfterThis = _enableInterruptsAfterNext;
 			_enableInterruptsAfterNext = false;
 
-			auto opcode = GetNextProgramByte();
 			(this->*_opcodeJumpTable[opcode])(opcode);
 
 			if (_enableInterruptsAfterThis) _interruptsEnabled = true;
