@@ -1,5 +1,6 @@
 #include "ScreenshotNamer.h"
-#include <cstdio>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 namespace
 {
@@ -14,15 +15,14 @@ namespace
 
 bool ScreenshotNamer::FileExistsOnDisk(const std::string& path)
 {
+	// stat rather than opening the file, so a file that can't be read still counts
 #ifdef _MSC_VER
-	std::FILE* file = nullptr;
-	if (fopen_s(&file, path.c_str(), "rb") != 0) return false;
+	struct _stat info;
+	return _stat(path.c_str(), &info) == 0;
 #else
-	auto file = std::fopen(path.c_str(), "rb");
-	if (file == nullptr) return false;
+	struct stat info;
+	return stat(path.c_str(), &info) == 0;
 #endif
-	std::fclose(file);
-	return true;
 }
 
 std::string ScreenshotNamer::BaseForRom(const std::string& romPath)

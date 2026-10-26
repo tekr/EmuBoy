@@ -61,4 +61,7 @@ TEST(ScreenshotNamerTest, ChecksFilesOnDisk)
 	// Test ROMs are in the working directory the tests run in
 	EXPECT_TRUE(ScreenshotNamer::FileExistsOnDisk("roms/readme.md"));
 	EXPECT_FALSE(ScreenshotNamer::FileExistsOnDisk("roms/no-such-file.png"));
+
+	// A directory with the name would also stop the screenshot being saved
+	EXPECT_TRUE(ScreenshotNamer::FileExistsOnDisk("roms"));
 }
