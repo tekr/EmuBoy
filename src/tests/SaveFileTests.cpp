@@ -117,6 +117,28 @@ TEST(SaveFileTest, Mbc2LoadIgnoresUpperNibbles)
 	EXPECT_EQ("", warning);
 }
 
+TEST(SaveFileTest, Mbc2LoadsMgbaPackedNibbles)
+{
+	// mGBA keeps MBC2 RAM as 256 bytes: byte i holds address 2i in its lower nibble and 2i+1 in its upper one
+	auto cartridge = CartridgeFactory::Create(Rom(Mbc2Battery, NoRam));
+	std::vector<unsigned char> save(256, 0x00);
+	save[0x00] = 0x21;
+	save[0x80] = 0x9e;
+	save[0xff] = 0x5c;
+
+	auto warning = SaveFile::Deserialise(*cartridge, save, SaveTime);
+
+	EnableRam(*cartridge);
+	EXPECT_EQ(0xf1, cartridge->RamReadByte(0x0000));
+	EXPECT_EQ(0xf2, cartridge->RamReadByte(0x0001));
+	EXPECT_EQ(0xfe, cartridge->RamReadByte(0x0100));
+	EXPECT_EQ(0xf9, cartridge->RamReadByte(0x0101));
+	EXPECT_EQ(0xfc, cartridge->RamReadByte(0x01fe));
+	EXPECT_EQ(0xf5, cartridge->RamReadByte(0x01ff));
+	EXPECT_EQ(0xf0, cartridge->RamReadByte(0x0002));
+	EXPECT_EQ("", warning);
+}
+
 TEST(SaveFileTest, Mbc2RoundTrips)
 {
 	auto original = CartridgeFactory::Create(Rom(Mbc2Battery, NoRam));

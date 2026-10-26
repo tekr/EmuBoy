@@ -13,10 +13,24 @@ namespace
 	const unsigned char RegisterMasks[RealTimeClock::RegisterCount] = { 0x3f, 0x3f, 0x1f, 0xff, 0xc1 };
 
 	const unsigned char Mbc2UnusedBits = 0xf0;
+	const size_t Mbc2PackedSize = Mbc2Cartridge::RamSize / 2;
 
 	bool IsMbc2(Cartridge& cartridge)
 	{
 		return dynamic_cast<Mbc2Cartridge*>(&cartridge) != nullptr;
+	}
+
+	// mGBA's MBC2 save, with two nibbles per byte, as one byte per nibble
+	std::vector<unsigned char> UnpackMbc2Nibbles(const std::vector<unsigned char>& data)
+	{
+		std::vector<unsigned char> unpacked;
+		for (auto byte : data)
+		{
+			unpacked.push_back(byte & 0x0f);
+			unpacked.push_back(byte >> 4);
+		}
+
+		return unpacked;
 	}
 
 	void AppendLittleEndian(std::vector<unsigned char>& out, uint64_t value, size_t bytes)
@@ -90,8 +104,14 @@ std::vector<unsigned char> SaveFile::Serialise(Cartridge& cartridge, int64_t uni
 	return data;
 }
 
-std::string SaveFile::Deserialise(Cartridge& cartridge, const std::vector<unsigned char>& data, int64_t unixTime)
+std::string SaveFile::Deserialise(Cartridge& cartridge, const std::vector<unsigned char>& save, int64_t unixTime)
 {
+	auto isMbc2 = IsMbc2(cartridge);
+	auto isPackedMbc2 = isMbc2 && save.size() == Mbc2PackedSize;
+	std::vector<unsigned char> unpacked;
+	if (isPackedMbc2) unpacked = UnpackMbc2Nibbles(save);
+	const auto& data = isPackedMbc2 ? unpacked : save;
+
 	auto& ram = cartridge.GetRam();
 	auto clock = cartridge.GetRealTimeClock();
 
@@ -107,7 +127,7 @@ std::string SaveFile::Deserialise(Cartridge& cartridge, const std::vector<unsign
 	auto ramToLoad = std::min(ramData, ram.size());
 	std::copy(data.begin(), data.begin() + ramToLoad, ram.begin());
 
-	if (IsMbc2(cartridge))
+	if (isMbc2)
 	{
 		for (size_t i = 0; i < ramToLoad; i++) ram[i] &= ~Mbc2UnusedBits;
 	}

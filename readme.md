@@ -45,7 +45,8 @@ Games with battery-backed RAM keep their saves in a `.sav` file next to the ROM,
 to `Tetris.sav`). It is loaded at start-up, written within a few seconds of the game changing it, and written again on
 exit (closing the window, Ctrl+C or closing the terminal). The format is the raw RAM dump most emulators use, with
 the BGB/VBA-M real-time clock footer for MBC3 clock cartridges, so saves can be moved to and from BGB, VBA-M, mGBA and
-SameBoy. The clock catches up with the time that passed while Emu Boy wasn't running.
+SameBoy. MBC2 saves are written as 512 bytes, as SameBoy and VBA-M do; mGBA's 256-byte MBC2 saves can be loaded too.
+The clock catches up with the time that passed while Emu Boy wasn't running.
 
 
 ## Current status

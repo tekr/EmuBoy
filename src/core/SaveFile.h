@@ -11,8 +11,10 @@
 // wrote a 32-bit time, giving a 44-byte footer that is accepted on loading. See mGBA's GBMBCRTCSaveBuffer
 // (include/mgba/internal/gb/mbc.h) and SameBoy's rtc_save_t (Core/gb.c).
 //
-// MBC2's 512 x 4-bit RAM is stored as 512 bytes, as other emulators do, with each upper nibble set as the game reads
-// it back; the upper nibbles are ignored on loading.
+// MBC2's 512 x 4-bit RAM is stored as 512 bytes, as SameBoy and VBA-M do, with each upper nibble set as the game
+// reads it back; the upper nibbles are ignored on loading. mGBA packs it into 256 bytes instead, byte i holding
+// address 2i in its lower nibble and 2i+1 in its upper one (see _GBMBC2 and _GBMBC2Read in src/gb/mbc/mbc.c), so a
+// 256-byte MBC2 save is unpacked on loading.
 class SaveFile
 {
 public:
@@ -28,5 +30,5 @@ public:
 	// Restores the cartridge's RAM and clock from a save, moving the clock on by the time that passed between the
 	// save's time stamp and unixTime. A save of the wrong size is loaded as far as it fits. Returns a warning, or
 	// an empty string if the save matched the cartridge
-	static std::string Deserialise(Cartridge& cartridge, const std::vector<unsigned char>& data, int64_t unixTime);
+	static std::string Deserialise(Cartridge& cartridge, const std::vector<unsigned char>& save, int64_t unixTime);
 };
