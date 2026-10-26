@@ -16,6 +16,8 @@ public:
 	static const int CyclesPerBit = 512;
 	static const int BitsPerTransfer = 8;
 
+	static const int PowerOnClocks = 4;
+
 private:
 	static const unsigned char TransferStart = 0x80;
 	static const unsigned char InternalClock = 0x01;
@@ -30,7 +32,11 @@ private:
 	unsigned char _control;
 
 	int _bitsLeft;
-	int _cyclesToNextBit;
+
+	// Clocks into the current bit period of the internal clock, which is divided down from power-on, so bits shift
+	// on its period boundaries rather than a fixed time after a transfer starts (mooneye-test-suite's
+	// boot_sclk_align-dmgABCmgb)
+	int _clockPhase;
 
 	// SB as it was when the transfer started; SB itself fills with the received bits
 	unsigned char _sentByte;
@@ -49,9 +55,11 @@ public:
 	// T-cycles (4194304 Hz)
 	void RunCycles(int cycles)
 	{
-		if (!IsTransferring()) return;
+		_clockPhase += cycles;
+		auto periods = _clockPhase / CyclesPerBit;
+		_clockPhase %= CyclesPerBit;
 
-		for (_cyclesToNextBit -= cycles; IsTransferring() && _cyclesToNextBit <= 0; _cyclesToNextBit += CyclesPerBit)
+		for (; periods > 0 && IsTransferring(); periods--)
 		{
 			ShiftBit();
 		}

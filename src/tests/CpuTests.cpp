@@ -1460,6 +1460,19 @@ TEST_F(CpuTestFixture, InterruptsDisabledAtPowerOn)
 	EXPECT_EQ(1, Cpu.Registers().PC);
 }
 
+TEST_F(CpuTestFixture, InterruptEnableKeepsUpperBits)
+{
+	// Mooneye-test-suite's unused_hwio-GS: IE's upper three bits read back as written
+	MemoryMap.SetBytes(MemoryMap::RomFixed, { 0xe0, 0xff, 0xf0, 0xff });		// LDH ($FF),A; LDH A,($FF)
+	Cpu.Registers().A = 0xe0;
+
+	Cpu.DoNextInstruction();
+	Cpu.Registers().A = 0;
+	Cpu.DoNextInstruction();
+
+	EXPECT_EQ(0xe0, Cpu.Registers().A);
+}
+
 TEST_F(CpuTestFixture, VBlankInterrupt)
 {
 	/*

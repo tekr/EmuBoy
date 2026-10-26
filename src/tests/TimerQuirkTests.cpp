@@ -30,6 +30,9 @@ public:
 	{
 		Timer.SetCpu(&Cpu);
 		Cpu.WaitingInterrupts() = 0;
+
+		// Starts from a divider of 0 rather than its power-on phase
+		Timer.WriteRegister(DivReg, 0);
 	}
 
 	unsigned char Counter() { return Timer.ReadRegister(CounterReg); }
@@ -55,6 +58,29 @@ TEST_F(TimerQuirkTests, CountsAtTheRateOfEachMode)
 
 		Timer.WriteRegister(ControlReg, mode);
 	}
+}
+
+TEST(TimerPowerOnTest, DividerHasCountedAMachineCycle)
+{
+	// Mooneye-test-suite's boot_div-dmgABCmgb: with the divider a machine cycle in at power-on, DIV has the phase
+	// the DMG boot ROM hands over with
+	::Timer timer;
+
+	timer.RunCycles(256 - 4 - 1);
+	EXPECT_EQ(0, timer.ReadRegister(DivReg));
+
+	timer.RunCycles(1);
+	EXPECT_EQ(1, timer.ReadRegister(DivReg));
+}
+
+TEST(TimerPowerOnTest, UnusedControlBitsReadAsOne)
+{
+	// Mooneye-test-suite's unused_hwio-GS
+	::Timer timer;
+	EXPECT_EQ(0xf8, timer.ReadRegister(ControlReg));
+
+	timer.WriteRegister(ControlReg, 0x05);
+	EXPECT_EQ(0xfd, timer.ReadRegister(ControlReg));
 }
 
 TEST_F(TimerQuirkTests, DivIsTheUpperByteOfTheDivider)

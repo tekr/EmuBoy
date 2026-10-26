@@ -39,6 +39,9 @@
     <ClCompile Include="BlarggOamBugTests.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="IoPortTests.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="SerialTests.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>

@@ -19,6 +19,10 @@ class Timer
 	// After TIMA overflows it holds 0 for one machine cycle before being reloaded from TMA
 	static const int ReloadDelayCycles = 4;
 
+	// The divider has counted a machine cycle by the time the CPU fetches its first opcode, which puts DIV in the
+	// phase mooneye-test-suite's boot_div-dmgABCmgb expects when the DMG boot ROM hands over
+	static const unsigned short PowerOnDivider = 4;
+
 	Cpu* _cpu;
 
 	// Increments every cycle; DIV is its upper byte
@@ -55,6 +59,6 @@ public:
 
 	unsigned char ReadRegister(int address) const
 	{
-		return address == DivReg ? _divider >> 8 : address < ControlReg ? _registers[address] : _divisorMode | (_isRunning ? 4 : 0);
+		return address == DivReg ? _divider >> 8 : address < ControlReg ? _registers[address] : 0xf8 | _divisorMode | (_isRunning ? 4 : 0);
 	}
 };

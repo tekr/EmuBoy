@@ -2,7 +2,7 @@
 #include "Serial.h"
 #include "Cpu.h"
 
-Serial::Serial() : _cpu(nullptr), _data(0), _control(0), _bitsLeft(0), _cyclesToNextBit(0), _sentByte(0)
+Serial::Serial() : _cpu(nullptr), _data(0), _control(0), _bitsLeft(0), _clockPhase(PowerOnClocks), _sentByte(0)
 {
 }
 
@@ -21,7 +21,6 @@ void Serial::WriteRegister(int reg, unsigned char value)
 	{
 		_sentByte = _data;
 		_bitsLeft = BitsPerTransfer;
-		_cyclesToNextBit = CyclesPerBit;
 	}
 	else
 	{

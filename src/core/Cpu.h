@@ -271,7 +271,7 @@ protected:
 		switch (address)
 		{
 		case EnabledInterruptsAddress:
-			_enabledInterrupts = value & InterruptFlags::AllInt;
+			_enabledInterrupts = value;
 			break;
 
 		case WaitingInterruptsAddress:

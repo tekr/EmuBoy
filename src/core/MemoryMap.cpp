@@ -92,7 +92,8 @@ unsigned char MemoryMap::ReadUnblocked(unsigned short address) const
 
 	if (address < HighRam)
 	{
-		return 0;
+		// Unmapped I/O ports read $FF on the DMG
+		return 0xff;
 	}
 
 	return _highRam[address - HighRam];
