@@ -44,6 +44,11 @@ public:
 	// Saves only if the RAM or clock registers changed since the last load or save
 	Result SaveIfChanged();
 
+	// Copies the save as it is now to <save path>.bak before the save is next replaced, as when a save state that
+	// rolls the RAM back has been loaded. Only the first call does so, so the backup is the save from before any
+	// state was loaded
+	Result BackUpBeforeNextSave();
+
 	// Saves when the emulator exits: only if something changed, so just running a game never rewrites its save,
 	// except that a clock cartridge's save is always rewritten to keep its time stamp current
 	Result SaveOnExit();
@@ -59,6 +64,7 @@ private:
 	// The save as loaded, kept when it loaded with a warning until it has been backed up
 	std::vector<unsigned char> _saveToBackUp;
 	bool _needsBackup{ false };
+	bool _backedUpForState{ false };
 
 	std::string _lastError;
 

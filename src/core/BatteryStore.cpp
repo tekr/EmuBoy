@@ -110,6 +110,29 @@ BatteryStore::Result BatteryStore::SaveIfChanged()
 	return _cartridge->HasUnsavedChanges() ? Save() : Result{ true, "" };
 }
 
+BatteryStore::Result BatteryStore::BackUpBeforeNextSave()
+{
+	if (!IsNeeded() || _backedUpForState) return { true, "" };
+	_backedUpForState = true;
+
+	// A save that loaded with a warning is already waiting to be backed up as it was loaded
+	if (_needsBackup || _loadFailed) return { true, "" };
+
+	std::vector<unsigned char> data;
+	if (!FileIo::ReadWholeFile(_savePath, data))
+	{
+		if (errno == ENOENT) return { true, "" };
+
+		// Not overwritten, as it couldn't be backed up
+		_loadFailed = true;
+		return Failure("read", _savePath, errno);
+	}
+
+	_saveToBackUp = std::move(data);
+	_needsBackup = true;
+	return { true, "" };
+}
+
 BatteryStore::Result BatteryStore::SaveOnExit()
 {
 	return _cartridge->GetRealTimeClock() != nullptr ? Save() : SaveIfChanged();

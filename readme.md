@@ -69,8 +69,9 @@ and loading take well under a millisecond, and a state takes about 40 KB plus th
 Loading a state also puts back the cartridge RAM as it was when the state was saved, and that becomes the game's
 battery save too: it is written to the `.sav` file within a few seconds, as if the game had just saved. This keeps
 the `.sav` in line with what the game sees, rather than mixing a state's RAM with the newer save. So loading an
-older state also takes the game's own save back to that point; copy the `.sav` first to keep a newer one. The
-real-time clock is restored as it was in the state, without catching up with the time since.
+older state also takes the game's own save back to that point. So that a state loaded by mistake can be undone, the
+first time a state is loaded in a session the `.sav` as it was is copied to `<name>.sav.bak` before it is replaced.
+The real-time clock is restored as it was in the state, without catching up with the time since.
 
 ## Controls
 

@@ -432,3 +432,50 @@ TEST_F(BatteryStoreTest, ExitAlwaysSavesClockCartridgeWithCurrentTime)
 	for (auto i = 0; i < 8; i++) timeStamp |= static_cast<int64_t>(save[40 + i]) << (8 * i);
 	EXPECT_EQ(Now, timeStamp);
 }
+
+TEST_F(BatteryStoreTest, BacksUpTheSaveBeforeItIsFirstReplacedAfterAStateLoads)
+{
+	auto cartridge = CartridgeFactory::Create(Rom(Mbc1RamBattery, Ram8K));
+	auto store = Store(cartridge);
+	FillRam(*cartridge, 3);
+	ASSERT_TRUE(store.Save().Succeeded);
+	auto before = ReadAll(SavePath);
+
+	EXPECT_TRUE(store.BackUpBeforeNextSave().Succeeded);
+	EXPECT_FALSE(Exists(SavePath + ".bak"));
+	FillRam(*cartridge, 5);
+	ASSERT_TRUE(store.Save().Succeeded);
+
+	EXPECT_EQ(before, ReadAll(SavePath + ".bak"));
+	EXPECT_EQ(cartridge->GetRam(), ReadAll(SavePath));
+}
+
+TEST_F(BatteryStoreTest, KeepsTheBackupFromBeforeTheFirstStateLoaded)
+{
+	auto cartridge = CartridgeFactory::Create(Rom(Mbc1RamBattery, Ram8K));
+	auto store = Store(cartridge);
+	FillRam(*cartridge, 3);
+	ASSERT_TRUE(store.Save().Succeeded);
+	auto before = ReadAll(SavePath);
+
+	store.BackUpBeforeNextSave();
+	FillRam(*cartridge, 5);
+	ASSERT_TRUE(store.Save().Succeeded);
+	store.BackUpBeforeNextSave();
+	FillRam(*cartridge, 7);
+	ASSERT_TRUE(store.Save().Succeeded);
+
+	EXPECT_EQ(before, ReadAll(SavePath + ".bak"));
+}
+
+TEST_F(BatteryStoreTest, NothingToBackUpWithoutASave)
+{
+	auto cartridge = CartridgeFactory::Create(Rom(Mbc1RamBattery, Ram8K));
+	auto store = Store(cartridge);
+
+	EXPECT_TRUE(store.BackUpBeforeNextSave().Succeeded);
+	FillRam(*cartridge, 5);
+	ASSERT_TRUE(store.Save().Succeeded);
+
+	EXPECT_FALSE(Exists(SavePath + ".bak"));
+}

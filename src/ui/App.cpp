@@ -248,9 +248,13 @@ void App::LoadFromSlot()
 	_audio.Clear();
 	_pacer.Restart(Now(), _emulator->GetCpuClocks());
 
-	// The state's screen shows straight away, even while paused, without the old one fading out under it
+	// The state's screen shows straight away, even while paused, without the old one fading out under it. Frames
+	// are drawn partly transparent to build up like the slow LCD, so a few draws bring it to full brightness
 	_screen.clear();
-	ShowFrame(_emulator->GetScreen());
+	for (auto i = 0; i < 4; i++) ShowFrame(_emulator->GetScreen());
+
+	// The game's battery save is rewritten from the state's RAM, so the one from before is kept
+	ReportSaveResult(_saves.BackUpBeforeNextSave());
 }
 
 void App::ShowSlot()
