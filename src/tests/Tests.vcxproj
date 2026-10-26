@@ -156,6 +156,7 @@
     <ClInclude Include="TestMemoryMap.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="SerialTests.cpp" />
     <ClCompile Include="ApuTests.cpp" />
     <ClCompile Include="ApuTestsChannels.cpp" />
     <ClCompile Include="ApuTestsMixing.cpp" />
