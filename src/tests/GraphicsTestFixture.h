@@ -10,11 +10,13 @@ class InputJoypad;
 class GraphicsTestFixture : public testing::Test
 {
 public:
+	// Members named after their types qualify the type with :: so the name's meaning doesn't change within the
+	// class, which GCC rejects
 	InputJoypad Joypad;
 	TestMemoryMap MemoryMap { Joypad };
 	TestCpu Cpu{ MemoryMap };
-	SpriteManager SpriteManager{};
-	Graphics Graphics{ Cpu, MemoryMap, SpriteManager };
+	::SpriteManager SpriteManager{};
+	::Graphics Graphics{ Cpu, MemoryMap, SpriteManager };
 
 	GraphicsTestFixture() {}
 	~GraphicsTestFixture();
