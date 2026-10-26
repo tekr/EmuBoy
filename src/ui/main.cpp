@@ -45,15 +45,21 @@ int main(int argc, char* argv[])
 	auto scale = argc > 3 ? std::max(1, std::atoi(argv[3])) : 4;
 	sf::RenderWindow window(sf::VideoMode(Graphics::HozPixels * scale, Graphics::VertPixels * scale), "EmuBoy");
 
-	sf::Texture texture;
-	texture.create(Graphics::HozPixels, Graphics::VertPixels);
-	texture.setSmooth(true);
+	sf::Texture frameTexture;
+	frameTexture.create(Graphics::HozPixels, Graphics::VertPixels);
+	sf::Sprite frameSprite(frameTexture);
 
-	sf::Sprite sprite;
-	sprite.setTexture(texture);
-	sprite.scale(static_cast<float>(scale), static_cast<float>(scale));
+	// Frames are drawn at 60% opacity over the previous ones to emulate the slow LCD. They build up in a texture
+	// the app owns, as a window's back buffer isn't guaranteed to keep its contents between frames
+	sf::RenderTexture screen;
+	screen.create(Graphics::HozPixels, Graphics::VertPixels);
+	screen.setSmooth(true);
+	screen.clear();
 
-	auto cartridge = CartridgeFactory::LoadFromFile(argc > 1 ? argv[1] : "../../ROMs/gb-snake.gb", 0);
+	sf::Sprite screenSprite(screen.getTexture());
+	screenSprite.scale(static_cast<float>(scale), static_cast<float>(scale));
+
+	auto cartridge = CartridgeFactory::LoadFromFile(argc > 1 ? argv[1] : "../../ROMs/gb-snake.gb");
 	if (cartridge != nullptr)
 	{
 		Emulator emulator{ cartridge };
@@ -79,10 +85,12 @@ int main(int argc, char* argv[])
 			}
 
 			auto frame = emulator.GetFrame();
-			texture.update(reinterpret_cast<sf::Uint8*>(frame));
+			frameTexture.update(reinterpret_cast<sf::Uint8*>(frame));
+			screen.draw(frameSprite);
+			screen.display();
 			if (record) record.write(reinterpret_cast<char*>(frame), Graphics::HozPixels * Graphics::VertPixels * 4);
 
-			window.draw(sprite);
+			window.draw(screenSprite);
 			window.display();
 
 			auto now = clock.getElapsedTime();

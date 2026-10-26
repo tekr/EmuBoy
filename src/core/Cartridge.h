@@ -19,6 +19,8 @@ protected:
 	Mode _mode{ Mode::SixteenMbRom };
 	bool _ramEnabled;
 
+	size_t RamIndex(unsigned short address) const;
+
 public:
 	Cartridge(std::vector<unsigned char>&& rom, int ramBanks);
 

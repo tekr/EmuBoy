@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "SpriteManager.h"
+#include <algorithm>
 
 
 SpriteManager::SpriteManager(): _currentScanline(0), _spriteHeight(NormalSpriteHeight)
@@ -16,10 +17,19 @@ void SpriteManager::SetScanline(unsigned char scanline)
 	auto firstSpriteNotAbove = _yOrderedSprites.upper_bound(_currentScanline + SpriteYOffset - _spriteHeight);
 	auto firstSpriteBelow = _yOrderedSprites.upper_bound(_currentScanline + SpriteYOffset);
 
+	// Hardware selects the first sprites in OAM order that are on this line, regardless of X.
+	// SpriteData objects overlay OAM, so address order is OAM order
+	SpriteData* lineSprites[MaxSprites];
+	auto numLineSprites = 0;
+
 	for (auto sprite = firstSpriteNotAbove; sprite != firstSpriteBelow; ++sprite)
 	{
-		_visibleSprites.insert(*sprite);
+		lineSprites[numLineSprites++] = *sprite;
 	}
+
+	auto numSelected = numLineSprites < MaxSpritesPerLine ? numLineSprites : MaxSpritesPerLine;
+	std::partial_sort(lineSprites, lineSprites + numSelected, lineSprites + numLineSprites);
+	_visibleSprites.insert(lineSprites, lineSprites + numSelected);
 }
 
 void SpriteManager::SpriteMoved(SpriteData& spriteData)
