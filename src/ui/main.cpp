@@ -39,7 +39,7 @@ int main()
 	frameTexture.create(Graphics::HozPixels, Graphics::VertPixels);
 	sf::Sprite frameSprite(frameTexture);
 
-	// Frames are drawn at 75% opacity over the previous ones to emulate the slow LCD. They build up in a texture
+	// Frames are drawn at 60% opacity over the previous ones to emulate the slow LCD. They build up in a texture
 	// the app owns, as a window's back buffer isn't guaranteed to keep its contents between frames
 	sf::RenderTexture screen;
 	screen.create(Graphics::HozPixels, Graphics::VertPixels);
