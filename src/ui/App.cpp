@@ -198,6 +198,10 @@ void App::Reset()
 	ReportSaveResult(_saves.SaveIfChanged());
 	_cartridge->Reset();
 	_emulator = std::make_unique<Emulator>(_cartridge);
+
+	// The old game's last frames shouldn't fade out over the new one's first
+	_screen.clear();
+	_screen.display();
 }
 
 void App::SaveScreenshot()
