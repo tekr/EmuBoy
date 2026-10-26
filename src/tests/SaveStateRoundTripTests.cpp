@@ -196,6 +196,52 @@ namespace
 	const SavePoint DuringOamDma{ "During OAM DMA", Until(OamDmaRunning) };
 	const SavePoint DuringSerialTransfer{ "During a serial transfer", Until(SerialTransferring) };
 
+	// A value inside a section of the emulator's save state, for state no accessor shows
+	uint32_t StateValue(Emulator& emulator, const std::string& tag, size_t offset, size_t size)
+	{
+		auto state = SaveState::Create(emulator);
+		const size_t headerSize = 12;
+		for (auto section = headerSize; section + 8 <= state.size();)
+		{
+			auto length = state[section + 4] | state[section + 5] << 8 | state[section + 6] << 16 | static_cast<uint32_t>(state[section + 7]) << 24;
+			if (std::string(state.begin() + section, state.begin() + section + 4) == tag)
+			{
+				uint32_t value = 0;
+				for (size_t i = 0; i < size; i++) value |= static_cast<uint32_t>(state[section + 8 + offset + i]) << (8 * i);
+				return value;
+			}
+
+			section += 8 + length;
+		}
+
+		ADD_FAILURE() << "No " << tag << " section";
+		return 0;
+	}
+
+	unsigned short ProgramCounter(Emulator& emulator) { return emulator.GetCpu().GetRegisters().PC; }
+
+	// Between EI and the instruction after it, which IME waits for (Pan Docs, Interrupts). The CPU's state holds
+	// that flag after its six register pairs, its run state, its clock count, the HALT bug flag and IME
+	bool InEiDelay(Emulator& emulator)
+	{
+		const size_t enableAfterNextOffset = 12 + 4 + 8 + 1 + 1;
+		return Read(emulator, static_cast<unsigned short>(ProgramCounter(emulator) - 1)) == 0xfb &&
+			StateValue(emulator, "CPU ", enableAfterNextOffset, 1) != 0;
+	}
+
+	// Between a write to $FF46 and the transfer starting two machine cycles later. The OAM DMA state holds the
+	// cycles left after the register's value
+	bool InOamDmaStartDelay(Emulator& emulator)
+	{
+		auto pc = ProgramCounter(emulator);
+		auto wroteFf46 = (Read(emulator, static_cast<unsigned short>(pc - 2)) == 0xe0 && Read(emulator, static_cast<unsigned short>(pc - 1)) == 0x46) ||
+			(Read(emulator, static_cast<unsigned short>(pc - 1)) == 0xe2 && emulator.GetCpu().GetRegisters().C == 0x46);
+		return wroteFf46 && StateValue(emulator, "DMA ", 1, 4) > 0;
+	}
+
+	const SavePoint DuringEiDelay{ "Between EI and the next instruction", Until(InEiDelay) };
+	const SavePoint DuringOamDmaStartDelay{ "Before OAM DMA starts", Until(InOamDmaStartDelay) };
+
 	// Saves at each point in turn and checks restoring the state carries on exactly as the emulator did
 	void ExpectRoundTrips(const Rom& rom, const std::vector<SavePoint>& points, const InputScript& input = PressSomeKeys)
 	{
@@ -364,4 +410,20 @@ TEST(SaveStateRoundTripTest, MooneyeMbc2Ram)
 TEST(SaveStateRoundTripTest, MooneyeMbc5Rom)
 {
 	ExpectRoundTrips({ "roms/mooneye-test-suite/emulator-only/mbc5/rom_8Mb.gb", -1 }, { AfterBoot, { "Testing", Instructions(15000) } });
+}
+
+TEST(SaveStateRoundTripTest, BlarggInterruptsBetweenEiAndTheNextInstruction)
+{
+	ExpectRoundTrips({ "roms/cpu_instrs/02-interrupts.gb", 1 }, { DuringEiDelay });
+}
+
+TEST(SaveStateRoundTripTest, MooneyeEiSequenceBetweenEiAndTheNextInstruction)
+{
+	ExpectRoundTrips({ "roms/mooneye-test-suite/acceptance/ei_sequence.gb", -1 }, { DuringEiDelay });
+}
+
+TEST(SaveStateRoundTripTest, MooneyeOamDmaBeforeTheTransferStarts)
+{
+	ExpectRoundTrips({ "roms/mooneye-test-suite/acceptance/oam_dma_restart.gb", -1 }, { DuringOamDmaStartDelay });
+	ExpectRoundTrips({ "roms/mooneye-test-suite/acceptance/oam_dma/basic.gb", -1 }, { DuringOamDmaStartDelay });
 }

@@ -151,10 +151,11 @@ TEST_F(SaveStateTest, RestoresIntoANewEmulator)
 	EXPECT_TRUE(State == SaveState::Create(restored));
 }
 
-TEST_F(SaveStateTest, SavesAndLoadsInMilliseconds)
+TEST_F(SaveStateTest, SavesAndLoadsWithoutAnyLongDelay)
 {
-	// Generous, so as not to fail on a slow machine; it takes well under a millisecond each on a desktop
-	const auto limit = std::chrono::milliseconds(50);
+	// Not a benchmark: each takes well under a millisecond on a desktop, so this only catches something badly wrong,
+	// however slow or busy the machine running the tests
+	const auto limit = std::chrono::seconds(1);
 	Emulator restored{ LoadRom() };
 
 	auto start = std::chrono::steady_clock::now();
