@@ -142,8 +142,6 @@ int Graphics::RenderLine()
 			auto firstSpriteNotLeftOfX = visibleSprites.cbegin();
 			auto firstSpriteBelowY = visibleSprites.cend();
 
-			auto spritesThisLine = 0;
-
 			auto backgroundEnabled = BackgroundEnabled();
 			auto spritesEnabled = SpritesEnabled();
 
@@ -171,24 +169,20 @@ int Graphics::RenderLine()
 					while (firstSpriteNotLeftOfX != firstSpriteBelowY && (*firstSpriteNotLeftOfX)->XPos - SpriteManager::SpriteXOffset + SpriteManager::SpriteWidth <= x)
 					{
 						++firstSpriteNotLeftOfX;
-						++spritesThisLine;
 					}
 
 					auto sprite = firstSpriteNotLeftOfX;
 
-					// Iterate through sprites overlapping this pixel as necessary until we either:
-					//  * Hit a non-transparent sprite pixel above the BG/Window
-					//  * Hit a sprite that is behind the BG/Window, at which point we use BG/Window pixel (regardless of lower-priority sprite settings)
-					//  * Run out of overlapping sprites
-					while ((sprite != firstSpriteBelowY && (*sprite)->XPos - SpriteManager::SpriteXOffset <= x && spritesThisLine <= SpriteManager::MaxSpritesPerLine &&
-						(!((*sprite)->Flags & SpriteFlags::ZPriority) || colour == 0)))
+					// The highest-priority sprite with a non-transparent pixel here wins; only then does
+					// its priority flag decide whether it is drawn over or behind the BG/Window
+					while (sprite != firstSpriteBelowY && (*sprite)->XPos - SpriteManager::SpriteXOffset <= x)
 					{
 						auto spriteColour = _spriteManager.GetSpriteColour(**sprite, x, _currentScanline, _vram);
-						spritePixelOnTop = spriteColour != 0;
 
-						if (spritePixelOnTop)
+						if (spriteColour != 0)
 						{
-							pixel = MapColour(spriteColour, (*firstSpriteNotLeftOfX)->Flags & SpriteFlags::PaletteSelector ? Palette::Sprite1 : Palette::Sprite0);
+							spritePixelOnTop = !((*sprite)->Flags & SpriteFlags::ZPriority) || colour == 0;
+							if (spritePixelOnTop) pixel = MapColour(spriteColour, (*sprite)->Flags & SpriteFlags::PaletteSelector ? Palette::Sprite1 : Palette::Sprite0);
 							break;
 						}
 

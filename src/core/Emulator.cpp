@@ -9,9 +9,15 @@ void Emulator::Run(int& currentCycle, int cycleTarget)
 		auto cyclesToRun = std::min(cycleTarget - currentCycle, EmuTimer.GetCyclesToNextEvent());
 		auto cyclesRun = 0;
 
-		while (cyclesRun < cyclesToRun) cyclesRun += EmuCpu.DoNextInstruction();
+		while (cyclesRun < cyclesToRun)
+		{
+			auto cycles = EmuCpu.DoNextInstruction();
+			cyclesRun += cycles;
 
-		EmuTimer.RunCycles(cyclesRun);
+			// Timer register writes must see the current divider
+			EmuTimer.RunCycles(cycles);
+		}
+
 		currentCycle += cyclesRun;
 	}
 

@@ -31,6 +31,8 @@ class SpriteManager
 
 public:
 
+	static const int MaxSprites = Graphics::OamSize / sizeof(SpriteData);
+
 	// GB hardware supports 10 sprites per scanline
 	static const int MaxSpritesPerLine = 10;
 

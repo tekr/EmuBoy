@@ -160,6 +160,7 @@
     <ClCompile Include="CpuTests.cpp" />
     <ClCompile Include="GraphicsTestFixture.cpp" />
     <ClCompile Include="GraphicsTests.cpp" />
+    <ClCompile Include="SpriteTests.cpp" />
     <ClCompile Include="TestGraphics.cpp" />
     <ClCompile Include="Tests.cpp" />
     <ClCompile Include="stdafx.cpp">
@@ -170,6 +171,7 @@
     </ClCompile>
     <ClCompile Include="TestCpu.cpp" />
     <ClCompile Include="TestMemoryMap.cpp" />
+    <ClCompile Include="TimerQuirkTests.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\core\Core.vcxproj">

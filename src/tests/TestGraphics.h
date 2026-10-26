@@ -6,6 +6,7 @@ class TestGraphics : public Graphics
 public:
 	using Graphics::GetBgOrWinColour;
 	using Graphics::MapColour;
+	using Graphics::Palette;
 	
 	using Graphics::DisplayEnabled;
 	using Graphics::WindowEnabled;

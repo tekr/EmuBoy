@@ -21,5 +21,6 @@ public:
 
 	int* GetFrame();
 	InputJoypad& GetJoypad() { return EmuJoypad; }
+	MemoryMap& GetMemoryMap() { return EmuMemoryMap; }
 };
 
