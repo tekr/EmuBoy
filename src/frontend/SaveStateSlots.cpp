@@ -3,6 +3,8 @@
 #include "../core/SaveState.h"
 #include <cerrno>
 
+const int SaveStateSlots::SlotCount;
+
 std::string SaveStateSlots::PathForSlot(int slot) const
 {
 	return FileIo::ReplaceExtension(_romPath, ".ss" + std::to_string(slot));
