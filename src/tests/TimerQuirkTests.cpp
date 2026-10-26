@@ -250,6 +250,30 @@ TEST_F(TimerOverflowTests, ModuloWriteAfterReloadCycleDoesNotLoadCounter)
 	EXPECT_EQ(0xf0, Counter());
 }
 
+TEST_F(TimerOverflowTests, OverflowCausedByTacWriteHasTheSameReloadCycles)
+{
+	// Disabling the timer with divider bit 3 set increments TIMA, overflowing it
+	Timer.RunCycles(12);
+	Timer.WriteRegister(ControlReg, 1);
+	EXPECT_EQ(0, Counter());
+
+	Timer.WriteRegister(CounterReg, 0x42);
+	Timer.RunCycles(4);
+
+	EXPECT_EQ(0x42, Counter());
+	EXPECT_FALSE(TimerInterruptRequested());
+}
+
+TEST_F(TimerOverflowTests, OverflowCausedByTacWriteReloadsEvenThoughTimerIsDisabled)
+{
+	Timer.RunCycles(12);
+	Timer.WriteRegister(ControlReg, 1);
+	Timer.RunCycles(4);
+
+	EXPECT_EQ(0xf0, Counter());
+	EXPECT_TRUE(TimerInterruptRequested());
+}
+
 TEST_F(TimerQuirkTests, CountsAcrossDividerWraparound)
 {
 	Timer.WriteRegister(ControlReg, TimerEnable | 1);

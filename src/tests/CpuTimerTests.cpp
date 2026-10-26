@@ -83,3 +83,96 @@ TEST_F(CpuTimerTests, InterruptRequestedDuringOpcodeFetchIsDispatchedInsteadOfTh
 	EXPECT_EQ(0x02, MemoryMap.ReadByte(StackTop - 2));
 	EXPECT_EQ(0xf0, Tima());
 }
+
+// In the programs below the divider starts at 0, so TIMA overflows at the end of the 4th machine cycle. An LDH
+// after a NOP writes in that cycle (cycle A); after two NOPs it writes in the next (cycle B)
+
+TEST_F(CpuTimerTests, TimaWriteInCycleACancelsReloadAndInterrupt)
+{
+	MemoryMap.SetBytes(MemoryMap::RomFixed, { 0x00, 0xe0, 0x05, 0x00 });	// NOP; LDH (TIMA),A; NOP
+	Cpu.Registers().A = 0x42;
+
+	Step(3);
+	EXPECT_EQ(0x42, Tima());
+	EXPECT_FALSE(TimerInterruptRequested());
+}
+
+TEST_F(CpuTimerTests, TmaWriteInCycleAIsReloaded)
+{
+	MemoryMap.SetBytes(MemoryMap::RomFixed, { 0x00, 0xe0, 0x06, 0x00 });	// NOP; LDH (TMA),A; NOP
+	Cpu.Registers().A = 0x37;
+
+	Step(3);
+	EXPECT_EQ(0x37, Tima());
+	EXPECT_TRUE(TimerInterruptRequested());
+}
+
+TEST_F(CpuTimerTests, TimaWriteInCycleBIsIgnored)
+{
+	MemoryMap.SetBytes(MemoryMap::RomFixed, { 0x00, 0x00, 0xe0, 0x05 });	// NOP; NOP; LDH (TIMA),A
+	Cpu.Registers().A = 0x42;
+
+	Step(3);
+	EXPECT_EQ(0xf0, Tima());
+	EXPECT_TRUE(TimerInterruptRequested());
+}
+
+TEST_F(CpuTimerTests, TmaWriteInCycleBAlsoLoadsTima)
+{
+	MemoryMap.SetBytes(MemoryMap::RomFixed, { 0x00, 0x00, 0xe0, 0x06 });	// NOP; NOP; LDH (TMA),A
+	Cpu.Registers().A = 0x37;
+
+	Step(3);
+	EXPECT_EQ(0x37, Tima());
+}
+
+TEST_F(CpuTimerTests, DisablingTimerInCycleADoesNotStopReload)
+{
+	// Divider bit 3 is clear at 16, so disabling causes no extra increment
+	MemoryMap.SetBytes(MemoryMap::RomFixed, { 0x00, 0xe0, 0x07, 0x00 });	// NOP; LDH (TAC),A; NOP
+	Cpu.Registers().A = 0x01;
+
+	Step(3);
+	EXPECT_EQ(0xf0, Tima());
+	EXPECT_TRUE(TimerInterruptRequested());
+}
+
+TEST_F(CpuTimerTests, DivWriteInCycleBKeepsReloadAndRestartsPeriod)
+{
+	// Divider 20 has bit 3 clear, so the reset causes no extra increment. The next comes 16 cycles later
+	MemoryMap.SetBytes(MemoryMap::RomFixed, { 0x00, 0x00, 0xe0, 0x04, 0x00, 0x00, 0x00, 0x00 });
+
+	Step(3);
+	EXPECT_EQ(0xf0, Tima());
+	EXPECT_TRUE(TimerInterruptRequested());
+
+	Step(3);
+	EXPECT_EQ(0xf0, Tima());
+
+	Step(1);
+	EXPECT_EQ(0xf1, Tima());
+}
+
+TEST_F(CpuTimerTests, EarliestTimaWriteAfterWriteTriggeredOverflowFollowsTheReload)
+{
+	// LDH (TAC),A overflows TIMA in its last cycle (divider 12, bit 3 set); the reload happens during the next opcode fetch and its
+	// cycle ends with the operand read, so LD (HL),d8 writes after both
+	MemoryMap.SetBytes(MemoryMap::RomFixed, { 0xe0, 0x07, 0x36, 0x42 });	// LDH (TAC),A; LD (HL),$42
+	Cpu.Registers().A = 0x01;
+	Cpu.Registers().HL = TimaAddress;
+
+	Step(2);
+	EXPECT_EQ(0x42, Tima());
+	EXPECT_TRUE(TimerInterruptRequested());
+}
+
+TEST_F(CpuTimerTests, EarliestTmaWriteAfterWriteTriggeredOverflowDoesNotLoadTima)
+{
+	MemoryMap.SetBytes(MemoryMap::RomFixed, { 0xe0, 0x07, 0x36, 0x42 });	// LDH (TAC),A; LD (HL),$42
+	Cpu.Registers().A = 0x01;
+	Cpu.Registers().HL = TmaAddress;
+
+	Step(2);
+	EXPECT_EQ(0xf0, Tima());
+	EXPECT_EQ(0x42, MemoryMap.ReadByte(TmaAddress));
+}

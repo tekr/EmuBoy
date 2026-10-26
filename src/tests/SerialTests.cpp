@@ -99,6 +99,22 @@ TEST_F(SerialTests, ClearingStartBitCancelsTransfer)
 	EXPECT_FALSE(SerialInterruptRequested());
 }
 
+TEST_F(SerialTests, WritingStartBitDuringTransferRestartsIt)
+{
+	// Pan Docs doesn't say what this does on hardware. Emu Boy restarts the transfer with SB as it is, partly
+	// shifted
+	StartTransfer(0x42);
+	Serial.RunCycles(TransferCycles / 2);
+
+	Serial.WriteRegister(Serial::ControlReg, 0x81);
+	Serial.RunCycles(TransferCycles - 1);
+	EXPECT_TRUE(Sent.empty());
+
+	Serial.RunCycles(1);
+	ASSERT_EQ(1u, Sent.size());
+	EXPECT_EQ(0x2f, Sent[0]);
+}
+
 TEST_F(SerialTests, UnusedControlBitsReadAsOne)
 {
 	EXPECT_EQ(0x7e, Serial.ReadRegister(Serial::ControlReg));

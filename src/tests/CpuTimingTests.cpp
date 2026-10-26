@@ -44,9 +44,10 @@ public:
 		Cpu.WaitingInterrupts() = 0;
 	}
 
-	void RunProgram(std::vector<unsigned char>&& program)
+	void RunProgram(std::vector<unsigned char>&& program, unsigned short address = MemoryMap::RomFixed)
 	{
-		MemoryMap.SetBytes(MemoryMap::RomFixed, std::move(program));
+		MemoryMap.SetBytes(address, std::move(program));
+		Cpu.Registers().PC = address;
 		MemoryMap.WriteByte(CounterAddress, 0);
 		Cycles = Cpu.DoNextInstruction();
 	}
@@ -133,6 +134,122 @@ TEST_F(CpuTimingTests, BitTestOfMemoryReadsInTheLastCycle)
 	RunProgram({ 0xcb, 0x46 });
 	EXPECT_EQ(0, Cpu.Registers().F & ZeroFlag);
 	EXPECT_EQ(3 * MachineCycle, Cycles);
+}
+
+// Stack accesses: pointing SP at the counter shows which cycle each byte is pushed or popped in
+
+TEST_F(CpuTimingTests, PushWritesHighByteInCycleThreeAndLowByteInCycleFour)
+{
+	Cpu.Registers().BC = 0x1234;
+
+	// The high byte lands on the counter with one cycle still to run
+	Cpu.Registers().SP = CounterAddress + 1;
+	RunProgram({ 0xc5 });
+	EXPECT_EQ(0x13, Counter());
+	EXPECT_EQ(4 * MachineCycle, Cycles);
+
+	Cpu.Registers().SP = CounterAddress + 2;
+	RunProgram({ 0xc5 });
+	EXPECT_EQ(0x34, Counter());
+}
+
+TEST_F(CpuTimingTests, RstPushesInCyclesThreeAndFour)
+{
+	// Returns to 0x0231
+	Cpu.Registers().SP = CounterAddress + 1;
+	RunProgram({ 0xcf }, 0x0230);
+	EXPECT_EQ(0x03, Counter());
+	EXPECT_EQ(4 * MachineCycle, Cycles);
+	EXPECT_EQ(0x08, Cpu.Registers().PC);
+
+	Cpu.Registers().SP = CounterAddress + 2;
+	RunProgram({ 0xcf }, 0x0230);
+	EXPECT_EQ(0x31, Counter());
+}
+
+TEST_F(CpuTimingTests, CallPushesInCyclesFiveAndSix)
+{
+	// CALL and CALL NZ (taken, as Z is clear) return to 0x0233
+	for (unsigned char opcode : { 0xcd, 0xc4 })
+	{
+		SCOPED_TRACE(static_cast<int>(opcode));
+		Cpu.Registers().F = NoFlags;
+
+		Cpu.Registers().SP = CounterAddress + 1;
+		RunProgram({ opcode, 0x00, 0x10 }, 0x0230);
+		EXPECT_EQ(0x03, Counter());
+		EXPECT_EQ(6 * MachineCycle, Cycles);
+		EXPECT_EQ(0x1000, Cpu.Registers().PC);
+
+		Cpu.Registers().SP = CounterAddress + 2;
+		RunProgram({ opcode, 0x00, 0x10 }, 0x0230);
+		EXPECT_EQ(0x33, Counter());
+	}
+
+	// CALL NZ not taken
+	Cpu.Registers().F = ZeroFlag;
+	Cpu.Registers().SP = CounterAddress + 2;
+	RunProgram({ 0xc4, 0x00, 0x10 }, 0x0230);
+	EXPECT_EQ(3 * MachineCycle, Cycles);
+	EXPECT_EQ(0x0233, Cpu.Registers().PC);
+}
+
+TEST_F(CpuTimingTests, ReturnPopsLowByteAfterAnyConditionCheck)
+{
+	MemoryMap.WriteByte(CounterAddress + 1, 0x12);
+
+	// RET: low byte popped in cycle 2
+	Cpu.Registers().SP = CounterAddress;
+	RunProgram({ 0xc9 });
+	EXPECT_EQ(0x1202, Cpu.Registers().PC);
+	EXPECT_EQ(4 * MachineCycle, Cycles);
+
+	// RET NZ taken: a cycle to check the condition first
+	Cpu.Registers().F = NoFlags;
+	Cpu.Registers().SP = CounterAddress;
+	RunProgram({ 0xc0 });
+	EXPECT_EQ(0x1203, Cpu.Registers().PC);
+	EXPECT_EQ(5 * MachineCycle, Cycles);
+
+	// RET NZ not taken
+	Cpu.Registers().F = ZeroFlag;
+	Cpu.Registers().SP = CounterAddress;
+	RunProgram({ 0xc0 });
+	EXPECT_EQ(1, Cpu.Registers().PC);
+	EXPECT_EQ(2 * MachineCycle, Cycles);
+}
+
+TEST_F(CpuTimingTests, PopReadsLowByteInCycleTwo)
+{
+	MemoryMap.WriteByte(CounterAddress + 1, 0x12);
+	Cpu.Registers().SP = CounterAddress;
+	RunProgram({ 0xc1 });
+
+	EXPECT_EQ(0x1202, Cpu.Registers().BC);
+	EXPECT_EQ(3 * MachineCycle, Cycles);
+}
+
+TEST_F(CpuTimingTests, StoreSpWritesLowByteInCycleFourAndHighByteInCycleFive)
+{
+	Cpu.Registers().SP = 0xabcd;
+	RunProgram({ 0x08, 0x80, 0xff });
+	EXPECT_EQ(0xce, Counter());
+	EXPECT_EQ(5 * MachineCycle, Cycles);
+
+	RunProgram({ 0x08, 0x7f, 0xff });
+	EXPECT_EQ(0xab, Counter());
+}
+
+TEST_F(CpuTimingTests, StackPointerArithmeticEndsWithInternalCycles)
+{
+	// ADD SP,e: fetch, operand, two internal cycles. LD HL,SP+e: fetch, operand, one internal cycle
+	RunProgram({ 0xe8, 0x01 });
+	EXPECT_EQ(4 * MachineCycle, Cycles);
+	EXPECT_EQ(StackTop + 1, Cpu.Registers().SP);
+
+	RunProgram({ 0xf8, 0x01 });
+	EXPECT_EQ(3 * MachineCycle, Cycles);
+	EXPECT_EQ(StackTop + 2, Cpu.Registers().HL);
 }
 
 TEST_F(CpuTimingTests, InterruptDispatchTakesFiveMachineCycles)
@@ -332,6 +449,25 @@ TEST_F(CpuHaltTests, InterruptsNotEnabledInIeDoNotWakeCpu)
 	Cpu.DoNextInstruction();
 	Cpu.RequestInterrupt(InterruptFlags::VBlankInt);
 
+	EXPECT_EQ(MachineCycle, Cpu.DoNextInstruction());
+	EXPECT_EQ(1, Cpu.Registers().PC);
+}
+
+TEST_F(CpuHaltTests, InterruptPendingWithImeSetIsDispatchedBeforeHaltRuns)
+{
+	// The interrupt is taken as HALT's opcode is fetched, so the handler returns to the HALT
+	Cpu.InterruptsEnabled() = true;
+	Cpu.RequestInterrupt(InterruptFlags::TimerInt);
+	MemoryMap.SetBytes(0x50, { 0xd9 });									// RETI
+
+	EXPECT_EQ(5 * MachineCycle, Cpu.DoNextInstruction());
+	EXPECT_EQ(0x50, Cpu.Registers().PC);
+	EXPECT_EQ(0, MemoryMap.ReadByte(StackTop - 2));
+
+	// After RETI the HALT runs and, with nothing pending, halts
+	Cpu.DoNextInstruction();
+	Cpu.DoNextInstruction();
+	EXPECT_EQ(1, Cpu.Registers().PC);
 	EXPECT_EQ(MachineCycle, Cpu.DoNextInstruction());
 	EXPECT_EQ(1, Cpu.Registers().PC);
 }
