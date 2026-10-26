@@ -144,6 +144,8 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="SaveFile.h" />
+    <ClInclude Include="BatteryStore.h" />
     <ClInclude Include="Apu.h" />
     <ClInclude Include="Cartridge.h" />
     <ClInclude Include="CartridgeFactory.h" />
@@ -165,6 +167,8 @@
     <ClInclude Include="Timer.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="SaveFile.cpp" />
+    <ClCompile Include="BatteryStore.cpp" />
     <ClCompile Include="Apu.cpp" />
     <ClCompile Include="Cartridge.cpp" />
     <ClCompile Include="CartridgeFactory.cpp" />

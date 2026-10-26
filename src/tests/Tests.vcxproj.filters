@@ -15,6 +15,12 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="SaveFileTests.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="BatteryStoreTests.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="Rtc3Tests.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -107,6 +113,9 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="SaveFileTestHelpers.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="ScreenText.h">
       <Filter>Header Files</Filter>
     </ClInclude>

@@ -146,6 +146,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="SaveFileTestHelpers.h" />
     <ClInclude Include="ApuTestHelpers.h" />
     <ClInclude Include="CartridgeTestHelpers.h" />
     <ClInclude Include="CpuTestFixture.h" />
@@ -159,6 +160,8 @@
     <ClInclude Include="TestMemoryMap.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="SaveFileTests.cpp" />
+    <ClCompile Include="BatteryStoreTests.cpp" />
     <ClCompile Include="ApuTests.cpp" />
     <ClCompile Include="ApuTestsChannels.cpp" />
     <ClCompile Include="ApuTestsMixing.cpp" />
