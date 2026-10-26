@@ -7,9 +7,6 @@
 
 namespace
 {
-	// The Game Boy's frame rate (4194304 / 70224 = 59.73 Hz)
-	const int64_t FrameTime = 1000000LL * Graphics::FrameClocks / Graphics::SystemClockHz;
-
 	// Changes are saved within a few seconds, so a crash loses little, without writing the file on every frame of a
 	// game's multi-frame save routine
 	const int FramesBetweenSaves = 3 * Graphics::SystemClockHz / Graphics::FrameClocks;
@@ -23,7 +20,8 @@ void App::ReportSaveResult(const BatteryStore::Result& result)
 App::App(const Options& options, std::shared_ptr<Cartridge> cartridge, std::string gameTitle, BatteryStore& saves) :
 	_options(options), _cartridge{ std::move(cartridge) }, _gameTitle{ std::move(gameTitle) }, _saves(saves),
 	_emulator{ std::make_unique<Emulator>(_cartridge) }, _audio{ _emulator->GetAudioSampleRate() },
-	_input{ Controls::CreateInputMapper() }, _pacer{ FrameTime }, _framesUntilSave{ FramesBetweenSaves }
+	_input{ Controls::CreateInputMapper() }, _pacer{ Graphics::SystemClockHz, Graphics::FrameClocks },
+	_framesUntilSave{ FramesBetweenSaves }
 {
 	if (!_options.RecordPath.empty()) _record.open(_options.RecordPath, std::ios::binary);
 
@@ -84,6 +82,10 @@ void App::UpdateTitle()
 
 void App::Run(const volatile std::sig_atomic_t& quitRequested)
 {
+	// Paced to the emulated clock rather than by frames, as the frame in which the LCD is turned on lasts up to
+	// nearly two frames. Scheduled from here, as opening the window takes time
+	_pacer.Restart(Now(), _emulator->GetCpuClocks());
+
 	while (_window.isOpen())
 	{
 		if (quitRequested)
@@ -99,17 +101,19 @@ void App::Run(const volatile std::sig_atomic_t& quitRequested)
 		UpdateTitle();
 
 		auto speed = _runState.GetSpeed();
+		int64_t wait;
 		if (_runState.IsPaused())
 		{
 			// Still drawn, so the window repaints after being resized or switched to fullscreen
 			Present();
+			wait = _pacer.Paused(Now(), _emulator->GetCpuClocks());
 		}
 		else
 		{
 			RunFrame(speed);
+			wait = _pacer.FrameDone(Now(), _emulator->GetCpuClocks(), speed);
 		}
 
-		auto wait = _pacer.FrameDone(Now(), speed);
 		if (wait > 0) sf::sleep(sf::microseconds(wait));
 	}
 }
@@ -204,6 +208,9 @@ void App::Reset()
 	_audio.Clear();
 	_cartridge->Reset();
 	_emulator = std::make_unique<Emulator>(_cartridge);
+
+	// The new emulator's clocks start again from 0
+	_pacer.Restart(Now(), _emulator->GetCpuClocks());
 
 	// The old game's last frames shouldn't fade out over the new one's first
 	_screen.clear();
