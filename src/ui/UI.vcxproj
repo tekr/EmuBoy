@@ -154,6 +154,21 @@
   <ItemGroup>
     <ClCompile Include="AudioOutput.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="..\frontend\InputMapper.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="..\frontend\RunState.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="..\frontend\FramePacer.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="..\frontend\ScreenshotNamer.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="..\frontend\Letterbox.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
@@ -171,6 +186,11 @@
     <ClInclude Include="AudioOutput.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="targetver.h" />
+    <ClInclude Include="..\frontend\InputMapper.h" />
+    <ClInclude Include="..\frontend\RunState.h" />
+    <ClInclude Include="..\frontend\FramePacer.h" />
+    <ClInclude Include="..\frontend\ScreenshotNamer.h" />
+    <ClInclude Include="..\frontend\Letterbox.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
