@@ -14,4 +14,7 @@ at $A000.
 | `mem_timing/`   | When instructions read and write memory                  | `BlarggCpuTests.cpp`    |
 | `mem_timing-2/` | The same, from a later version of the test shell         | `BlarggCpuTests.cpp`    |
 | `halt_bug/`     | The HALT bug                                             | `BlarggCpuTests.cpp`    |
-| `oam_bug/`      | OAM corruption by 16-bit increments and decrements       | `BlarggCpuTests.cpp`    |
+| `oam_bug/`      | OAM corruption by 16-bit increments and decrements       | Not yet run (see below) |
+
+The `oam_bug` ROMs aren't run yet. They need the LCD's timing to advance every machine cycle and to restart when
+the LCD is turned on, as well as the corruption itself.
