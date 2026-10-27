@@ -2,6 +2,9 @@
 #include <array>
 #include <cstdint>
 
+class StateWriter;
+class StateReader;
+
 // The MBC3's real-time clock, per https://gbdev.io/pandocs/MBC3.html. It counts emulated time (clock cycles), so it
 // is deterministic; AdvanceSeconds lets it catch up with real time that passed while the emulator wasn't running.
 class RealTimeClock
@@ -61,4 +64,9 @@ public:
 
 	// Restores a saved state, keeping only bits the hardware has, so a corrupt state can't produce impossible values
 	void SetState(const State& state);
+
+	// Save states keep the clock as it was, in emulated time; unlike a battery save, loading one doesn't move it on
+	// by the real time since
+	void WriteState(StateWriter& writer) const;
+	void ReadState(StateReader& reader);
 };

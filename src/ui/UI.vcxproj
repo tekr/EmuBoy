@@ -171,6 +171,9 @@
     <ClCompile Include="..\frontend\Letterbox.cpp">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="..\frontend\SaveStateSlots.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
@@ -195,6 +198,7 @@
     <ClInclude Include="..\frontend\FramePacer.h" />
     <ClInclude Include="..\frontend\ScreenshotNamer.h" />
     <ClInclude Include="..\frontend\Letterbox.h" />
+    <ClInclude Include="..\frontend\SaveStateSlots.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

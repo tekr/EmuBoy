@@ -72,3 +72,38 @@ TEST(RunStateTest, TitleShowsState)
 	EXPECT_EQ("Emu Boy - TETRIS (Paused)", state.WindowTitle("TETRIS"));
 	EXPECT_EQ("Emu Boy (Paused)", state.WindowTitle(""));
 }
+
+TEST(RunStateTest, TitleHasNoMessageAtFirst)
+{
+	RunState state;
+
+	EXPECT_EQ("Emu Boy - TETRIS", state.WindowTitle("TETRIS", 1000));
+}
+
+TEST(RunStateTest, TitleShowsAMessageForAWhile)
+{
+	RunState state;
+	state.ShowMessage("Saved state 1", 1000);
+
+	EXPECT_EQ("Emu Boy - TETRIS - Saved state 1", state.WindowTitle("TETRIS", 1000));
+	EXPECT_EQ("Emu Boy - TETRIS - Saved state 1", state.WindowTitle("TETRIS", 1000 + RunState::MessageDuration - 1));
+	EXPECT_EQ("Emu Boy - TETRIS", state.WindowTitle("TETRIS", 1000 + RunState::MessageDuration));
+}
+
+TEST(RunStateTest, NewMessageReplacesTheLastOne)
+{
+	RunState state;
+	state.ShowMessage("State slot 2", 0);
+	state.ShowMessage("Saved state 2", 500000);
+
+	EXPECT_EQ("Emu Boy - Saved state 2", state.WindowTitle("", 500000 + RunState::MessageDuration - 1));
+}
+
+TEST(RunStateTest, MessageFollowsThePausedState)
+{
+	RunState state;
+	state.TogglePause();
+	state.ShowMessage("Loaded state 3", 0);
+
+	EXPECT_EQ("Emu Boy - TETRIS (Paused) - Loaded state 3", state.WindowTitle("TETRIS", 0));
+}

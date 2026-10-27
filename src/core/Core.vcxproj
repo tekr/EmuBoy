@@ -148,8 +148,10 @@
     <ClInclude Include="OamDma.h" />
     <ClInclude Include="SaveFile.h" />
     <ClInclude Include="BatteryStore.h" />
+    <ClInclude Include="FileIo.h" />
     <ClInclude Include="Apu.h" />
     <ClInclude Include="Cartridge.h" />
+    <ClInclude Include="Crc32.h" />
     <ClInclude Include="CartridgeFactory.h" />
     <ClInclude Include="Cpu.h" />
     <ClInclude Include="Emulator.h" />
@@ -162,6 +164,8 @@
     <ClInclude Include="Mbc5Cartridge.h" />
     <ClInclude Include="MemoryMap.h" />
     <ClInclude Include="RealTimeClock.h" />
+    <ClInclude Include="StateStream.h" />
+    <ClInclude Include="SaveState.h" />
     <ClInclude Include="RomOnlyCartridge.h" />
     <ClInclude Include="SpriteManager.h" />
     <ClInclude Include="stdafx.h" />
@@ -173,8 +177,10 @@
     <ClCompile Include="OamDma.cpp" />
     <ClCompile Include="SaveFile.cpp" />
     <ClCompile Include="BatteryStore.cpp" />
+    <ClCompile Include="FileIo.cpp" />
     <ClCompile Include="Apu.cpp" />
     <ClCompile Include="Cartridge.cpp" />
+    <ClCompile Include="Crc32.cpp" />
     <ClCompile Include="CartridgeFactory.cpp" />
     <ClCompile Include="Cpu.cpp" />
     <ClCompile Include="Core.cpp" />
@@ -188,6 +194,8 @@
     <ClCompile Include="Mbc5Cartridge.cpp" />
     <ClCompile Include="MemoryMap.cpp" />
     <ClCompile Include="RealTimeClock.cpp" />
+    <ClCompile Include="StateStream.cpp" />
+    <ClCompile Include="SaveState.cpp" />
     <ClCompile Include="SpriteManager.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>

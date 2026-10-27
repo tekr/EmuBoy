@@ -2,6 +2,8 @@
 #include <functional>
 
 class Cpu;
+class StateWriter;
+class StateReader;
 
 // Serial port (SB at 0xff01, SC at 0xff02). Nothing is ever connected to the link port, so only transfers
 // clocked by the Game Boy itself complete, and the bits shifted in are all 1s.
@@ -67,4 +69,8 @@ public:
 
 	unsigned char ReadRegister(int reg) const { return reg == DataReg ? _data : _control | ControlUnusedBits; }
 	void WriteRegister(int reg, unsigned char value);
+
+	// Save states. The byte-sent handler belongs to the front end, so isn't part of them
+	void WriteState(StateWriter& writer) const;
+	void ReadState(StateReader& reader);
 };

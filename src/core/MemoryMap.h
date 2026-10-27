@@ -9,6 +9,9 @@
 #include "Serial.h"
 #include "OamDma.h"
 
+class StateWriter;
+class StateReader;
+
 class MemoryMap
 {
 public:
@@ -77,6 +80,10 @@ public:
 
 	// The CPU touched $FE00-$FEFF; see Graphics::CorruptOam
 	void CorruptOam(OamCorruption corruption) { _graphics->CorruptOam(corruption); }
+
+	// Save states: work RAM, high RAM and whether the boot ROM is mapped. The other components keep their own
+	void WriteState(StateWriter& writer) const;
+	void ReadState(StateReader& reader);
 
 private:
 	unsigned char ReadUnblocked(unsigned short address) const;

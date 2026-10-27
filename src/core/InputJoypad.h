@@ -15,6 +15,8 @@ enum JoypadKey
 };
 
 class Cpu;
+class StateWriter;
+class StateReader;
 
 class InputJoypad
 {
@@ -31,6 +33,11 @@ public:
 	void SetKeysDown(JoypadKey keys);
 
 	void WriteRegister(unsigned char value) { _register = value; }
+
+	// Save states keep the keys held too, so that the front end pressing keys after a state loads interrupts the
+	// game just as it would have when the state was saved
+	void WriteState(StateWriter& writer) const;
+	void ReadState(StateReader& reader);
 
 	unsigned char ReadRegister() const
 	{

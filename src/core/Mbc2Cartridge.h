@@ -8,11 +8,15 @@ class Mbc2Cartridge : public Cartridge
 
 protected:
 	void ResetRegisters() override { _ramEnabled = false; }
+	void WriteRegisters(StateWriter& writer) const override;
+	void ReadRegisters(StateReader& reader) override;
 
 public:
 	static const size_t RamSize = 512;
 
 	Mbc2Cartridge(std::vector<unsigned char>&& rom, bool hasBattery = false);
+
+	std::unique_ptr<Cartridge> Clone() const override { return std::make_unique<Mbc2Cartridge>(*this); }
 
 	void RomWriteByte(unsigned short address, unsigned char value) override;
 

@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "Emulator.h"
+#include "StateStream.h"
 
 void Emulator::RunCycles(int cycles)
 {
@@ -36,15 +37,47 @@ Emulator::Emulator(std::shared_ptr<Cartridge> cartridge) : EmuCartridge{ cartrid
 
 int* Emulator::GetFrame()
 {
-	while (!EmuGraphics.TakeCompletedFrame())
+	while (!RunInstruction())
 	{
-		auto cycles = EmuCpu.DoNextInstruction();
-
-		// The cartridge's clock counts seconds, so it runs once per instruction rather than every machine cycle. It
-		// has a crystal of its own, so it also keeps counting while STOP has the system clock stopped (when each
-		// call to DoNextInstruction is one stopped machine cycle)
-		EmuCartridge->RunCycles(cycles);
 	}
 
 	return EmuGraphics.Bitmap;
+}
+
+bool Emulator::RunInstruction()
+{
+	auto cycles = EmuCpu.DoNextInstruction();
+
+	// The cartridge's clock counts seconds, so it runs once per instruction rather than every machine cycle. It
+	// has a crystal of its own, so it also keeps counting while STOP has the system clock stopped (when each
+	// call to DoNextInstruction is one stopped machine cycle)
+	EmuCartridge->RunCycles(cycles);
+
+	return EmuGraphics.TakeCompletedFrame();
+}
+
+void Emulator::WriteState(StateWriter& writer) const
+{
+	EmuCpu.WriteState(writer);
+	EmuMemoryMap.WriteState(writer);
+	EmuGraphics.WriteState(writer);
+	EmuOamDma.WriteState(writer);
+	EmuTimer.WriteState(writer);
+	EmuApu.WriteState(writer);
+	EmuSerial.WriteState(writer);
+	EmuJoypad.WriteState(writer);
+	EmuCartridge->WriteState(writer);
+}
+
+void Emulator::ReadState(StateReader& reader)
+{
+	EmuCpu.ReadState(reader);
+	EmuMemoryMap.ReadState(reader);
+	EmuGraphics.ReadState(reader);
+	EmuOamDma.ReadState(reader);
+	EmuTimer.ReadState(reader);
+	EmuApu.ReadState(reader);
+	EmuSerial.ReadState(reader);
+	EmuJoypad.ReadState(reader);
+	EmuCartridge->ReadState(reader);
 }

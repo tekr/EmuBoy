@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "Apu.h"
+#include "StateStream.h"
 #include <algorithm>
 #include <cmath>
 
@@ -25,6 +26,47 @@ const unsigned char Apu::InitialWaveRam[16] =
 
 // CH3 output level (NR32 bits 5-6): mute, 100%, 50%, 25%
 const int Apu::WaveVolumeShifts[4] = { 4, 0, 1, 2 };
+
+namespace
+{
+	// Above the longest period of any channel (the noise channel's, at 917504 clocks), so a corrupt state can't
+	// leave a timer running for ever
+	const int MaxTimer = 1 << 20;
+
+	void WriteChannel(StateWriter& writer, const Channel& channel)
+	{
+		writer.WriteBool(channel.Active);
+		writer.WriteInt(channel.Timer);
+		writer.WriteInt(channel.Length.Counter);
+		writer.WriteBool(channel.Length.Enabled);
+	}
+
+	void ReadChannel(StateReader& reader, Channel& channel)
+	{
+		channel.Active = reader.ReadBool();
+		channel.Timer = reader.ReadInt(0, MaxTimer);
+		channel.Length.Counter = reader.ReadInt(0, 256);
+		channel.Length.Enabled = reader.ReadBool();
+	}
+
+	void WriteEnvelope(StateWriter& writer, const Envelope& envelope)
+	{
+		writer.WriteInt(envelope.Volume);
+		writer.WriteInt(envelope.Timer);
+		writer.WriteInt(envelope.Period);
+		writer.WriteBool(envelope.Increase);
+		writer.WriteBool(envelope.Running);
+	}
+
+	void ReadEnvelope(StateReader& reader, Envelope& envelope)
+	{
+		envelope.Volume = reader.ReadInt(0, 15);
+		envelope.Timer = reader.ReadInt(0, 9);
+		envelope.Period = reader.ReadInt(0, 7);
+		envelope.Increase = reader.ReadBool();
+		envelope.Running = reader.ReadBool();
+	}
+}
 
 void Envelope::Trigger(unsigned char nrx2, bool nextStepClocksEnvelope)
 {
@@ -658,4 +700,111 @@ void Apu::TakeSamples(std::vector<short>& out)
 {
 	out.clear();
 	out.swap(_samples);
+}
+
+void Apu::WriteState(StateWriter& writer) const
+{
+	writer.BeginSection("APU ");
+
+	writer.WriteInt(_sampleRate);
+	writer.WriteBytes(_registers, sizeof(_registers));
+	writer.WriteBool(_powered);
+	writer.WriteU16(_divider);
+	writer.WriteInt(_frameStep);
+	writer.WriteBool(_skipFrameEvent);
+
+	for (auto& square : _square)
+	{
+		WriteChannel(writer, square);
+		writer.WriteInt(square.Frequency);
+		writer.WriteInt(square.DutyPosition);
+		writer.WriteBool(square.Stepped);
+		WriteEnvelope(writer, square.Env);
+	}
+
+	WriteChannel(writer, _wave);
+	writer.WriteInt(_wave.Frequency);
+	writer.WriteInt(_wave.Position);
+	writer.WriteU8(_wave.SampleBuffer);
+	writer.WriteBool(_wave.JustRead);
+
+	WriteChannel(writer, _noise);
+	writer.WriteU16(_noise.Lfsr);
+	WriteEnvelope(writer, _noise.Env);
+
+	writer.WriteInt(_sweepTimer);
+	writer.WriteInt(_sweepShadow);
+	writer.WriteBool(_sweepEnabled);
+	writer.WriteBool(_sweepNegateUsed);
+
+	// The output sample being built up and the high-pass filter's charge
+	writer.WriteInt(_samplePhase);
+	writer.WriteInt(_sampleCycles);
+	writer.WriteU64(static_cast<uint64_t>(_sumLeft));
+	writer.WriteU64(static_cast<uint64_t>(_sumRight));
+	writer.WriteInt(_mixLeft);
+	writer.WriteInt(_mixRight);
+	writer.WriteDouble(_capacitorLeft);
+	writer.WriteDouble(_capacitorRight);
+
+	writer.WriteInt(_pendingCycles);
+	writer.WriteInt(_cyclesToEvent);
+
+	writer.EndSection();
+}
+
+void Apu::ReadState(StateReader& reader)
+{
+	reader.BeginSection("APU ");
+
+	// Sample timing is kept in units of the sample rate
+	auto sampleRate = reader.ReadInt(1, CpuClockHz);
+	if (sampleRate != _sampleRate)
+	{
+		reader.Fail("its sound is at " + std::to_string(sampleRate) + " Hz rather than " + std::to_string(_sampleRate) + " Hz");
+	}
+
+	reader.ReadBytes(_registers, sizeof(_registers));
+	_powered = reader.ReadBool();
+	_divider = reader.ReadU16();
+	_frameStep = reader.ReadInt(0, 7);
+	_skipFrameEvent = reader.ReadBool();
+
+	for (auto& square : _square)
+	{
+		ReadChannel(reader, square);
+		square.Frequency = reader.ReadInt(0, MaxFrequency);
+		square.DutyPosition = reader.ReadInt(0, 7);
+		square.Stepped = reader.ReadBool();
+		ReadEnvelope(reader, square.Env);
+	}
+
+	ReadChannel(reader, _wave);
+	_wave.Frequency = reader.ReadInt(0, MaxFrequency);
+	_wave.Position = reader.ReadInt(0, 31);
+	_wave.SampleBuffer = reader.ReadU8() & 0xf;
+	_wave.JustRead = reader.ReadBool();
+
+	ReadChannel(reader, _noise);
+	_noise.Lfsr = reader.ReadU16() & 0x7fff;
+	ReadEnvelope(reader, _noise.Env);
+
+	_sweepTimer = reader.ReadInt(0, 8);
+	_sweepShadow = reader.ReadInt(0, MaxFrequency);
+	_sweepEnabled = reader.ReadBool();
+	_sweepNegateUsed = reader.ReadBool();
+
+	_samplePhase = reader.ReadInt(0, CpuClockHz);
+	_sampleCycles = reader.ReadInt(0, CpuClockHz);
+	_sumLeft = static_cast<long long>(reader.ReadU64());
+	_sumRight = static_cast<long long>(reader.ReadU64());
+	_mixLeft = reader.ReadInt(-MaxAmplitude, MaxAmplitude);
+	_mixRight = reader.ReadInt(-MaxAmplitude, MaxAmplitude);
+	_capacitorLeft = reader.ReadDouble();
+	_capacitorRight = reader.ReadDouble();
+
+	_pendingCycles = reader.ReadInt(0, MaxTimer);
+	_cyclesToEvent = reader.ReadInt(0, MaxTimer);
+
+	reader.EndSection();
 }

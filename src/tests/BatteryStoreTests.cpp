@@ -4,85 +4,17 @@
 #include "../core/Emulator.h"
 #include "../core/RealTimeClock.h"
 #include "SaveFileTestHelpers.h"
+#include "TestFiles.h"
 #include <cstdio>
 #include <cstdint>
-#include <cstdlib>
 #include <initializer_list>
-#include <fstream>
 #include <string>
 
-#ifdef _WIN32
-#include <direct.h>
-#else
-#include <sys/stat.h>
-#include <unistd.h>
-#endif
-
 using namespace SaveFileTestHelpers;
+using namespace TestFiles;
 
 namespace
 {
-	bool MakeTestDirectory(const std::string& path)
-	{
-#ifdef _WIN32
-		return _mkdir(path.c_str()) == 0;
-#else
-		return mkdir(path.c_str(), 0700) == 0;
-#endif
-	}
-
-	void RemoveTestDirectory(const std::string& path)
-	{
-#ifdef _WIN32
-		_rmdir(path.c_str());
-#else
-		rmdir(path.c_str());
-#endif
-	}
-
-	// The system's directory for temporary files, read without MSVC's deprecation error for getenv
-	std::string TempDirectory()
-	{
-		for (auto name : { "TMPDIR", "TEMP" })
-		{
-#ifdef _MSC_VER
-			char* value = nullptr;
-			size_t length = 0;
-			if (_dupenv_s(&value, &length, name) != 0 || value == nullptr) continue;
-
-			std::string directory(value);
-			free(value);
-			return directory;
-#else
-			if (auto value = std::getenv(name)) return value;
-#endif
-		}
-
-#ifdef _WIN32
-		return ".";
-#else
-		return "/tmp";
-#endif
-	}
-
-	bool Exists(const std::string& path)
-	{
-		std::ifstream file(path);
-		return file.good();
-	}
-
-	std::vector<unsigned char> ReadAll(const std::string& path)
-	{
-		std::ifstream file(path, std::ios::binary);
-		return std::vector<unsigned char>(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
-	}
-
-	void WriteAll(const std::string& path, const std::vector<unsigned char>& data)
-	{
-		std::ofstream file(path, std::ios::binary);
-		file.write(reinterpret_cast<const char*>(data.data()), data.size());
-	}
-
 	// Each test gets its own save path in a fresh directory, removed afterwards
 	class BatteryStoreTest : public testing::Test
 	{
@@ -104,7 +36,7 @@ namespace
 
 		~BatteryStoreTest()
 		{
-			for (auto suffix : { "", ".tmp", ".bak", ".bak.tmp" })
+			for (auto suffix : { "", ".tmp", ".bak", ".bak.tmp", ".before-state", ".before-state.tmp" })
 			{
 				auto path = SavePath + suffix;
 				std::remove(path.c_str());
@@ -586,4 +518,111 @@ TEST_F(BatteryStoreTest, ExitAlwaysSavesClockCartridgeWithCurrentTime)
 	int64_t timeStamp = 0;
 	for (auto i = 0; i < 8; i++) timeStamp |= static_cast<int64_t>(save[40 + i]) << (8 * i);
 	EXPECT_EQ(Now, timeStamp);
+}
+
+TEST_F(BatteryStoreTest, BeforeAStateLoadsTheSaveIsCopiedAside)
+{
+	auto cartridge = CartridgeFactory::Create(Rom(Mbc1RamBattery, Ram8K));
+	auto store = Store(cartridge);
+	FillRam(*cartridge, 3);
+	ASSERT_TRUE(store.Save().Succeeded);
+
+	EXPECT_TRUE(store.KeepSaveBeforeStateLoad().Succeeded);
+
+	EXPECT_EQ(SavePath + ".before-state", store.GetStateLoadCopyPath());
+	EXPECT_EQ(cartridge->GetRam(), ReadAll(store.GetStateLoadCopyPath()));
+	EXPECT_FALSE(Exists(SavePath + ".bak"));
+}
+
+TEST_F(BatteryStoreTest, RamChangedJustBeforeAStateLoadsIsSavedAndCopied)
+{
+	// The game saved since the last periodic save, so the change is only in memory
+	auto cartridge = CartridgeFactory::Create(Rom(Mbc1RamBattery, Ram8K));
+	auto store = Store(cartridge);
+	FillRam(*cartridge, 3);
+	ASSERT_TRUE(store.Save().Succeeded);
+	EnableRam(*cartridge);
+	cartridge->RamWriteByte(0, 0x22);
+
+	EXPECT_TRUE(store.KeepSaveBeforeStateLoad().Succeeded);
+
+	EXPECT_EQ(0x22, ReadAll(SavePath)[0]);
+	EXPECT_EQ(0x22, ReadAll(store.GetStateLoadCopyPath())[0]);
+	EXPECT_FALSE(cartridge->HasUnsavedChanges());
+}
+
+TEST_F(BatteryStoreTest, EachStateLoadRefreshesTheCopy)
+{
+	auto cartridge = CartridgeFactory::Create(Rom(Mbc1RamBattery, Ram8K));
+	auto store = Store(cartridge);
+	FillRam(*cartridge, 3);
+	ASSERT_TRUE(store.Save().Succeeded);
+	ASSERT_TRUE(store.KeepSaveBeforeStateLoad().Succeeded);
+
+	FillRam(*cartridge, 5);
+	ASSERT_TRUE(store.Save().Succeeded);
+	EXPECT_TRUE(store.KeepSaveBeforeStateLoad().Succeeded);
+
+	EXPECT_EQ(cartridge->GetRam(), ReadAll(store.GetStateLoadCopyPath()));
+}
+
+TEST_F(BatteryStoreTest, StateLoadLeavesAWrongSizeSavesBackupAlone)
+{
+	std::vector<unsigned char> original(100, 0x33);
+	WriteAll(SavePath, original);
+	auto cartridge = CartridgeFactory::Create(Rom(Mbc1RamBattery, Ram8K));
+	auto store = Store(cartridge);
+	store.Load();
+	ASSERT_TRUE(store.Save().Succeeded);
+	ASSERT_EQ(original, ReadAll(SavePath + ".bak"));
+
+	FillRam(*cartridge, 5);
+	EXPECT_TRUE(store.KeepSaveBeforeStateLoad().Succeeded);
+	FillRam(*cartridge, 7);
+	ASSERT_TRUE(store.Save().Succeeded);
+
+	EXPECT_EQ(original, ReadAll(SavePath + ".bak"));
+}
+
+TEST_F(BatteryStoreTest, WrongSizeSaveIsBackedUpWhenItsFirstReplacedBeforeAStateLoads)
+{
+	std::vector<unsigned char> original(100, 0x33);
+	WriteAll(SavePath, original);
+	auto cartridge = CartridgeFactory::Create(Rom(Mbc1RamBattery, Ram8K));
+	auto store = Store(cartridge);
+	store.Load();
+	EnableRam(*cartridge);
+	cartridge->RamWriteByte(0, 0x44);
+
+	EXPECT_TRUE(store.KeepSaveBeforeStateLoad().Succeeded);
+
+	EXPECT_EQ(original, ReadAll(SavePath + ".bak"));
+	EXPECT_EQ(cartridge->GetRam(), ReadAll(store.GetStateLoadCopyPath()));
+}
+
+TEST_F(BatteryStoreTest, WithoutASaveThereIsNoCopy)
+{
+	auto cartridge = CartridgeFactory::Create(Rom(Mbc1RamBattery, Ram8K));
+	auto store = Store(cartridge);
+	WriteAll(store.GetStateLoadCopyPath(), { 1, 2, 3 });
+
+	EXPECT_TRUE(store.KeepSaveBeforeStateLoad().Succeeded);
+
+	EXPECT_FALSE(Exists(SavePath));
+	EXPECT_FALSE(Exists(store.GetStateLoadCopyPath()));
+}
+
+TEST_F(BatteryStoreTest, FailingToSaveBeforeAStateLoadsSaysWhy)
+{
+	auto cartridge = CartridgeFactory::Create(Rom(Mbc1RamBattery, Ram8K));
+	auto store = Store(cartridge);
+	EnableRam(*cartridge);
+	cartridge->RamWriteByte(0, 0x44);
+	ASSERT_TRUE(MakeTestDirectory(SavePath + ".tmp"));
+
+	auto result = store.KeepSaveBeforeStateLoad();
+
+	EXPECT_FALSE(result.Succeeded);
+	EXPECT_NE(std::string::npos, result.Message.find(SavePath)) << result.Message;
+	EXPECT_FALSE(Exists(store.GetStateLoadCopyPath()));
 }

@@ -27,7 +27,16 @@
     <ClCompile Include="BatteryStore.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="FileIo.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="RealTimeClock.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="StateStream.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="SaveState.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Mbc5Cartridge.cpp">
@@ -43,6 +52,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Cartridge.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Crc32.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Apu.cpp">
@@ -95,7 +107,16 @@
     <ClInclude Include="BatteryStore.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="FileIo.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="RealTimeClock.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="StateStream.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="SaveState.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Mbc5Cartridge.h">
@@ -114,6 +135,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Cartridge.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Crc32.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Apu.h">

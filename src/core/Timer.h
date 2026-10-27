@@ -1,6 +1,8 @@
 #pragma once
 
 class Cpu;
+class StateWriter;
+class StateReader;
 
 // CPU HALT: Timer/Div keep running
 // CPU STOP: Timer/Div stop running
@@ -56,6 +58,9 @@ public:
 	void SetCpu(Cpu* cpu) { _cpu = cpu; }
 
 	void WriteRegister(int address, unsigned char value);
+
+	void WriteState(StateWriter& writer) const;
+	void ReadState(StateReader& reader);
 
 	unsigned char ReadRegister(int address) const
 	{

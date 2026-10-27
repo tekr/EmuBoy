@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "Mbc1Cartridge.h"
+#include "StateStream.h"
 #include <algorithm>
 
 namespace
@@ -73,4 +74,24 @@ unsigned char Mbc1Cartridge::RamReadByte(unsigned short address) const
 void Mbc1Cartridge::RamWriteByte(unsigned short address, unsigned char value)
 {
 	if (_ramEnabled) WriteRamBank(_mode1 ? _bank2 : 0, address, value);
+}
+
+void Mbc1Cartridge::WriteRegisters(StateWriter& writer) const
+{
+	writer.BeginSection("MBC1");
+	writer.WriteInt(_bank1);
+	writer.WriteInt(_bank2);
+	writer.WriteBool(_mode1);
+	writer.WriteBool(_ramEnabled);
+	writer.EndSection();
+}
+
+void Mbc1Cartridge::ReadRegisters(StateReader& reader)
+{
+	reader.BeginSection("MBC1");
+	_bank1 = reader.ReadInt(1, 0x1f);
+	_bank2 = reader.ReadInt(0, 3);
+	_mode1 = reader.ReadBool();
+	_ramEnabled = reader.ReadBool();
+	reader.EndSection();
 }

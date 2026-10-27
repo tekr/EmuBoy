@@ -1,12 +1,16 @@
 #pragma once
+#include <cstdint>
 #include <string>
 
-// Whether the emulator is paused or fast-forwarding, and the window title that shows it. Pausing wins over
-// fast-forward, so holding the fast-forward key while paused doesn't run the game
+// Whether the emulator is paused or fast-forwarding, and the window title that shows it, along with any recent
+// message. Pausing wins over fast-forward, so holding the fast-forward key while paused doesn't run the game
 class RunState
 {
 	bool _paused{ false };
 	bool _fastForwardHeld{ false };
+
+	std::string _message;
+	int64_t _messageUntil{ 0 };
 
 public:
 	// Fast-forward runs the game up to this many times normal speed, as far as the computer allows
@@ -18,10 +22,18 @@ public:
 	bool IsPaused() const { return _paused; }
 	bool IsFastForwarding() const { return _fastForwardHeld && !_paused; }
 
+	// How long a message stays in the title, in microseconds
+	static constexpr int64_t MessageDuration = 2000000;
+
 	// How many times normal speed to run the emulated clock: 1 normally, FastForwardSpeed when fast-forwarding. Not
 	// meaningful while paused, when nothing runs
 	int GetSpeed() const { return IsFastForwarding() ? FastForwardSpeed : 1; }
 
-	// "Emu Boy - <game title>", with the state in brackets when paused or fast-forwarding
-	std::string WindowTitle(const std::string& gameTitle) const;
+	// Shows a message, such as "Saved state 1", in the title for MessageDuration from now (in microseconds), in
+	// place of any earlier one
+	void ShowMessage(const std::string& message, int64_t now);
+
+	// "Emu Boy - <game title>", with the state in brackets when paused or fast-forwarding, then " - <message>"
+	// while there is one to show
+	std::string WindowTitle(const std::string& gameTitle, int64_t now = 0) const;
 };

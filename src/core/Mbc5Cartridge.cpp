@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "Mbc5Cartridge.h"
+#include "StateStream.h"
 
 Mbc5Cartridge::Mbc5Cartridge(std::vector<unsigned char>&& rom, size_t ramSize, bool hasBattery, bool hasRumble) :
 	Cartridge(std::move(rom), ramSize, hasBattery), _hasRumble(hasRumble)
@@ -54,4 +55,24 @@ unsigned char Mbc5Cartridge::RamReadByte(unsigned short address) const
 void Mbc5Cartridge::RamWriteByte(unsigned short address, unsigned char value)
 {
 	if (_ramEnabled) WriteRamBank(_ramBank, address, value);
+}
+
+void Mbc5Cartridge::WriteRegisters(StateWriter& writer) const
+{
+	writer.BeginSection("MBC5");
+	writer.WriteInt(_romBank);
+	writer.WriteInt(_ramBank);
+	writer.WriteBool(_ramEnabled);
+	writer.WriteBool(_rumbling);
+	writer.EndSection();
+}
+
+void Mbc5Cartridge::ReadRegisters(StateReader& reader)
+{
+	reader.BeginSection("MBC5");
+	_romBank = reader.ReadInt(0, 0x1ff);
+	_ramBank = reader.ReadInt(0, 0xf);
+	_ramEnabled = reader.ReadBool();
+	_rumbling = reader.ReadBool();
+	reader.EndSection();
 }

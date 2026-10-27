@@ -13,9 +13,13 @@ class Mbc5Cartridge : public Cartridge
 
 protected:
 	void ResetRegisters() override;
+	void WriteRegisters(StateWriter& writer) const override;
+	void ReadRegisters(StateReader& reader) override;
 
 public:
 	Mbc5Cartridge(std::vector<unsigned char>&& rom, size_t ramSize, bool hasBattery = false, bool hasRumble = false);
+
+	std::unique_ptr<Cartridge> Clone() const override { return std::make_unique<Mbc5Cartridge>(*this); }
 
 	// On rumble cartridges, bit 3 of the RAM bank register drives the motor
 	bool IsRumbling() const { return _rumbling; }

@@ -45,6 +45,15 @@ public:
 	// Saves only if the RAM or clock registers changed since the last load or save
 	Result SaveIfChanged();
 
+	// Called before a save state is loaded, as the state's RAM will replace the save. Saves any RAM changed since the
+	// last save, then copies the save to GetStateLoadCopyPath, so it holds the save as it was just before the most
+	// recent state was loaded (or, without a save, removes it). The .bak copy of a wrong-size save is left alone. If
+	// this fails, the state shouldn't be loaded, as the save could be lost
+	Result KeepSaveBeforeStateLoad();
+
+	// <save path>.before-state
+	std::string GetStateLoadCopyPath() const { return _savePath + ".before-state"; }
+
 	// Saves when the emulator exits: only if something changed, so just running a game never rewrites its save,
 	// except that a clock cartridge's save is always rewritten to keep its time stamp current
 	Result SaveOnExit();

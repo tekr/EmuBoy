@@ -148,6 +148,7 @@
   <ItemGroup>
     <ClInclude Include="BlarggRomRunner.h" />
     <ClInclude Include="SaveFileTestHelpers.h" />
+    <ClInclude Include="TestFiles.h" />
     <ClInclude Include="ApuTestHelpers.h" />
     <ClInclude Include="CartridgeTestHelpers.h" />
     <ClInclude Include="CpuTestFixture.h" />
@@ -165,6 +166,7 @@
     <ClInclude Include="..\frontend\FramePacer.h" />
     <ClInclude Include="..\frontend\ScreenshotNamer.h" />
     <ClInclude Include="..\frontend\Letterbox.h" />
+    <ClInclude Include="..\frontend\SaveStateSlots.h" />
     <ClInclude Include="TimerTestHardware.h" />
   </ItemGroup>
   <ItemGroup>
@@ -186,6 +188,7 @@
     <ClCompile Include="IoPortTests.cpp" />
     <ClCompile Include="SaveFileTests.cpp" />
     <ClCompile Include="BatteryStoreTests.cpp" />
+    <ClCompile Include="FileIoTests.cpp" />
     <ClCompile Include="ApuTests.cpp" />
     <ClCompile Include="ApuTestsChannels.cpp" />
     <ClCompile Include="ApuTestsMixing.cpp" />
@@ -203,6 +206,11 @@
     <ClCompile Include="CartridgeResetTests.cpp" />
     <ClCompile Include="MooneyeMbcTests.cpp" />
     <ClCompile Include="RealTimeClockTests.cpp" />
+    <ClCompile Include="StateStreamTests.cpp" />
+    <ClCompile Include="SaveStateTests.cpp" />
+    <ClCompile Include="SaveStateRoundTripTests.cpp" />
+    <ClCompile Include="SaveStateHiddenStateTests.cpp" />
+    <ClCompile Include="ComponentStateTests.cpp" />
     <ClCompile Include="Rtc3Tests.cpp" />
     <ClCompile Include="TimerTests.cpp" />
     <ClCompile Include="CartridgeRamTests.cpp" />
@@ -228,6 +236,7 @@
     <ClCompile Include="RunStateTests.cpp" />
     <ClCompile Include="FramePacerTests.cpp" />
     <ClCompile Include="ScreenshotNamerTests.cpp" />
+    <ClCompile Include="SaveStateSlotsTests.cpp" />
     <ClCompile Include="LetterboxTests.cpp" />
     <ClCompile Include="..\frontend\InputMapper.cpp">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
@@ -242,6 +251,9 @@
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="..\frontend\Letterbox.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="..\frontend\SaveStateSlots.cpp">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
   </ItemGroup>

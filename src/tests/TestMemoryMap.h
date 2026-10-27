@@ -13,7 +13,7 @@ public:
 
 	void SetBytes(unsigned short address, std::vector<unsigned char>&& bytes)
 	{
-		memcpy(_rom.data() + address, bytes.data(), bytes.size());
+		memcpy(_rom->data() + address, bytes.data(), bytes.size());
 	}
 };
 

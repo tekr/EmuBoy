@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "Cpu.h"
 #include "MemoryMap.h"
+#include "StateStream.h"
 #include <algorithm>
 
 #ifndef _MSC_VER
@@ -803,4 +804,51 @@ int Cpu::DoNextInstruction()
 
 	_totalCycles += _instructionCycles;
 	return _instructionCycles;
+}
+
+void Cpu::WriteState(StateWriter& writer) const
+{
+	writer.BeginSection("CPU ");
+
+	for (auto pair : { _registers.AF, _registers.BC, _registers.DE, _registers.HL, _registers.SP, _registers.PC })
+	{
+		writer.WriteU16(pair);
+	}
+
+	writer.WriteInt(static_cast<int>(_state));
+	writer.WriteU64(_totalCycles);
+	writer.WriteBool(_skipNextPCIncrement);
+	writer.WriteBool(_interruptsEnabled);
+	writer.WriteBool(_enableInterruptsAfterNext);
+	writer.WriteBool(_enableInterruptsAfterThis);
+	writer.WriteU8(_enabledInterrupts);
+	writer.WriteU8(_waitingInterrupts);
+	writer.WriteBool(_softwareBreakpointHit);
+
+	writer.EndSection();
+}
+
+void Cpu::ReadState(StateReader& reader)
+{
+	reader.BeginSection("CPU ");
+
+	for (auto pair : { &_registers.AF, &_registers.BC, &_registers.DE, &_registers.HL, &_registers.SP, &_registers.PC })
+	{
+		*pair = reader.ReadU16();
+	}
+
+	// F's low four bits always read 0
+	_registers.F &= 0xf0;
+
+	_state = reader.ReadEnum(CpuState::Locked);
+	_totalCycles = reader.ReadU64();
+	_skipNextPCIncrement = reader.ReadBool();
+	_interruptsEnabled = reader.ReadBool();
+	_enableInterruptsAfterNext = reader.ReadBool();
+	_enableInterruptsAfterThis = reader.ReadBool();
+	_enabledInterrupts = reader.ReadU8();
+	_waitingInterrupts = reader.ReadU8() & InterruptFlags::AllInt;
+	_softwareBreakpointHit = reader.ReadBool();
+
+	reader.EndSection();
 }

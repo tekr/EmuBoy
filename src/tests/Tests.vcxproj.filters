@@ -69,6 +69,9 @@
     <ClCompile Include="BatteryStoreTests.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="FileIoTests.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="Rtc3Tests.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -79,6 +82,21 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="RealTimeClockTests.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="StateStreamTests.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="SaveStateTests.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="SaveStateRoundTripTests.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="SaveStateHiddenStateTests.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ComponentStateTests.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Mbc5Tests.cpp">
@@ -99,6 +117,9 @@
     <ClCompile Include="ScreenshotNamerTests.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="SaveStateSlotsTests.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="LetterboxTests.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -115,6 +136,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\frontend\Letterbox.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\frontend\SaveStateSlots.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Mbc3Tests.cpp">
@@ -206,6 +230,9 @@
     <ClInclude Include="SaveFileTestHelpers.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="TestFiles.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="ScreenText.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -243,6 +270,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\frontend\Letterbox.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\frontend\SaveStateSlots.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="targetver.h">

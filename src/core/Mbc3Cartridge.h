@@ -25,6 +25,8 @@ class Mbc3Cartridge : public Cartridge
 protected:
 	// The clock chip is separate from the MBC and runs on the battery, so it keeps counting
 	void ResetRegisters() override;
+	void WriteRegisters(StateWriter& writer) const override;
+	void ReadRegisters(StateReader& reader) override;
 
 public:
 	Mbc3Cartridge(std::vector<unsigned char>&& rom, size_t ramSize, bool hasBattery = false, bool hasClock = false,
@@ -32,6 +34,8 @@ public:
 
 	// The header doesn't distinguish the MBC30, so it is recognised by needing more ROM or RAM than the MBC3 supports
 	static bool IsMbc30(size_t romSize, size_t ramSize);
+
+	std::unique_ptr<Cartridge> Clone() const override { return std::make_unique<Mbc3Cartridge>(*this); }
 
 	void RomWriteByte(unsigned short address, unsigned char value) override;
 

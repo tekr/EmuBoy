@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "Mbc2Cartridge.h"
+#include "StateStream.h"
 #include <algorithm>
 
 Mbc2Cartridge::Mbc2Cartridge(std::vector<unsigned char>&& rom, bool hasBattery) :
@@ -32,4 +33,18 @@ unsigned char Mbc2Cartridge::RamReadByte(unsigned short address) const
 void Mbc2Cartridge::RamWriteByte(unsigned short address, unsigned char value)
 {
 	if (_ramEnabled) WriteRamBank(0, address, value & 0xf);
+}
+
+void Mbc2Cartridge::WriteRegisters(StateWriter& writer) const
+{
+	writer.BeginSection("MBC2");
+	writer.WriteBool(_ramEnabled);
+	writer.EndSection();
+}
+
+void Mbc2Cartridge::ReadRegisters(StateReader& reader)
+{
+	reader.BeginSection("MBC2");
+	_ramEnabled = reader.ReadBool();
+	reader.EndSection();
 }

@@ -4,9 +4,16 @@
 #include "Cpu.h"
 #include "OamDma.h"
 #include "SpriteManager.h"
+#include "StateStream.h"
 #include <algorithm>
 #include <climits>
 #include <cstring>
+
+namespace
+{
+	// BlankColour in a save state, where pixels are kept as shades
+	const unsigned char BlankShade = 4;
+}
 
 // Line timing
 // -----------
@@ -584,4 +591,113 @@ int Graphics::DrawPenalty(bool windowVisible, int windowStartX) const
 	// Mooneye-test-suite's intr_2_mode0_timing_sprites shows that these penalties lengthen mode 3 by whole machine
 	// cycles, rounding down, unlike SCX's pause
 	return penalty & ~3;
+}
+
+void Graphics::WriteState(StateWriter& writer) const
+{
+	writer.BeginSection("PPU ");
+
+	writer.WriteBytes(_vram, sizeof(_vram));
+	writer.WriteBytes(_oam, sizeof(_oam));
+	writer.WriteBytes(_registers, sizeof(_registers));
+
+	writer.WriteInt(static_cast<int>(_currentScanline));
+	writer.WriteInt(static_cast<int>(_currentWindowScanline));
+	writer.WriteInt(_linePosition);
+	writer.WriteInt(_nextEventPosition);
+	writer.WriteInt(static_cast<int>(_nextEvent));
+	writer.WriteInt(_mode);
+	writer.WriteInt(_interruptMode);
+	writer.WriteInt(_lyForComparison);
+
+	for (auto flag : { _lineCompareFlag, _lineCompareMatch, _statLine, _oamReadBlocked, _oamWriteBlocked,
+		_vramReadBlocked, _vramWriteBlocked, _oamScanning, _dmaDuringOamScan, _frameCompleted, _blankFrame })
+	{
+		writer.WriteBool(flag);
+	}
+
+	writer.WriteInt(static_cast<int>(_framePosition));
+	WriteBitmap(writer);
+
+	writer.EndSection();
+}
+
+void Graphics::ReadState(StateReader& reader)
+{
+	reader.BeginSection("PPU ");
+
+	reader.ReadBytes(_vram, sizeof(_vram));
+	reader.ReadBytes(_oam, sizeof(_oam));
+	reader.ReadBytes(_registers, sizeof(_registers));
+
+	// Each value is limited to what the PPU can reach, so that a corrupt state can't index outside the frame or
+	// the tile maps, or stall the line's events
+	_currentScanline = static_cast<unsigned int>(reader.ReadInt(0, FrameLines - 1));
+	_currentWindowScanline = static_cast<unsigned int>(reader.ReadInt(0, VertPixels));
+	_linePosition = reader.ReadInt(0, ScanlineClocks);
+	_nextEventPosition = reader.ReadInt(0, ScanlineClocks);
+	_nextEvent = reader.ReadEnum(LineEvent::LineEnd);
+	if (!EventHappensOnLine(_nextEvent, _currentScanline)) reader.Fail("its next event can't happen on line " + std::to_string(_currentScanline));
+	_mode = reader.ReadEnum(LcdcStatus::OamAndVramReadMode);
+	_interruptMode = reader.ReadInt(NoInterruptMode, LcdcStatus::OamReadMode);
+	_lyForComparison = reader.ReadInt(NoComparison, FrameLines - 1);
+
+	for (auto flag : { &_lineCompareFlag, &_lineCompareMatch, &_statLine, &_oamReadBlocked, &_oamWriteBlocked,
+		&_vramReadBlocked, &_vramWriteBlocked, &_oamScanning, &_dmaDuringOamScan, &_frameCompleted, &_blankFrame })
+	{
+		*flag = reader.ReadBool();
+	}
+
+	// Frames come at least every FrameClocks, except that the frame the LCD is turned on in lasts nearly two
+	_framePosition = static_cast<unsigned int>(reader.ReadInt(0, 2 * FrameClocks));
+	ReadBitmap(reader);
+
+	reader.EndSection();
+
+	// The sprite manager indexes OAM rather than keeping state of its own
+	_spriteManager.SetUseTallSprites(_registers[RegLcdControl] & 0x4);
+	_spriteManager.IndexAllSprites(reinterpret_cast<SpriteData*>(_oam));
+}
+
+bool Graphics::EventHappensOnLine(LineEvent event, unsigned int line)
+{
+	switch (event)
+	{
+	case LineEvent::OamScan:
+	case LineEvent::OamScanLastCycle:
+	case LineEvent::Draw:
+	case LineEvent::HBlank:
+		return line < VertPixels;
+
+	case LineEvent::VBlankCompare:
+		return line >= VertPixels;
+
+	case LineEvent::Line153StopCompare:
+	case LineEvent::Line153CompareZero:
+		return line == FrameLines - 1;
+
+	default:
+		return true;
+	}
+}
+
+void Graphics::WriteBitmap(StateWriter& writer) const
+{
+	// As the shade of each pixel, or BlankShade, rather than the colours, which are the front end's choice
+	for (auto pixel : Bitmap)
+	{
+		unsigned char shade = 0;
+		while (shade < BlankShade && ShadeColour(shade) != pixel) shade++;
+		writer.WriteU8(shade);
+	}
+}
+
+void Graphics::ReadBitmap(StateReader& reader)
+{
+	for (auto& pixel : Bitmap)
+	{
+		auto shade = reader.ReadU8();
+		if (shade > BlankShade) reader.Fail("a pixel's shade is " + std::to_string(shade));
+		pixel = shade == BlankShade ? BlankColour : ShadeColour(shade);
+	}
 }

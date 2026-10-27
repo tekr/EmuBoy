@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "MemoryMap.h"
+#include "StateStream.h"
 
 MemoryMap::MemoryMap(InputJoypad& joypad) : _graphics(nullptr), _timer(nullptr), _apu(nullptr), _serial(nullptr), _oamDma(nullptr), _joypad(joypad)
 {
@@ -164,4 +165,22 @@ void MemoryMap::WriteByte(unsigned short address, unsigned char value)
 	{
 		_highRam[address - HighRam] = value;
 	}
+}
+
+void MemoryMap::WriteState(StateWriter& writer) const
+{
+	writer.BeginSection("MEM ");
+	writer.WriteBytes(_fixedRam, sizeof(_fixedRam));
+	writer.WriteBytes(_highRam, sizeof(_highRam));
+	writer.WriteBool(_internalRomEnabled);
+	writer.EndSection();
+}
+
+void MemoryMap::ReadState(StateReader& reader)
+{
+	reader.BeginSection("MEM ");
+	reader.ReadBytes(_fixedRam, sizeof(_fixedRam));
+	reader.ReadBytes(_highRam, sizeof(_highRam));
+	_internalRomEnabled = reader.ReadBool();
+	reader.EndSection();
 }

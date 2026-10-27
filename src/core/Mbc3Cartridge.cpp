@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "Mbc3Cartridge.h"
+#include "StateStream.h"
 #include <algorithm>
 
 namespace
@@ -87,4 +88,24 @@ void Mbc3Cartridge::RamWriteByte(unsigned short address, unsigned char value)
 void Mbc3Cartridge::RunCycles(int cycles)
 {
 	if (_hasClock) _clock.RunCycles(cycles);
+}
+
+void Mbc3Cartridge::WriteRegisters(StateWriter& writer) const
+{
+	writer.BeginSection("MBC3");
+	writer.WriteInt(_ramBankOrClockRegister);
+	writer.WriteBool(_ramAndClockEnabled);
+	writer.WriteBool(_hasClock);
+	if (_hasClock) _clock.WriteState(writer);
+	writer.EndSection();
+}
+
+void Mbc3Cartridge::ReadRegisters(StateReader& reader)
+{
+	reader.BeginSection("MBC3");
+	_ramBankOrClockRegister = reader.ReadInt(0, 0xff);
+	_ramAndClockEnabled = reader.ReadBool();
+	if (reader.ReadBool() != _hasClock) reader.Fail(_hasClock ? "it has no real-time clock" : "it has a real-time clock");
+	if (_hasClock) _clock.ReadState(reader);
+	reader.EndSection();
 }

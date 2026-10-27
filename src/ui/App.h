@@ -5,6 +5,7 @@
 #include "../frontend/InputMapper.h"
 #include "../frontend/RunState.h"
 #include "../frontend/FramePacer.h"
+#include "../frontend/SaveStateSlots.h"
 #include "AudioOutput.h"
 #include <csignal>
 #include <fstream>
@@ -41,6 +42,7 @@ private:
 	std::shared_ptr<Cartridge> _cartridge;
 	std::string _gameTitle;
 	BatteryStore& _saves;
+	SaveStateSlots _stateSlots;
 
 	std::unique_ptr<Emulator> _emulator;
 	AudioOutput _audio;
@@ -73,9 +75,16 @@ private:
 	void DoCommand(Command command);
 
 	void RunFrame(int speed);
+	void ShowFrame(const int* frame);
 	void Present();
 
+	// Shows a message in the window title, and in the terminal if log is set
+	void ShowMessage(const std::string& message, bool log = true);
+
 	void Reset();
+	void SaveToSlot();
+	void LoadFromSlot();
+	void ShowSlot();
 	void SaveScreenshot();
 	void ToggleFullscreen();
 };
