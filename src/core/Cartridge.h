@@ -50,7 +50,8 @@ protected:
 	std::vector<unsigned char> _rom;
 	std::vector<unsigned char> _ram;
 
-	// RAM sizes are powers of two, as are all those the cartridge header can declare
+	// ramSize must be 0 or a power of two (as every size the cartridge header can declare is), as RAM addresses are
+	// masked to it
 	Cartridge(std::vector<unsigned char>&& rom, size_t ramSize, bool hasBattery);
 
 	// Maps ROM banks into $0000-$3FFF and $4000-$7FFF. Banks wrap to the ROM's size, as the mapper's upper bank
