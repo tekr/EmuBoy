@@ -154,7 +154,8 @@ protected:
 	LineEvent _nextEvent{ LineEvent::LineEnd };
 
 	// The mode STAT shows, and the mode whose interrupt select feeds the STAT interrupt line (or NoInterruptMode).
-	// They differ around mode changes, as on hardware
+	// They differ around mode changes, as on hardware, and for all of mode 2, whose condition feeds the line only as
+	// it starts
 	LcdcStatus _mode{ LcdcStatus::HBlankMode };
 	int _interruptMode{ NoInterruptMode };
 

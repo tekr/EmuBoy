@@ -148,9 +148,10 @@ void Graphics::StartOamScan()
 	_lyForComparison = _currentScanline;
 	if (_oamDma != nullptr && _oamDma->IsTransferring()) _dmaDuringOamScan = true;
 
-	// The mode 2 condition feeds the STAT interrupt line only as mode 2 starts, not for the rest of it, as in
-	// SameBoy. So writing STAT (the STAT write bug) in mode 2 doesn't request an interrupt for mode 2, as
-	// gbmicrotest's stat_write_glitch_l1_d shows on a DMG
+	// The mode 2 condition feeds the STAT interrupt line only as mode 2 starts, so writing STAT (the STAT write
+	// bug) in mode 2 doesn't request an interrupt for mode 2. Gbmicrotest's stat_write_glitch_l1_d measures that on
+	// a DMG for mode 2's first machine cycle; that it holds for the rest of mode 2 comes from SameBoy (which drops
+	// mode_for_interrupt to -1 straight after mode 2 starts) and mGBA (GBVideoWriteSTAT)
 	_interruptMode = LcdcStatus::OamReadMode;
 	UpdateStat();
 	_interruptMode = NoInterruptMode;
@@ -421,7 +422,9 @@ void Graphics::WriteRegister(unsigned short address, unsigned char value)
 		// $FF were written first, so a write can request an interrupt in modes 0 and 1 or while LY=LYC (in mode 2
 		// too, says Pan Docs, but see StartOamScan). Pan Docs says $FF lasts a machine cycle, but gbmicrotest's
 		// stat_write_glitch_l1_a shows it doesn't on a DMG: a write in mode 3's last machine cycle doesn't select
-		// mode 0 as it starts. In SameBoy it lasts a single clock, so both values apply in the write's machine cycle
+		// mode 0 as it starts. In SameBoy it lasts a single clock, so both values apply in the write's machine cycle.
+		// SameBoy writes ~$20 rather than $FF at the edge between H-Blank and mode 2 when mode 0 is selected and mode
+		// 2 isn't, which isn't modelled here
 		if (DisplayEnabled()) SetStatLine(StatLineFor(AllIntSelects));
 
 		_registers[RegLcdStatus] = value & AllIntSelects;

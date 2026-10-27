@@ -43,8 +43,10 @@ gbmicrotest
 `gbmicrotest/` holds the STAT write bug ROMs (`stat_write_glitch_*`) from aappleby's gbmicrotest (MIT licence, in
 `LICENSE`), from the prebuilt `bin/` directory of https://github.com/aappleby/gbmicrotest. Each tests one register
 at one machine cycle, as checked on a DMG, and leaves its result at $FF80-$FF82. `GbMicrotestTests.cpp` runs them.
-`stat_write_glitch_l154_d` isn't included: it expects IF to read $E0 after running through line 144, which requests
-the V-Blank interrupt, without clearing IF first as `stat_write_glitch_l154_c` does.
+`stat_write_glitch_l154_d` isn't included: it expects IF to read $E0 after running through line 144 of the first
+frame after turning the LCD on, without clearing IF first as `stat_write_glitch_l154_c` does, so without the V-Blank
+interrupt. That contradicts `stat_write_glitch_l143_d`, which runs through line 144 of the same frame and expects
+$E3, with the V-Blank interrupt requested (as SameBoy and mGBA request it at line 144).
 
 mooneye-test-suite
 ------------------

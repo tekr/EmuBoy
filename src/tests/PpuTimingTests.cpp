@@ -277,8 +277,9 @@ TEST_F(PpuTimingTests, WritingStatInHBlankRequestsSpuriousInterrupt)
 
 TEST_F(PpuTimingTests, WritingStatInMode2RequestsNoSpuriousInterrupt)
 {
-	// stat_write_glitch_l1_d: the mode 2 condition feeds the interrupt line only as mode 2 starts (in SameBoy too),
-	// against Pan Docs, which lists the OAM scan as a time the bug requests an interrupt
+	// stat_write_glitch_l1_d (and l0_c, l154_c) on a DMG, in mode 2's first machine cycle; later in mode 2, from
+	// SameBoy and mGBA, where the mode 2 condition feeds the interrupt line only as mode 2 starts. Pan Docs lists the
+	// OAM scan as a time the bug requests an interrupt
 	TurnOn();
 	RunTo(2, 4);
 	ClearInterrupts();
