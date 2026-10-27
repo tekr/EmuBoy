@@ -149,7 +149,7 @@ void Graphics::StartOamScan()
 	if (_oamDma != nullptr && _oamDma->IsTransferring()) _dmaDuringOamScan = true;
 
 	// The mode 2 condition feeds the STAT interrupt line only as mode 2 starts, so writing STAT (the STAT write
-	// bug) in mode 2 doesn't request an interrupt for mode 2. Gbmicrotest's stat_write_glitch_l1_d measures that on
+	// bug) in mode 2 doesn't request an interrupt for mode 2. gbmicrotest's stat_write_glitch_l1_d measures that on
 	// a DMG for mode 2's first machine cycle; that it holds for the rest of mode 2 comes from SameBoy (which drops
 	// mode_for_interrupt to -1 straight after mode 2 starts) and mGBA (GBVideoWriteSTAT)
 	_interruptMode = LcdcStatus::OamReadMode;

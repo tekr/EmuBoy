@@ -60,6 +60,8 @@ inline std::ostream& operator<<(std::ostream& os, const GbMicrotestRunner::Resul
 {
 	static const char* outcomes[] = { "ROM not found (run the tests from src/tests)", "timed out", "passed", "failed" };
 
-	return os << outcomes[static_cast<int>(result.Outcome)] << std::hex << ", reading $" << +result.Actual
-		<< " where $" << +result.Expected << " was expected";
+	os << outcomes[static_cast<int>(result.Outcome)];
+	if (result.Outcome == GbMicrotestRunner::Outcome::RomNotFound) return os;
+
+	return os << std::hex << ", reading $" << +result.Actual << " where $" << +result.Expected << " was expected";
 }
