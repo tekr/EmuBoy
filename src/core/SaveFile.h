@@ -21,6 +21,10 @@
 // reads it back; the upper nibbles are ignored on loading. mGBA packs it into 256 bytes instead, byte i holding
 // address 2i in its lower nibble and 2i+1 in its upper one (see _GBMBC2 and _GBMBC2Read in src/gb/mbc/mbc.c), so a
 // 256-byte MBC2 save is unpacked on loading.
+//
+// RAM size code 1 is 2 KB, saved as 2 KB as BGB, SameBoy and VBA-M do. mGBA gives it a whole 8 KB bank and saves that,
+// so an 8 KB save for 2 KB RAM loads its first 2 KB. (BatteryStore backs the 8 KB file up before replacing it, in
+// case a game wrote beyond 2 KB under mGBA.)
 class SaveFile
 {
 public:

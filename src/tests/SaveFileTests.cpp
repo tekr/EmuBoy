@@ -359,8 +359,78 @@ TEST(SaveFileTest, ClockCartridgeSaveWithoutFooterLoadsRamAndWarns)
 	EXPECT_NE("", warning);
 }
 
+TEST(SaveFileTest, TwoKbRamIsSavedAs2048Bytes)
+{
+	// As BGB, SameBoy and VBA-M save RAM size code 1
+	auto cartridge = CartridgeFactory::Create(Rom(Mbc1RamBattery, Ram2K));
+	FillRam(*cartridge, 7);
+
+	auto save = SaveFile::Serialise(*cartridge, SaveTime);
+
+	EXPECT_EQ(Ram2KSize, save.size());
+	EXPECT_EQ(cartridge->GetRam(), save);
+}
+
+TEST(SaveFileTest, TwoKbRamRoundTrips)
+{
+	auto original = CartridgeFactory::Create(Rom(Mbc1RamBattery, Ram2K));
+	FillRam(*original, 7);
+	auto restored = CartridgeFactory::Create(Rom(Mbc1RamBattery, Ram2K));
+
+	EXPECT_EQ("", SaveFile::Deserialise(*restored, SaveFile::Serialise(*original, SaveTime), SaveTime));
+	EXPECT_EQ(original->GetRam(), restored->GetRam());
+}
+
+TEST(SaveFileTest, TwoKbRamLoadsFirst2KbOfMgbaEightKbSaveWithoutWarning)
+{
+	// mGBA saves RAM size code 1 as a whole 8 KB bank. Only its first 2 KB is the cartridge's RAM, so the rest is
+	// ignored, whatever it holds (BatteryStore keeps the original file)
+	auto cartridge = CartridgeFactory::Create(Rom(Mbc1RamBattery, Ram2K));
+	std::vector<unsigned char> save(Ram8KSize, 0x77);
+	for (size_t i = 0; i < Ram2KSize; i++) save[i] = static_cast<unsigned char>(i * 3);
+
+	auto warning = SaveFile::Deserialise(*cartridge, save, SaveTime);
+
+	EXPECT_EQ("", warning);
+	EXPECT_EQ(std::vector<unsigned char>(save.begin(), save.begin() + Ram2KSize), cartridge->GetRam());
+}
+
+TEST(SaveFileTest, TwoKbClockCartridgeLoadsMgbaEightKbSaveWithFooter)
+{
+	auto cartridge = CartridgeFactory::Create(Rom(Mbc3TimerRamBattery, Ram2K));
+	const Registers counters{ { 5, 6, 7, 8, 0 } };
+	std::vector<unsigned char> save(Ram8KSize, 0x42);
+	auto footer = ClockSave(counters, counters, SaveTime);
+	save.insert(save.end(), footer.begin(), footer.end());
+
+	auto warning = SaveFile::Deserialise(*cartridge, save, SaveTime);
+
+	EXPECT_EQ("", warning);
+	EXPECT_EQ(std::vector<unsigned char>(Ram2KSize, 0x42), cartridge->GetRam());
+	EXPECT_EQ(counters, Counters(*cartridge));
+}
+
+TEST(SaveFileTest, TwoKbRamWarnsAboutOtherSizes)
+{
+	auto cartridge = CartridgeFactory::Create(Rom(Mbc1RamBattery, Ram2K));
+	std::vector<unsigned char> save(2 * Ram2KSize, 0x5a);
+
+	auto warning = SaveFile::Deserialise(*cartridge, save, SaveTime);
+
+	EXPECT_EQ(std::vector<unsigned char>(Ram2KSize, 0x5a), cartridge->GetRam());
+	EXPECT_NE("", warning);
+}
+
+TEST(SaveFileTest, EightKbRamWarnsAboutTwoKbSave)
+{
+	auto cartridge = CartridgeFactory::Create(Rom(Mbc1RamBattery, Ram8K));
+
+	EXPECT_NE("", SaveFile::Deserialise(*cartridge, std::vector<unsigned char>(Ram2KSize, 0x5a), SaveTime));
+}
+
 TEST(SaveFileTest, ExpectedSizeIncludesClockFooter)
 {
+	EXPECT_EQ(Ram2KSize, SaveFile::ExpectedSize(*CartridgeFactory::Create(Rom(Mbc1RamBattery, Ram2K))));
 	EXPECT_EQ(Ram8KSize, SaveFile::ExpectedSize(*CartridgeFactory::Create(Rom(Mbc1RamBattery, Ram8K))));
 	EXPECT_EQ(512u, SaveFile::ExpectedSize(*CartridgeFactory::Create(Rom(Mbc2Battery, NoRam))));
 	EXPECT_EQ(4 * Ram8KSize + 48, SaveFile::ExpectedSize(*CartridgeFactory::Create(Rom(Mbc3TimerRamBattery, Ram32K))));
