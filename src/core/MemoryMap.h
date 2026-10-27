@@ -46,8 +46,9 @@ protected:
 	OamDma* _oamDma;
 	InputJoypad& _joypad;
 
-	unsigned char _fixedRam[RamBankSize];
-	unsigned char _highRam[128];
+	// Zeroed for repeatability, though their contents at power-on are random on hardware
+	unsigned char _fixedRam[RamBankSize]{};
+	unsigned char _highRam[128]{};
 
 	GbInternalRom _internalRom;
 	bool _internalRomEnabled = true;
