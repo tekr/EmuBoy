@@ -15,13 +15,16 @@
 
 // Save states taken at the moments where state hidden from the registers decides what happens next: between EI and
 // the instruction after it, on the byte after the HALT bug, while halted, before and during OAM DMA, between TIMA
-// overflowing and being reloaded, mid serial transfer, part-way through a second of the MBC3's clock and with the
-// APU's length counters, envelopes and frame sequencer part-way through. Each test runs a small hand-assembled program
-// instruction by instruction to the moment, found by what the program can see (PC, registers, clocks) rather than by
-// the state itself, and checks the state holds the hidden state. It then restores the state into a newly powered-on
-// emulator and runs both side by side, checking every instruction, frame, sound sample and serial byte comes out the
-// same. The programs read back what they depend on, so leaving any of that state out of save states shows up as a
-// difference. SaveStateRoundTripTests.cpp does the same with test ROMs over longer runs.
+// overflowing and being reloaded, mid serial transfer, part-way through a second of the MBC3's clock, between the two
+// writes that latch the clock, with the APU's length counters, envelopes and frame sequencer part-way through, and
+// just after the APU is powered on with DIV's bit 4 set. Each test runs a small hand-assembled program instruction by
+// instruction to the moment, found by what the program can see (PC, registers, clocks) rather than by the state
+// itself, and checks the state holds the hidden value. It then restores the state into a newly powered-on emulator
+// and runs both side by side, checking every instruction, frame, sound sample and serial byte comes out the same.
+// The programs read back what they depend on, so leaving a value these moments depend on out of save states shows up
+// as a difference. A few saved values can't affect anything once an instruction has finished, as the next machine
+// cycle always replaces them: EI's flag for the instruction it precedes, the byte OAM DMA last read and the cycles
+// left of TIMA's reload. SaveStateRoundTripTests.cpp does the same with test ROMs over longer runs.
 
 namespace
 {
@@ -89,18 +92,24 @@ namespace
 		}
 	};
 
-	// A newly powered-on emulator for the ROM. The boot ROM would need a valid header and take 333 frames, so it
-	// hands over at once, as it does by writing to $FF50
-	std::unique_ptr<Emulator> PowerOn(std::shared_ptr<Cartridge> cartridge, bool skipBootRom)
+	// A newly powered-on emulator, still running the boot ROM, as a state is restored into
+	std::unique_ptr<Emulator> PowerOn(const std::vector<unsigned char>& rom)
+	{
+		return std::make_unique<Emulator>(CartridgeFactory::Create(std::vector<unsigned char>(rom)));
+	}
+
+	// A newly powered-on emulator that starts on the program at once. The boot ROM would need a valid header and take
+	// 333 frames, so it hands over straight away, as it does by writing to $FF50
+	std::unique_ptr<Emulator> PowerOnWithoutBootRom(std::shared_ptr<Cartridge> cartridge)
 	{
 		auto emulator = std::make_unique<Emulator>(cartridge);
-		if (skipBootRom) emulator->GetMemoryMap().WriteByte(MemoryMap::InternalRomDisable, 1);
+		emulator->GetMemoryMap().WriteByte(MemoryMap::InternalRomDisable, 1);
 		return emulator;
 	}
 
-	std::unique_ptr<Emulator> PowerOn(const std::vector<unsigned char>& rom, bool skipBootRom)
+	std::unique_ptr<Emulator> PowerOnWithoutBootRom(const std::vector<unsigned char>& rom)
 	{
-		return PowerOn(CartridgeFactory::Create(std::vector<unsigned char>(rom)), skipBootRom);
+		return PowerOnWithoutBootRom(CartridgeFactory::Create(std::vector<unsigned char>(rom)));
 	}
 
 	using Condition = std::function<bool(Emulator&)>;
@@ -122,6 +131,8 @@ namespace
 		return [address](Emulator& emulator) { return emulator.GetCpu().GetRegisters().PC == address; };
 	}
 
+	const Registers& CpuRegisters(const Emulator& emulator) { return emulator.GetCpu().GetRegisters(); }
+
 	// The sections of a save state, without its header and CRC, which are quicker to make after every instruction
 	std::vector<unsigned char> ComponentStates(const Emulator& emulator)
 	{
@@ -130,61 +141,103 @@ namespace
 		return writer.TakeData();
 	}
 
-	// A little-endian value inside a section of the emulator's save state, for state no accessor shows
-	uint32_t StateValue(const Emulator& emulator, const std::string& tag, size_t offset, size_t size)
+	struct Section
 	{
-		auto state = ComponentStates(emulator);
-		for (size_t section = 0; section + 8 <= state.size();)
-		{
-			auto length = state[section + 4] | state[section + 5] << 8 | state[section + 6] << 16 | static_cast<uint32_t>(state[section + 7]) << 24;
-			if (std::string(state.begin() + section, state.begin() + section + 4) == tag)
-			{
-				uint32_t value = 0;
-				for (size_t i = 0; i < size; i++) value |= static_cast<uint32_t>(state[section + 8 + offset + i]) << (8 * i);
-				return value;
-			}
+		std::string Tag;
 
-			section += 8 + length;
+		// Where its contents start in ComponentStates, and their length
+		size_t Start;
+		size_t Length;
+	};
+
+	std::vector<Section> Sections(const std::vector<unsigned char>& state)
+	{
+		std::vector<Section> sections;
+		for (size_t offset = 0; offset + 8 <= state.size();)
+		{
+			auto length = state[offset + 4] | state[offset + 5] << 8 | state[offset + 6] << 16 | static_cast<size_t>(state[offset + 7]) << 24;
+			sections.push_back({ std::string(state.begin() + offset, state.begin() + offset + 4), offset + 8, length });
+			offset += 8 + length;
 		}
 
-		ADD_FAILURE() << "No " << tag << " section";
-		return 0;
+		return sections;
 	}
 
-	// Where Cpu, OamDma, Timer, Serial and Apu::WriteState put the values the tests look for
-	namespace Offsets
+	// A value inside a section of the save state that no accessor shows, where the component's WriteState puts it. The
+	// section's length is checked too, so a change to its layout fails here rather than reading another value
+	struct HiddenValue
 	{
+		const char* Tag;
+		size_t SectionLength;
+		size_t Offset;
+		size_t Size;
+	};
+
+	namespace HiddenValues
+	{
+		const size_t CpuSectionLength = 31;
+		const size_t DmaSectionLength = 15;
+		const size_t TimerSectionLength = 18;
+		const size_t SerialSectionLength = 11;
+		const size_t ApuSectionLength = 238;
+
 		// After the six register pairs, the run state and the clock count
-		const size_t CpuSkipNextPcIncrement = 24;
-		const size_t CpuEnableInterruptsAfterNext = 26;
+		const HiddenValue CpuSkipNextPcIncrement{ "CPU ", CpuSectionLength, 24, 1 };
+		const HiddenValue CpuEnableInterruptsAfterNext{ "CPU ", CpuSectionLength, 26, 1 };
 
 		// After the register
-		const size_t DmaStartDelay = 1;
-		const size_t DmaTransferring = 7;
-		const size_t DmaBytesTransferred = 10;
+		const HiddenValue DmaStartDelay{ "DMA ", DmaSectionLength, 1, 4 };
+		const HiddenValue DmaBytesTransferred{ "DMA ", DmaSectionLength, 10, 4 };
 
 		// After the divider, the registers, the running flag and the mode
-		const size_t TimerCyclesToReload = 10;
-		const size_t TimerCyclesLeftInReload = 14;
+		const HiddenValue TimerCyclesToReload{ "TIMR", TimerSectionLength, 10, 4 };
 
 		// After SB and SC
-		const size_t SerialBitsLeft = 2;
+		const HiddenValue SerialBitsLeft{ "SERL", SerialSectionLength, 2, 4 };
 
-		// After the sample rate and the registers
-		const size_t ApuFrameStep = 55;
+		// After the sample rate, the registers, the power flag and the divider
+		const HiddenValue ApuFrameStep{ "APU ", ApuSectionLength, 55, 4 };
+		const HiddenValue ApuSkipFrameEvent{ "APU ", ApuSectionLength, 59, 1 };
 
 		// Square 1's length counter, and its envelope's timer and running flag
-		const size_t ApuSquare1LengthCounter = 65;
-		const size_t ApuSquare1EnvelopeTimer = 83;
-		const size_t ApuSquare1EnvelopeRunning = 92;
+		const HiddenValue ApuSquare1LengthCounter{ "APU ", ApuSectionLength, 65, 4 };
+		const HiddenValue ApuSquare1EnvelopeTimer{ "APU ", ApuSectionLength, 83, 4 };
+		const HiddenValue ApuSquare1EnvelopeRunning{ "APU ", ApuSectionLength, 92, 1 };
 
 		// After the channels, the sweep and the sample phase, the clocks into the output sample being built
-		const size_t ApuSampleCycles = 186;
+		const HiddenValue ApuSampleCycles{ "APU ", ApuSectionLength, 186, 4 };
+	}
+
+	// A little-endian hidden value
+	uint32_t Read(const Emulator& emulator, const HiddenValue& value)
+	{
+		auto state = ComponentStates(emulator);
+		for (auto& section : Sections(state))
+		{
+			if (section.Tag != value.Tag) continue;
+
+			if (section.Length != value.SectionLength || value.Offset + value.Size > section.Length)
+			{
+				ADD_FAILURE() << "The " << value.Tag << " section is " << section.Length << " bytes rather than " << value.SectionLength <<
+					"; its layout changed, so update HiddenValues";
+				return 0;
+			}
+
+			uint32_t result = 0;
+			for (size_t i = 0; i < value.Size; i++) result |= static_cast<uint32_t>(state[section.Start + value.Offset + i]) << (8 * i);
+			return result;
+		}
+
+		ADD_FAILURE() << "No " << value.Tag << " section";
+		return 0;
 	}
 
 	// How closely to compare the two emulators: their whole state after each of the first instructions, then at
 	// the end of each frame
 	const int InstructionsComparedInFull = 1000;
+
+	// No frame takes more instructions than this, as each takes at least a machine cycle
+	const int MaxInstructionsPerFrame = Graphics::FrameClocks / 4 + 1;
 
 	testing::AssertionResult SameState(const Emulator& expected, const Emulator& actual, const std::string& when)
 	{
@@ -194,6 +247,16 @@ namespace
 
 		size_t offset = 0;
 		while (offset < expectedState.size() && offset < actualState.size() && expectedState[offset] == actualState[offset]) offset++;
+
+		for (auto& section : Sections(expectedState))
+		{
+			if (offset >= section.Start && offset < section.Start + section.Length)
+			{
+				return testing::AssertionFailure() << "The states differ " << when << ", first in the " << section.Tag << " section at byte " <<
+					offset - section.Start;
+			}
+		}
+
 		return testing::AssertionFailure() << "The states differ " << when << ", first at byte " << offset;
 	}
 
@@ -206,8 +269,15 @@ namespace
 
 		auto result = testing::AssertionSuccess();
 		std::vector<short> originalSamples, restoredSamples;
-		for (auto instruction = 0, frame = 0; frame < frames; instruction++)
+		auto frame = 0;
+		for (auto instruction = 0; frame < frames; instruction++)
 		{
+			if (instruction == frames * MaxInstructionsPerFrame)
+			{
+				result = testing::AssertionFailure() << "Only " << frame << " of " << frames << " frames completed in " << instruction << " instructions";
+				break;
+			}
+
 			auto originalFrameDone = original.RunInstruction();
 			auto restoredFrameDone = restored.RunInstruction();
 			auto when = "after instruction " + std::to_string(instruction) + " (frame " + std::to_string(frame) + ")";
@@ -224,10 +294,10 @@ namespace
 				break;
 			}
 
-			if (!(original.GetCpu().GetRegisters() == restored.GetCpu().GetRegisters()))
+			if (!(CpuRegisters(original) == CpuRegisters(restored)))
 			{
-				auto& expected = original.GetCpu().GetRegisters();
-				auto& actual = restored.GetCpu().GetRegisters();
+				auto& expected = CpuRegisters(original);
+				auto& actual = CpuRegisters(restored);
 				result = testing::AssertionFailure() << "The CPU registers differ " << when << std::hex << ": AF BC DE HL SP PC are " <<
 					actual.AF << " " << actual.BC << " " << actual.DE << " " << actual.HL << " " << actual.SP << " " << actual.PC << " rather than " <<
 					expected.AF << " " << expected.BC << " " << expected.DE << " " << expected.HL << " " << expected.SP << " " << expected.PC;
@@ -277,14 +347,14 @@ namespace
 		original.TakeAudioSamples(samples);
 
 		auto state = SaveState::Create(original);
-		auto restored = PowerOn(rom, false);
+		auto restored = PowerOn(rom);
 		ASSERT_EQ("", SaveState::Restore(*restored, state));
 		EXPECT_TRUE(SameState(original, *restored, "straight after restoring"));
 		EXPECT_TRUE(RunAlike(original, *restored, frames));
 	}
 }
 
-TEST(SaveStateInFlightTest, BetweenEiAndTheNextInstruction)
+TEST(SaveStateHiddenStateTest, BetweenEiAndTheNextInstruction)
 {
 	// With a timer interrupt already requested, EI enables interrupts only after the next instruction, so INC B runs
 	// once before the dispatch (Pan Docs, Interrupts)
@@ -294,18 +364,19 @@ TEST(SaveStateInFlightTest, BetweenEiAndTheNextInstruction)
 	program.Op({ 0x04, 0x04 }).Loop();	// INC B; INC B
 
 	auto rom = program.Rom();
-	auto emulator = PowerOn(rom, true);
+	auto emulator = PowerOnWithoutBootRom(rom);
 	ASSERT_TRUE(RunUntil(*emulator, PcIs(afterEi)));
-	EXPECT_EQ(1u, StateValue(*emulator, "CPU ", Offsets::CpuEnableInterruptsAfterNext, 1)) << "EI isn't waiting to take effect";
+	EXPECT_EQ(1u, Read(*emulator, HiddenValues::CpuEnableInterruptsAfterNext)) << "EI isn't waiting to take effect";
 
 	ExpectRestoredCarriesOnAlike(*emulator, rom, 2);
 
-	auto& registers = emulator->GetCpu().GetRegisters();
+	auto& registers = CpuRegisters(*emulator);
 	EXPECT_EQ(0x50, registers.D) << "The timer interrupt wasn't dispatched";
+	EXPECT_EQ(1, registers.E) << "Interrupts dispatched";
 	EXPECT_EQ(2, registers.B);
 }
 
-TEST(SaveStateInFlightTest, OnTheByteAfterTheHaltBug)
+TEST(SaveStateHiddenStateTest, OnTheByteAfterTheHaltBug)
 {
 	// HALT with IME clear and an interrupt pending doesn't halt, and the next opcode fetch doesn't increment PC, so
 	// INC B runs twice (Pan Docs, halt)
@@ -315,15 +386,16 @@ TEST(SaveStateInFlightTest, OnTheByteAfterTheHaltBug)
 	program.Op({ 0x04 }).Loop();	// INC B
 
 	auto rom = program.Rom();
-	auto emulator = PowerOn(rom, true);
+	auto emulator = PowerOnWithoutBootRom(rom);
 	ASSERT_TRUE(RunUntil(*emulator, PcIs(afterHalt)));
-	EXPECT_EQ(1u, StateValue(*emulator, "CPU ", Offsets::CpuSkipNextPcIncrement, 1)) << "The HALT bug didn't strike";
+	EXPECT_EQ(1u, Read(*emulator, HiddenValues::CpuSkipNextPcIncrement)) << "The HALT bug didn't strike";
 
 	ExpectRestoredCarriesOnAlike(*emulator, rom, 2);
-	EXPECT_EQ(2, emulator->GetCpu().GetRegisters().B);
+	EXPECT_EQ(2, CpuRegisters(*emulator).B);
+	EXPECT_EQ(0, CpuRegisters(*emulator).E) << "Interrupts dispatched with IME clear";
 }
 
-TEST(SaveStateInFlightTest, WhileHalted)
+TEST(SaveStateHiddenStateTest, WhileHalted)
 {
 	// Halted until TIMA overflows, 64 machine cycles after the timer starts, then the handler runs and INC B
 	Program program;
@@ -338,18 +410,18 @@ TEST(SaveStateInFlightTest, WhileHalted)
 	for (auto haltedCycles : { 0, 30 })
 	{
 		SCOPED_TRACE(std::to_string(haltedCycles) + " machine cycles into the halt");
-		auto emulator = PowerOn(rom, true);
+		auto emulator = PowerOnWithoutBootRom(rom);
 		ASSERT_TRUE(RunUntil(*emulator, [](Emulator& e) { return !e.GetCpu().IsClockRunning(); }));
 		for (auto cycle = 0; cycle < haltedCycles; cycle++) emulator->RunInstruction();
 		ASSERT_FALSE(emulator->GetCpu().IsClockRunning());
 
 		ExpectRestoredCarriesOnAlike(*emulator, rom, 3);
-		EXPECT_EQ(0x50, emulator->GetCpu().GetRegisters().D) << "The timer interrupt didn't end the halt";
-		EXPECT_GT(emulator->GetCpu().GetRegisters().B, 0);
+		EXPECT_EQ(0x50, CpuRegisters(*emulator).D) << "The timer interrupt didn't end the halt";
+		EXPECT_GT(CpuRegisters(*emulator).B, 0);
 	}
 }
 
-TEST(SaveStateInFlightTest, BeforeAndDuringOamDma)
+TEST(SaveStateHiddenStateTest, BeforeAndDuringOamDma)
 {
 	// Fills $8000-$809F, copies it to OAM by DMA while reading VRAM, which the transfer blocks, then reads OAM and
 	// $FF46 back. The program runs from ROM, which the transfer from VRAM leaves the CPU free to use
@@ -360,7 +432,7 @@ TEST(SaveStateInFlightTest, BeforeAndDuringOamDma)
 	program.Op({ 0x21, 0x00, 0x80 }).WriteIo(0x46, 0x80);	// LD HL,$8000; DMA from $8000
 	auto afterDmaWrite = program.Here();
 	program.Nops(80).Op({ 0x7e, 0x47 }).Nops(100);	// LD A,(HL); LD B,A
-	program.Op({ 0x21, 0x9f, 0xfe, 0x4e, 0xf0, 0x46, 0x5f }).Loop();	// LD HL,$FE9F; LD C,(HL); LDH A,($46); LD E,A
+	program.Op({ 0x21, 0x9f, 0xfe, 0x4e, 0xf0, 0x46, 0x57 }).Loop();	// LD HL,$FE9F; LD C,(HL); LDH A,($46); LD D,A
 
 	auto rom = program.Rom();
 
@@ -368,27 +440,27 @@ TEST(SaveStateInFlightTest, BeforeAndDuringOamDma)
 	for (auto nops : { 0, 50 })
 	{
 		SCOPED_TRACE(nops ? "Part-way through the transfer" : "Before the transfer starts");
-		auto emulator = PowerOn(rom, true);
+		auto emulator = PowerOnWithoutBootRom(rom);
 		ASSERT_TRUE(RunUntil(*emulator, PcIs(static_cast<unsigned short>(afterDmaWrite + nops))));
 		if (nops)
 		{
-			EXPECT_EQ(1u, StateValue(*emulator, "DMA ", Offsets::DmaTransferring, 1));
-			EXPECT_EQ(49u, StateValue(*emulator, "DMA ", Offsets::DmaBytesTransferred, 4));
+			EXPECT_TRUE(emulator->GetOamDma().IsTransferring());
+			EXPECT_EQ(49u, Read(*emulator, HiddenValues::DmaBytesTransferred));
 		}
 		else
 		{
-			EXPECT_GT(StateValue(*emulator, "DMA ", Offsets::DmaStartDelay, 4), 0u);
+			EXPECT_GT(Read(*emulator, HiddenValues::DmaStartDelay), 0u);
 		}
 
 		ExpectRestoredCarriesOnAlike(*emulator, rom, 2);
-		auto& registers = emulator->GetCpu().GetRegisters();
+		auto& registers = CpuRegisters(*emulator);
 		EXPECT_EQ(static_cast<unsigned char>(0x11 + 7 * 0x9f), registers.C) << "OAM wasn't filled";
 		EXPECT_NE(0x11, registers.B) << "Reading VRAM during the transfer wasn't blocked";
-		EXPECT_EQ(0x80, registers.E);
+		EXPECT_EQ(0x80, registers.D);
 	}
 }
 
-TEST(SaveStateInFlightTest, BetweenTimaOverflowingAndBeingReloaded)
+TEST(SaveStateHiddenStateTest, BetweenTimaOverflowingAndBeingReloaded)
 {
 	// TIMA counts every 16 clocks from $FD, reloading $80 from TMA and requesting the timer interrupt a machine cycle
 	// after it overflows (Pan Docs, Timer obscure behaviour). Running NOPs, each machine cycle ends an instruction.
@@ -399,28 +471,18 @@ TEST(SaveStateInFlightTest, BetweenTimaOverflowingAndBeingReloaded)
 	program.Nops(40).JrTo(sled);
 
 	auto rom = program.Rom();
+	auto emulator = PowerOnWithoutBootRom(rom);
 
-	// The machine cycle after the overflow, with TIMA reading 0, then the one it's reloaded in
-	for (auto inReload : { false, true })
-	{
-		SCOPED_TRACE(inReload ? "In the reload" : "Between the overflow and the reload");
-		auto emulator = PowerOn(rom, true);
-		ASSERT_TRUE(RunUntil(*emulator, [](Emulator& e) { return (e.GetMemoryMap().ReadByte(0xff07) & 4) != 0 && e.GetMemoryMap().ReadByte(0xff05) == 0; }));
-		EXPECT_GT(StateValue(*emulator, "TIMR", Offsets::TimerCyclesToReload, 4), 0u);
+	// The machine cycle after the overflow, with TIMA reading 0. Saving in the reload's machine cycle checks nothing
+	// more, as nothing can see the cycles left of it once an instruction has finished
+	ASSERT_TRUE(RunUntil(*emulator, [](Emulator& e) { return (e.GetMemoryMap().ReadByte(0xff07) & 4) != 0 && e.GetMemoryMap().ReadByte(0xff05) == 0; }));
+	EXPECT_GT(Read(*emulator, HiddenValues::TimerCyclesToReload), 0u);
 
-		if (inReload)
-		{
-			emulator->RunInstruction();
-			EXPECT_GT(StateValue(*emulator, "TIMR", Offsets::TimerCyclesLeftInReload, 4), 0u);
-			EXPECT_EQ(0x80, emulator->GetMemoryMap().ReadByte(0xff05));
-		}
-
-		ExpectRestoredCarriesOnAlike(*emulator, rom, 2);
-		EXPECT_EQ(0x04, emulator->GetMemoryMap().ReadByte(0xff0f) & 0x04) << "The timer interrupt wasn't requested";
-	}
+	ExpectRestoredCarriesOnAlike(*emulator, rom, 2);
+	EXPECT_EQ(0x04, emulator->GetMemoryMap().ReadByte(0xff0f) & 0x04) << "The timer interrupt wasn't requested";
 }
 
-TEST(SaveStateInFlightTest, MidSerialTransfer)
+TEST(SaveStateHiddenStateTest, MidSerialTransfer)
 {
 	// Sends $5A on the internal clock, a bit every 512 clocks, then the serial interrupt, all the while reading SB
 	// into C and SC into B
@@ -430,52 +492,86 @@ TEST(SaveStateInFlightTest, MidSerialTransfer)
 	program.Op({ 0xf0, 0x01, 0x4f, 0xf0, 0x02, 0x47 }).Nops(40).JrTo(loop);	// LDH A,($01); LD C,A; LDH A,($02); LD B,A
 
 	auto rom = program.Rom();
-	auto emulator = PowerOn(rom, true);
+	auto emulator = PowerOnWithoutBootRom(rom);
 
 	// Half-way through the transfer, with four 1s shifted into SB, and half-way through the next bit
 	ASSERT_TRUE(RunUntil(*emulator, [](Emulator& e) { return e.GetMemoryMap().ReadByte(0xff01) == 0xaf; }));
 	auto clocks = emulator->GetCpuClocks();
 	ASSERT_TRUE(RunUntil(*emulator, [clocks](Emulator& e) { return e.GetCpuClocks() >= clocks + Serial::CyclesPerBit / 2; }));
-	EXPECT_EQ(4u, StateValue(*emulator, "SERL", Offsets::SerialBitsLeft, 4));
+	EXPECT_EQ(4u, Read(*emulator, HiddenValues::SerialBitsLeft));
 
 	ExpectRestoredCarriesOnAlike(*emulator, rom, 2);
 
 	// Nothing is connected, so 1s were shifted in
-	auto& registers = emulator->GetCpu().GetRegisters();
+	auto& registers = CpuRegisters(*emulator);
 	EXPECT_EQ(0xff, registers.C);
 	EXPECT_EQ(0x7f, registers.B) << "The transfer didn't end";
 	EXPECT_EQ(0x58, registers.D) << "The serial interrupt wasn't dispatched";
+	EXPECT_EQ(1, registers.E) << "Interrupts dispatched";
 }
 
-TEST(SaveStateInFlightTest, PartWayThroughARealTimeClockSecond)
+namespace
 {
-	// MBC3 with the clock: sets it to 30 seconds, then keeps latching it and reading its seconds into B
-	Program program(0x0f);
-	program.Write(0x0000, 0x0a).Write(0x4000, 0x08).Write(0xa000, 30);	// Enable RAM and the clock; select seconds; set them
-	auto loop = program.Here();
-	program.Write(0x6000, 0x00).Write(0x6000, 0x01);	// Latch
-	auto readSeconds = program.Here();
-	program.Op({ 0xfa, 0x00, 0xa0, 0x47 }).JrTo(loop);	// LD A,($A000); LD B,A
+	// MBC3 with the clock: sets it to 30 seconds, then keeps latching it and reading its seconds into B. Returns the
+	// address of the write of 1 that latches it and of the read
+	Program RealTimeClockProgram(unsigned short& latch, unsigned short& readSeconds)
+	{
+		Program program(0x0f);
+		program.Write(0x0000, 0x0a).Write(0x4000, 0x08).Write(0xa000, 30);	// Enable RAM and the clock; select seconds; set them
+		auto loop = program.Here();
+		program.Write(0x6000, 0x00);
+		latch = program.Here();
+		program.Write(0x6000, 0x01);
+		readSeconds = program.Here();
+		program.Op({ 0xfa, 0x00, 0xa0, 0x47 }).JrTo(loop);	// LD A,($A000); LD B,A
+		return program;
+	}
+}
 
-	auto rom = program.Rom();
+TEST(SaveStateHiddenStateTest, PartWayThroughARealTimeClockSecond)
+{
+	unsigned short latch, readSeconds;
+	auto rom = RealTimeClockProgram(latch, readSeconds).Rom();
 	auto cartridge = CartridgeFactory::Create(std::vector<unsigned char>(rom));
 	auto clock = cartridge->GetRealTimeClock();
 	ASSERT_NE(nullptr, clock);
-	auto emulator = PowerOn(cartridge, true);
+	auto emulator = PowerOnWithoutBootRom(cartridge);
 
 	// Most of the way through a second, so the next tick comes a few frames after saving, between latching the
 	// clock and reading it
 	ASSERT_TRUE(RunUntil(*emulator, [clock, readSeconds](Emulator& e)
 	{
-		return clock->GetState().CyclesIntoSecond >= RealTimeClock::CyclesPerSecond * 7 / 8 && e.GetCpu().GetRegisters().PC == readSeconds;
+		return clock->GetState().CyclesIntoSecond >= RealTimeClock::CyclesPerSecond * 7 / 8 && CpuRegisters(e).PC == readSeconds;
 	}));
-	EXPECT_EQ(30, emulator->GetCpu().GetRegisters().B);
+	EXPECT_EQ(30, CpuRegisters(*emulator).B);
 
 	ExpectRestoredCarriesOnAlike(*emulator, rom, 12);
-	EXPECT_EQ(31, emulator->GetCpu().GetRegisters().B) << "The clock didn't tick";
+	EXPECT_EQ(31, CpuRegisters(*emulator).B) << "The clock didn't tick";
 }
 
-TEST(SaveStateInFlightTest, PartWayThroughSoundLengthsAndEnvelopes)
+TEST(SaveStateHiddenStateTest, BetweenTheWritesThatLatchTheRealTimeClock)
+{
+	unsigned short latch, readSeconds;
+	auto rom = RealTimeClockProgram(latch, readSeconds).Rom();
+	auto cartridge = CartridgeFactory::Create(std::vector<unsigned char>(rom));
+	auto clock = cartridge->GetRealTimeClock();
+	ASSERT_NE(nullptr, clock);
+	auto emulator = PowerOnWithoutBootRom(cartridge);
+
+	// Writing 0 arms the latch and writing 1 then latches (Pan Docs, MBC3). Saving in between, just after the clock
+	// has ticked past what was last latched, so latching changes what the program reads
+	ASSERT_TRUE(RunUntil(*emulator, [clock, latch](Emulator& e)
+	{
+		return CpuRegisters(e).PC == latch && clock->GetState().Counters[RealTimeClock::Seconds] != clock->GetState().Latched[RealTimeClock::Seconds];
+	}));
+	EXPECT_TRUE(clock->GetState().LatchArmed);
+	EXPECT_EQ(30, CpuRegisters(*emulator).B);
+
+	ExpectRestoredCarriesOnAlike(*emulator, rom, 2);
+	EXPECT_EQ(31, CpuRegisters(*emulator).B) << "The clock wasn't latched";
+}
+
+TEST(SaveStateHiddenStateTest, PartWayThroughSoundLengthsAndEnvelopes)
 {
 	// Square 1 for 32/256 s fading every 3/64 s, and noise for 64/256 s growing every 2/64 s, with their length
 	// counters on (Pan Docs, Audio details)
@@ -500,23 +596,45 @@ TEST(SaveStateInFlightTest, PartWayThroughSoundLengthsAndEnvelopes)
 	for (auto instructionsAfterStep : { 0, 2 * (4096 / 24) })
 	{
 		SCOPED_TRACE(std::to_string(instructionsAfterStep) + " instructions after a frame sequencer step");
-		auto emulator = PowerOn(rom, true);
+		auto emulator = PowerOnWithoutBootRom(rom);
 		ASSERT_TRUE(RunUntil(*emulator, [afterWrite](Emulator& e)
 		{
 			// The frame sequencer steps as DIV's bit 4 falls
-			return e.GetCpuClocks() >= 150000 && (e.GetMemoryMap().ReadByte(0xff04) & 0x1f) == 0 && e.GetCpu().GetRegisters().PC == afterWrite;
+			return e.GetCpuClocks() >= 150000 && (e.GetMemoryMap().ReadByte(0xff04) & 0x1f) == 0 && CpuRegisters(e).PC == afterWrite;
 		}));
 		for (auto instruction = 0; instruction < instructionsAfterStep; instruction++) emulator->RunInstruction();
 
-		auto lengthLeft = StateValue(*emulator, "APU ", Offsets::ApuSquare1LengthCounter, 4);
+		auto lengthLeft = Read(*emulator, HiddenValues::ApuSquare1LengthCounter);
 		EXPECT_TRUE(lengthLeft > 0 && lengthLeft < 32) << lengthLeft;
-		EXPECT_NE(0u, StateValue(*emulator, "APU ", Offsets::ApuFrameStep, 4));
-		EXPECT_EQ(1u, StateValue(*emulator, "APU ", Offsets::ApuSquare1EnvelopeRunning, 1));
-		EXPECT_GT(StateValue(*emulator, "APU ", Offsets::ApuSquare1EnvelopeTimer, 4), 0u);
-		EXPECT_GT(StateValue(*emulator, "APU ", Offsets::ApuSampleCycles, 4), 0u);
+		EXPECT_NE(0u, Read(*emulator, HiddenValues::ApuFrameStep));
+		EXPECT_EQ(1u, Read(*emulator, HiddenValues::ApuSquare1EnvelopeRunning));
+		EXPECT_GT(Read(*emulator, HiddenValues::ApuSquare1EnvelopeTimer), 0u);
+		EXPECT_GT(Read(*emulator, HiddenValues::ApuSampleCycles), 0u);
 		ASSERT_EQ(0x09, playing(*emulator));
 
 		ExpectRestoredCarriesOnAlike(*emulator, rom, 20);
 		EXPECT_EQ(0, playing(*emulator)) << "The length counters didn't stop the channels";
 	}
+}
+
+TEST(SaveStateHiddenStateTest, AfterPoweringTheApuOnWithDivBit4Set)
+{
+	// Powering the APU on while DIV's bit 4 is set skips the frame sequencer's next step (SameBoy). Square 1 then
+	// plays with a length of 1/256 s, while the program reads NR52 into B
+	Program program;
+	auto wait = program.Here();
+	program.Op({ 0xf0, 0x04, 0xe6, 0x10, 0x28, static_cast<unsigned char>(wait - (program.Here() + 6)) });	// LDH A,(DIV); AND $10; JR Z,wait
+	program.WriteIo(0x26, 0x80);	// NR52 on
+	auto poweredOn = program.Here();
+	program.WriteIo(0x24, 0x77).WriteIo(0x25, 0xff).WriteIo(0x11, 0x3f).WriteIo(0x12, 0xf0).WriteIo(0x14, 0xc7);	// Square 1
+	auto loop = program.Here();
+	program.Op({ 0xf0, 0x26, 0x47 }).JrTo(loop);	// LDH A,(NR52); LD B,A
+
+	auto rom = program.Rom();
+	auto emulator = PowerOnWithoutBootRom(rom);
+	ASSERT_TRUE(RunUntil(*emulator, PcIs(poweredOn)));
+	EXPECT_EQ(1u, Read(*emulator, HiddenValues::ApuSkipFrameEvent)) << "The frame sequencer isn't skipping its next step";
+
+	ExpectRestoredCarriesOnAlike(*emulator, rom, 2);
+	EXPECT_EQ(0xf0, CpuRegisters(*emulator).B) << "The length counter didn't stop square 1";
 }
