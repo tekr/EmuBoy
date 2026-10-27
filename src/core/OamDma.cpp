@@ -30,9 +30,8 @@ void OamDma::Step()
 
 	// On the DMG, sources from $E000 up read work RAM through its echo
 	auto address = static_cast<unsigned short>(_source + _bytesTransferred);
-	if (address >= 0xe000) address -= 0x2000;
-
-	_busValue = _memoryMap.ReadByteForDma(address);
+	if (address >= 0xe000 && _cgbMode) _busValue = 0xff;
+	else _busValue = _memoryMap.ReadByteForDma(address >= 0xe000 ? static_cast<unsigned short>(address - 0x2000) : address);
 	_graphics.WriteOamDirect(static_cast<unsigned short>(_bytesTransferred++), _busValue);
 }
 

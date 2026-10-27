@@ -210,6 +210,7 @@
     <ClCompile Include="StateStreamTests.cpp" />
     <ClCompile Include="SaveStateTests.cpp" />
     <ClCompile Include="SaveStateRoundTripTests.cpp" />
+    <ClCompile Include="CgbMemoryTests.cpp" />
     <ClCompile Include="CgbModelTests.cpp" />
     <ClCompile Include="CgbSaveStateTests.cpp" />
     <ClCompile Include="SaveStateHiddenStateTests.cpp" />

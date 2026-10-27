@@ -147,6 +147,8 @@
     <ClInclude Include="Serial.h" />
     <ClInclude Include="OamDma.h" />
     <ClInclude Include="GameBoyModel.h" />
+    <ClInclude Include="InfraredPort.h" />
+    <ClInclude Include="UndocumentedRegisters.h" />
     <ClInclude Include="SaveFile.h" />
     <ClInclude Include="BatteryStore.h" />
     <ClInclude Include="FileIo.h" />

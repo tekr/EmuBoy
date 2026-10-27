@@ -31,8 +31,13 @@ class OamDma
 	// The byte the transfer last read, which the CPU reads instead if it uses the same bus
 	unsigned char _busValue{ 0 };
 
+	bool _cgbMode{ false };
+
 public:
 	OamDma(MemoryMap& memoryMap, Graphics& graphics) : _memoryMap(memoryMap), _graphics(graphics) {}
+
+	// On the CGB, sources from $E000 up copy $FF rather than echoing work RAM (SameBoy's GB_dma_run)
+	void SetCgbMode(bool cgbMode) { _cgbMode = cgbMode; }
 
 	// The CGB boot ROM leaves DMA reading $00 (https://gbdev.io/pandocs/Power_Up_Sequence.html#hardware-registers)
 	void ApplyCgbPostBootState() { _register = 0; }

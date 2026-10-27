@@ -29,7 +29,7 @@ class Emulator : ClockedHardware
 	void RunCycles(int cycles) override;
 	void RunStoppedCycles(int cycles) override;
 
-	// The model, which loading a state can change
+	// Puts every component in the model's mode
 	void SetModel(GameBoyModel model);
 
 	// Starts a CGB game where the CGB boot ROM would hand over to it, as Emu Boy has no CGB boot ROM

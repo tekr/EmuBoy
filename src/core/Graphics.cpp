@@ -455,10 +455,26 @@ void Graphics::WriteRegister(unsigned short address, unsigned char value)
 	}
 }
 
+void Graphics::SetCgbMode(bool cgbMode)
+{
+	_cgbMode = cgbMode;
+	if (!cgbMode) _vramBankOffset = 0;
+}
+
 void Graphics::ApplyCgbPostBootState()
 {
 	_registers[RegBgWinPalette] = 0xfc;
 	WriteRegister(RegLcdControl, 0x91);
+}
+
+unsigned char Graphics::ReadCgbRegister(unsigned short address) const
+{
+	return address == VramBankRegister ? static_cast<unsigned char>(0xfe | (_vramBankOffset ? 1 : 0)) : 0xff;
+}
+
+void Graphics::WriteCgbRegister(unsigned short address, unsigned char value)
+{
+	if (address == VramBankRegister) _vramBankOffset = (value & 1) ? VramSize : 0;
 }
 
 int Graphics::DrawLine()
@@ -603,7 +619,7 @@ void Graphics::WriteState(StateWriter& writer) const
 {
 	writer.BeginSection("PPU ");
 
-	writer.WriteBytes(_vram, sizeof(_vram));
+	writer.WriteBytes(_vram, VramSize);
 	writer.WriteBytes(_oam, sizeof(_oam));
 	writer.WriteBytes(_registers, sizeof(_registers));
 
@@ -625,6 +641,13 @@ void Graphics::WriteState(StateWriter& writer) const
 	writer.WriteInt(static_cast<int>(_framePosition));
 	WriteBitmap(writer);
 
+	// The CGB's VRAM bank 1 and VBK, in CGB states only
+	if (_cgbMode)
+	{
+		writer.WriteBytes(_vram + VramSize, VramSize);
+		writer.WriteBool(_vramBankOffset != 0);
+	}
+
 	writer.EndSection();
 }
 
@@ -632,7 +655,7 @@ void Graphics::ReadState(StateReader& reader)
 {
 	reader.BeginSection("PPU ");
 
-	reader.ReadBytes(_vram, sizeof(_vram));
+	reader.ReadBytes(_vram, VramSize);
 	reader.ReadBytes(_oam, sizeof(_oam));
 	reader.ReadBytes(_registers, sizeof(_registers));
 
@@ -657,6 +680,17 @@ void Graphics::ReadState(StateReader& reader)
 	// Frames come at least every FrameClocks, except that the frame the LCD is turned on in lasts nearly two
 	_framePosition = static_cast<unsigned int>(reader.ReadInt(0, 2 * FrameClocks));
 	ReadBitmap(reader);
+
+	if (_cgbMode)
+	{
+		reader.ReadBytes(_vram + VramSize, VramSize);
+		_vramBankOffset = reader.ReadBool() ? VramSize : 0;
+	}
+	else
+	{
+		std::fill(_vram + VramSize, _vram + 2 * VramSize, 0);
+		_vramBankOffset = 0;
+	}
 
 	reader.EndSection();
 

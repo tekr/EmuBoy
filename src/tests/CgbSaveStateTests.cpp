@@ -60,6 +60,7 @@ TEST(CgbSaveStateTest, AVersion2StateFromBeforeTheCgbLoadsOnTheDmg)
 
 	ASSERT_EQ("", SaveState::Restore(emulator, state));
 	EXPECT_EQ(GameBoyModel::Dmg, emulator.GetModel());
+	EXPECT_EQ(0xff, emulator.GetMemoryMap().ReadByte(0xff4f)) << "The DMG has no VBK";
 
 	// It carries on to pass, as it would have
 	std::string serial;
@@ -101,7 +102,7 @@ TEST(CgbSaveStateTest, AStateSaysWhichModelItsFor)
 TEST(CgbSaveStateTest, LoadingAStateSwitchesTheEmulatorToItsModel)
 {
 	CgbTestProgram program;
-	program.Loop();
+	program.WriteIo(0x70, 0x05).WriteIo(0x4f, 0x01).Loop();
 
 	auto cgb = program.PowerOn();
 	for (auto i = 0; i < 20; i++) cgb->RunInstruction();
@@ -112,12 +113,13 @@ TEST(CgbSaveStateTest, LoadingAStateSwitchesTheEmulatorToItsModel)
 
 	ASSERT_EQ("", SaveState::Restore(*dmg, cgbState));
 	EXPECT_EQ(GameBoyModel::Cgb, dmg->GetModel());
-	EXPECT_EQ(0x11, dmg->GetCpu().GetRegisters().A);
+	EXPECT_EQ(0xfd, dmg->GetMemoryMap().ReadByte(0xff70));
+	EXPECT_EQ(0xff, dmg->GetMemoryMap().ReadByte(0xff4f));
 	EXPECT_TRUE(cgbState == SaveState::Create(*dmg));
 
 	ASSERT_EQ("", SaveState::Restore(*dmg, dmgState));
 	EXPECT_EQ(GameBoyModel::Dmg, dmg->GetModel());
-	EXPECT_EQ(0x0000, dmg->GetCpu().GetRegisters().PC);
+	EXPECT_EQ(0xff, dmg->GetMemoryMap().ReadByte(0xff70));
 	EXPECT_TRUE(dmgState == SaveState::Create(*dmg));
 }
 

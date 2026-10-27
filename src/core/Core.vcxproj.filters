@@ -104,6 +104,12 @@
     <ClInclude Include="GameBoyModel.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="InfraredPort.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="UndocumentedRegisters.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="Serial.h">
       <Filter>Header Files</Filter>
     </ClInclude>

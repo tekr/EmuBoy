@@ -53,7 +53,8 @@ struct SpriteData
 #pragma pack(pop)
 
 // The PPU. It runs alongside the CPU one machine cycle at a time, drawing each line in one go as the line's mode 3
-// starts, and keeping the LCD's timing, STAT interrupts and the CPU's access to VRAM and OAM accurate to the cycle
+// starts, and keeping the LCD's timing, STAT interrupts and the CPU's access to VRAM and OAM accurate to the cycle.
+// In CGB mode it adds a second VRAM bank
 class Graphics
 {
 public:
@@ -76,6 +77,9 @@ public:
 	static const unsigned int OamSize = 160;
 
 	static const unsigned short SpriteDataTableBase = 0;
+
+	// CGB registers, by full address
+	static const unsigned short VramBankRegister = 0xff4f;
 
 protected:
 	static const unsigned short TileDataTableBase1 = 0;
@@ -139,8 +143,9 @@ protected:
 	SpriteManager& _spriteManager;
 	const OamDma* _oamDma{ nullptr };
 
-	// Zeroed for repeatability, though their contents at power-on are random on hardware
-	unsigned char _vram[VramSize]{};
+	// Zeroed for repeatability, though their contents at power-on are random on hardware. VRAM has two banks, of
+	// which the DMG has only the first
+	unsigned char _vram[2 * VramSize]{};
 	unsigned char _oam[OamSize]{};
 
 	// All zero at power-on (display off, as the boot ROM expects), apart from the palettes, set in the constructor.
@@ -189,6 +194,12 @@ protected:
 	// Per https://gbdev.io/pandocs/LCDC.html#lcdc7--lcd-enable, the screen stays blank for the first frame after
 	// the LCD is turned on
 	bool _blankFrame{ false };
+
+	// CGB mode
+	bool _cgbMode{ false };
+
+	// VBK: the offset into _vram of the bank the CPU sees
+	unsigned int _vramBankOffset{ 0 };
 
 	bool DisplayEnabled() const { return (_registers[RegLcdControl] & 0x80) != 0; }
 	bool WindowEnabled() const { return (_registers[RegLcdControl] & 0x20) != 0; }
@@ -254,6 +265,9 @@ public:
 
 	void SetOamDma(const OamDma* oamDma) { _oamDma = oamDma; }
 
+	// CGB mode adds a second VRAM bank
+	void SetCgbMode(bool cgbMode);
+
 	// As the CGB boot ROM leaves the PPU for a CGB game: LCDC $91 (on) and BGP $FC
 	// (https://gbdev.io/pandocs/Power_Up_Sequence.html#hardware-registers)
 	void ApplyCgbPostBootState();
@@ -302,16 +316,16 @@ public:
 
 	// The CPU can't read VRAM while the PPU draws (mode 3), nor OAM while it scans or draws (modes 2 and 3);
 	// reads return $FF and writes are ignored
-	unsigned char ReadVram(unsigned short address) const { return _vramReadBlocked ? 0xff : _vram[address]; }
-	void WriteVram(unsigned short address, unsigned char value) { if (!_vramWriteBlocked) _vram[address] = value; }
+	unsigned char ReadVram(unsigned short address) const { return _vramReadBlocked ? 0xff : _vram[_vramBankOffset + address]; }
+	void WriteVram(unsigned short address, unsigned char value) { if (!_vramWriteBlocked) _vram[_vramBankOffset + address] = value; }
 	unsigned char ReadOam(unsigned short address) const { return _oamReadBlocked ? 0xff : _oam[address]; }
 	void WriteOam(unsigned short address, unsigned char value);
 
 	// Whether the CPU is blocked from reading OAM, including the unusable area after it
 	bool OamReadBlocked() const { return _oamReadBlocked; }
 
-	// VRAM and OAM regardless of the PPU, for OAM DMA and tests
-	unsigned char& Vram(unsigned short address) { return _vram[address]; }
+	// VRAM (in the bank VBK selects) and OAM regardless of the PPU, for OAM DMA and tests
+	unsigned char& Vram(unsigned short address) { return _vram[_vramBankOffset + address]; }
 	void WriteOamDirect(unsigned short address, unsigned char value);
 
 	// Applies the DMG's OAM corruption bug for an access to $FE00-$FEFF, which corrupts OAM only while the PPU is
@@ -320,6 +334,10 @@ public:
 
 	unsigned char ReadRegister(unsigned short address) const;
 	void WriteRegister(unsigned short address, unsigned char value);
+
+	// VBK, by full address. It exists only in CGB mode, where MemoryMap passes it on
+	unsigned char ReadCgbRegister(unsigned short address) const;
+	void WriteCgbRegister(unsigned short address, unsigned char value);
 
 	// Save states. The frame being drawn is kept too, so a state taken mid-frame finishes the same frame
 	void WriteState(StateWriter& writer) const;

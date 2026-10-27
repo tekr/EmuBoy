@@ -45,6 +45,12 @@ Emulator::Emulator(std::shared_ptr<Cartridge> cartridge, GameBoyModel model) : E
 void Emulator::SetModel(GameBoyModel model)
 {
 	EmuModel = model;
+	auto cgb = model == GameBoyModel::Cgb;
+
+	EmuMemoryMap.SetCgbMode(cgb);
+	EmuGraphics.SetCgbMode(cgb);
+	EmuOamDma.SetCgbMode(cgb);
+	EmuSerial.SetCgbMode(cgb);
 }
 
 void Emulator::ApplyCgbPostBootState()
