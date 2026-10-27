@@ -331,6 +331,19 @@ public:
 	}
 };
 
+TEST_F(EmulatorStopTests, EachFrameLastsAFrameOfClocksWhileStopped)
+{
+	// The front end paces frames by the clocks emulated, so a stopped Game Boy must keep the normal frame rate
+	Emulator.GetFrame();
+
+	for (auto i = 0; i < 3; i++)
+	{
+		auto clocks = Emulator.GetCpuClocks();
+		Emulator.GetFrame();
+		EXPECT_EQ(uint64_t{ Graphics::FrameClocks }, Emulator.GetCpuClocks() - clocks);
+	}
+}
+
 TEST_F(EmulatorStopTests, ScreenIsBlankWhileStopped)
 {
 	Emulator.GetFrame();
