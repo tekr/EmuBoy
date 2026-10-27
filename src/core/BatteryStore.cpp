@@ -156,7 +156,18 @@ BatteryStore::Result BatteryStore::Load()
 
 	_loadFailed = false;
 	auto warning = SaveFile::Deserialise(*_cartridge, data, _timeSource());
-	if (warning.empty()) return { true, "" };
+
+	// A save that loads without a warning can still be a different size from the one written: mGBA's 8 KB for 2 KB
+	// RAM (whose other 6 KB may hold data) or packed 256-byte MBC2 save, or an older VBA's 44-byte clock footer.
+	// Saving would replace it with a different file, so keep the original in case it's wanted
+	auto expectedSize = SaveFile::ExpectedSize(*_cartridge);
+	if (warning.empty() && data.size() == expectedSize) return { true, "" };
+
+	if (warning.empty())
+	{
+		warning = "The save is " + std::to_string(data.size()) + " bytes and will be saved as " +
+			std::to_string(expectedSize) + " bytes";
+	}
 
 	_needsBackup = true;
 	_saveToBackUp = std::move(data);

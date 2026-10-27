@@ -13,13 +13,19 @@ namespace SaveFileTestHelpers
 	const unsigned char Mbc3TimerBattery = 0x0f;
 	const unsigned char Mbc3TimerRamBattery = 0x10;
 	const unsigned char Mbc5RamBattery = 0x1b;
+	const unsigned char Mmm01RamBattery = 0x0d;
+	const unsigned char PocketCamera = 0xfc;
+	const unsigned char HuC3 = 0xfe;
+	const unsigned char HuC1RamBattery = 0xff;
 
 	// RAM size codes, per https://gbdev.io/pandocs/The_Cartridge_Header.html#0149--ram-size
 	const unsigned char NoRam = 0x00;
+	const unsigned char Ram2K = 0x01;
 	const unsigned char Ram8K = 0x02;
 	const unsigned char Ram32K = 0x03;
 	const unsigned char Ram128K = 0x04;
 
+	const size_t Ram2KSize = 2048;
 	const size_t Ram8KSize = 8192;
 
 	inline std::vector<unsigned char> Rom(unsigned char cartridgeType, unsigned char ramSize)

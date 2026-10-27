@@ -58,7 +58,11 @@ namespace
 #endif
 		}
 
+#ifdef _WIN32
 		return ".";
+#else
+		return "/tmp";
+#endif
 	}
 
 	bool Exists(const std::string& path)
@@ -157,6 +161,39 @@ TEST_F(BatteryStoreTest, SavedRamLoadsIntoTheNextRun)
 	EXPECT_EQ("", result.Message);
 	EXPECT_EQ(original->GetRam(), restored->GetRam());
 	EXPECT_EQ(original->GetRam(), ReadAll(SavePath));
+}
+
+TEST_F(BatteryStoreTest, TwoKbRamSaveIs2048Bytes)
+{
+	auto original = CartridgeFactory::Create(Rom(Mbc1RamBattery, Ram2K));
+	FillRam(*original, 5);
+	ASSERT_TRUE(Store(original).Save().Succeeded);
+
+	auto restored = CartridgeFactory::Create(Rom(Mbc1RamBattery, Ram2K));
+	auto result = Store(restored).Load();
+
+	EXPECT_EQ(Ram2KSize, ReadAll(SavePath).size());
+	EXPECT_EQ("", result.Message);
+	EXPECT_EQ(original->GetRam(), restored->GetRam());
+}
+
+TEST_F(BatteryStoreTest, BatteryCartridgesWhoseMapperIsNotEmulatedKeepTheirSaves)
+{
+	// MMM01+RAM+BATTERY, Pocket Camera, HuC3 and HuC1+RAM+BATTERY run as MBC1, but their RAM is still saved
+	for (auto type : { Mmm01RamBattery, PocketCamera, HuC3, HuC1RamBattery })
+	{
+		SCOPED_TRACE(static_cast<int>(type));
+		std::remove(SavePath.c_str());
+
+		auto original = CartridgeFactory::Create(Rom(type, Ram32K));
+		FillRam(*original, type);
+		ASSERT_TRUE(Store(original).IsNeeded());
+		ASSERT_TRUE(Store(original).Save().Succeeded);
+
+		auto restored = CartridgeFactory::Create(Rom(type, Ram32K));
+		EXPECT_EQ("", Store(restored).Load().Message);
+		EXPECT_EQ(original->GetRam(), restored->GetRam());
+	}
 }
 
 TEST_F(BatteryStoreTest, SaveLeavesNoTemporaryFile)
@@ -398,6 +435,60 @@ TEST_F(BatteryStoreTest, WrongSizeSaveIsBackedUpBeforeBeingReplaced)
 	EXPECT_NE(std::string::npos, load.Message.find(".bak"));
 	EXPECT_EQ(original, ReadAll(SavePath + ".bak"));
 	EXPECT_EQ(Ram8KSize, ReadAll(SavePath).size());
+}
+
+TEST_F(BatteryStoreTest, MgbaEightKbSaveForTwoKbRamIsBackedUp)
+{
+	// It loads without a warning, but its upper 6 KB, which may hold data a game wrote under mGBA, isn't kept in the
+	// 2 KB save that replaces it
+	std::vector<unsigned char> original(Ram8KSize, 0x11);
+	std::fill(original.begin() + Ram2KSize, original.end(), 0x77);
+	WriteAll(SavePath, original);
+	auto cartridge = CartridgeFactory::Create(Rom(Mbc1RamBattery, Ram2K));
+	auto store = Store(cartridge);
+	auto load = store.Load();
+
+	EXPECT_TRUE(store.Save().Succeeded);
+
+	EXPECT_TRUE(load.Succeeded);
+	EXPECT_NE(std::string::npos, load.Message.find(".bak"));
+	EXPECT_EQ(std::vector<unsigned char>(Ram2KSize, 0x11), cartridge->GetRam());
+	EXPECT_EQ(original, ReadAll(SavePath + ".bak"));
+	EXPECT_EQ(Ram2KSize, ReadAll(SavePath).size());
+}
+
+TEST_F(BatteryStoreTest, MgbaPackedMbc2SaveIsBackedUp)
+{
+	// mGBA's 256-byte MBC2 save loads without a warning, but is replaced by a 512-byte one
+	std::vector<unsigned char> original(256, 0x21);
+	WriteAll(SavePath, original);
+	auto cartridge = CartridgeFactory::Create(Rom(Mbc2Battery, NoRam));
+	auto store = Store(cartridge);
+	auto load = store.Load();
+
+	EXPECT_TRUE(store.Save().Succeeded);
+
+	EXPECT_NE(std::string::npos, load.Message.find(".bak"));
+	EXPECT_EQ(original, ReadAll(SavePath + ".bak"));
+	EXPECT_EQ(512u, ReadAll(SavePath).size());
+}
+
+TEST_F(BatteryStoreTest, LegacyClockFooterSaveIsBackedUp)
+{
+	// Older VBA versions' 44-byte footer (with a 32-bit time) loads without a warning, but is replaced by a 48-byte one
+	std::vector<unsigned char> original(44, 0x00);
+	original[0] = 0x05;
+	WriteAll(SavePath, original);
+	auto cartridge = CartridgeFactory::Create(Rom(Mbc3TimerBattery, NoRam));
+	auto store = Store(cartridge);
+	auto load = store.Load();
+
+	EXPECT_TRUE(store.Save().Succeeded);
+
+	EXPECT_EQ(5, cartridge->GetRealTimeClock()->GetState().Counters[0]);
+	EXPECT_NE(std::string::npos, load.Message.find(".bak"));
+	EXPECT_EQ(original, ReadAll(SavePath + ".bak"));
+	EXPECT_EQ(48u, ReadAll(SavePath).size());
 }
 
 TEST_F(BatteryStoreTest, WrongSizeSaveIsBackedUpOnlyOnce)
