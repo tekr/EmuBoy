@@ -2,6 +2,7 @@
 #include "MemoryMap.h"
 #include "StateStream.h"
 #include "VramDma.h"
+#include "Cpu.h"
 #include <algorithm>
 #include <iterator>
 
@@ -214,6 +215,9 @@ unsigned char MemoryMap::ReadCgbRegister(unsigned short address) const
 	case WorkRamBankRegister:
 		return 0xf8 | _workRamBankRegister;
 
+	case SpeedSwitchRegister:
+		return _cpu->ReadSpeedSwitchRegister();
+
 	// KEY0 is written only by the CGB boot ROM, which locks it as it hands over (Pan Docs), so after the boot ROM
 	// it reads $FF and ignores writes, as in SameBoy
 	case CpuModeRegister:
@@ -249,6 +253,10 @@ void MemoryMap::WriteCgbRegister(unsigned short address, unsigned char value)
 
 	case InfraredRegister:
 		_infraredPort.Write(value);
+		break;
+
+	case SpeedSwitchRegister:
+		_cpu->WriteSpeedSwitchRegister(value);
 		break;
 
 	case WorkRamBankRegister:

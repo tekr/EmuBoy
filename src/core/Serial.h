@@ -15,7 +15,8 @@ public:
 	static const int ControlReg = 1;
 
 	// The internal clock shifts one bit at 8192 Hz, or in CGB mode with SC bit 1 set, 32 times as fast at 262144 Hz
-	// (https://gbdev.io/pandocs/Serial_Data_Transfer_(Link_Cable).html#ff02--sc-serial-transfer-control)
+	// (https://gbdev.io/pandocs/Serial_Data_Transfer_(Link_Cable).html#ff02--sc-serial-transfer-control). Both
+	// double in double speed, counted as they are in CPU clocks
 	static const int CyclesPerBit = 512;
 	static const int FastCyclesPerBit = 16;
 	static const int BitsPerTransfer = 8;
@@ -68,16 +69,16 @@ public:
 	// Called with each byte the Game Boy sends, once its transfer completes
 	void SetByteSentHandler(std::function<void(unsigned char)> handler) { _onByteSent = std::move(handler); }
 
-	// T-cycles (4194304 Hz)
-	void RunCycles(int cycles)
+	// CPU clocks (4 per machine cycle at either speed)
+	void RunCycles(int cpuClocks)
 	{
 		// The phase counts through the slow clock's period, which the fast clock's divides exactly
-		auto phase = _clockPhase + cycles;
+		auto phase = _clockPhase + cpuClocks;
 		_clockPhase = phase % CyclesPerBit;
 		if (!IsTransferring()) return;
 
 		auto bitPeriod = BitPeriod();
-		for (auto periods = phase / bitPeriod - (phase - cycles) / bitPeriod; periods > 0 && IsTransferring(); periods--)
+		for (auto periods = phase / bitPeriod - (phase - cpuClocks) / bitPeriod; periods > 0 && IsTransferring(); periods--)
 		{
 			ShiftBit();
 		}

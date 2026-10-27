@@ -18,17 +18,20 @@ at $A000.
 | `mem_timing-2/` | The same, from a later version of the test shell         | `BlarggCpuTests.cpp`    |
 | `halt_bug/`     | The HALT bug                                             | `BlarggCpuTests.cpp`    |
 | `oam_bug/`      | OAM corruption by 16-bit increments and decrements       | `BlarggOamBugTests.cpp` |
+| `interrupt_time/` | Interrupt timing at both of the CGB's CPU speeds       | `BlarggCgbTests.cpp`    |
 
 Most of the DMG ROMs mark themselves as working on the Game Boy Color too ($80 at $0143), so the DMG tests choose the
-DMG rather than leaving the header to choose.
+DMG rather than leaving the header to choose. `BlarggCgbTests.cpp` also runs `cpu_instrs/`, `instr_timing/`,
+`mem_timing/`, `mem_timing-2/` and `halt_bug/` on the CGB in CGB mode. `oam_bug/` and `dmg_sound/` test the DMG's own
+behaviour, which the CGB doesn't share, so they run only on the DMG.
 
 `oam_bug/7-timing_effect.gb` logs an OAM dump for each of the 20 timings in its range that corrupt OAM, over 8 KB of
 text, more than the cartridge RAM it logs to holds, so the log would run on into the test's own code in work RAM,
 which starts at $C000 straight after cartridge RAM, and crash it. Its test moves the log pointer back to the start of
 cartridge RAM between frames. The ROM checks a checksum of the text it prints, which the log doesn't affect.
 
-`interrupt_time` isn't included. It's a Game Boy Color test (its header marks it CGB-only and its source sets
-`REQUIRE_CGB`) that times interrupts at both CPU speeds, so it needs the CGB's double-speed mode.
+`interrupt_time/interrupt_time.gb` is a Game Boy Color test (its header marks it CGB-only and its source sets
+`REQUIRE_CGB`) that times interrupts at both CPU speeds, so it checks the CGB's double-speed mode.
 
 dmg-acid2
 ---------

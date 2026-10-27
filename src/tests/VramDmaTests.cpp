@@ -45,6 +45,9 @@ namespace
 		return emulator.GetSystemClocks() - before;
 	}
 
+	// Switches to double speed: KEY1 = 1; STOP
+	CgbTestProgram& SwitchToDoubleSpeed(CgbTestProgram& program) { return program.WriteIo(0x4d, 0x01).Op({ 0x10, 0x00 }); }
+
 	// Runs instructions until LY reaches the line
 	void RunToLine(Emulator& emulator, int line)
 	{
@@ -88,6 +91,25 @@ TEST(VramDmaTest, GeneralPurposeTransferHoldsTheCpuFor9MachineCyclesPerBlock)
 		EXPECT_EQ(4u + 4u + blocks * 8u * 4u, ClocksForInstruction(*emulator)) << static_cast<int>(blocks) << " blocks";
 		EXPECT_EQ(4u, ClocksForInstruction(*emulator)) << "the next instruction runs as normal";
 	}
+}
+
+TEST(VramDmaTest, AtDoubleSpeedTheTransferTakesAsLongInSystemClocks)
+{
+	CgbTestProgram program;
+	program.Data(SourceData, Pattern(0x10));
+	program.WriteIo(Lcdc, 0x00);
+	SwitchToDoubleSpeed(program);
+	Addresses(program, SourceData, 0x8000).WriteIo(Hdma5, 0x00);
+	auto nop = program.Here();
+	program.Nops(1).Loop();
+
+	auto emulator = program.PowerOn();
+	ASSERT_TRUE(RunToAddress(*emulator, nop));
+	ASSERT_TRUE(emulator->GetCpu().IsDoubleSpeed());
+
+	// At double speed a machine cycle is 2 system clocks, and each copies 1 byte: the NOP, 1 to set up, 16 to copy
+	EXPECT_EQ((1u + 1u + 16u) * 2u, ClocksForInstruction(*emulator));
+	EXPECT_EQ(Pattern(0x10), ReadVram(*emulator, 0x8000, 0x10));
 }
 
 TEST(VramDmaTest, LowFourBitsAndTheDestinationsTopBitsAreIgnored)

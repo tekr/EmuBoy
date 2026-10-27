@@ -12,6 +12,7 @@
 #include "UndocumentedRegisters.h"
 
 class VramDma;
+class Cpu;
 
 class StateWriter;
 class StateReader;
@@ -44,6 +45,7 @@ public:
 
 	// CGB registers the memory map handles itself, or passes to components that have no other registers
 	static const unsigned short CpuModeRegister = 0xff4c;
+	static const unsigned short SpeedSwitchRegister = 0xff4d;
 	static const unsigned short InfraredRegister = 0xff56;
 	static const unsigned short WorkRamBankRegister = 0xff70;
 
@@ -62,6 +64,7 @@ protected:
 	Serial* _serial;
 	OamDma* _oamDma;
 	VramDma* _vramDma{ nullptr };
+	Cpu* _cpu{ nullptr };
 	InputJoypad& _joypad;
 
 	// Zeroed for repeatability, though their contents at power-on are random on hardware. The DMG uses the first
@@ -101,6 +104,9 @@ public:
 	void SetSerial(Serial* serial) { _serial = serial; }
 	void SetOamDma(OamDma* oamDma) { _oamDma = oamDma; }
 	void SetVramDma(VramDma* vramDma) { _vramDma = vramDma; }
+
+	// For KEY1, the CGB's speed switch
+	void SetCpu(Cpu* cpu) { _cpu = cpu; }
 
 	// CGB mode adds work RAM banks and the CGB's registers
 	void SetCgbMode(bool cgbMode);

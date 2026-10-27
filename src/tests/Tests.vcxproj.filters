@@ -93,6 +93,9 @@
     <ClCompile Include="SaveStateRoundTripTests.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="BlarggCgbTests.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="CgbAcid2Tests.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -106,6 +109,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="CgbSaveStateTests.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="CgbSpeedSwitchTests.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="MooneyeCgbTests.cpp">

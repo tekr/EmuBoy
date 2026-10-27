@@ -210,11 +210,13 @@
     <ClCompile Include="StateStreamTests.cpp" />
     <ClCompile Include="SaveStateTests.cpp" />
     <ClCompile Include="SaveStateRoundTripTests.cpp" />
+    <ClCompile Include="BlarggCgbTests.cpp" />
     <ClCompile Include="CgbAcid2Tests.cpp" />
     <ClCompile Include="CgbGraphicsTests.cpp" />
     <ClCompile Include="CgbMemoryTests.cpp" />
     <ClCompile Include="CgbModelTests.cpp" />
     <ClCompile Include="CgbSaveStateTests.cpp" />
+    <ClCompile Include="CgbSpeedSwitchTests.cpp" />
     <ClCompile Include="MooneyeCgbTests.cpp" />
     <ClCompile Include="VramDmaTests.cpp" />
     <ClCompile Include="SaveStateHiddenStateTests.cpp" />

@@ -2,23 +2,25 @@
 #include "Emulator.h"
 #include "StateStream.h"
 
-void Emulator::RunCycles(int cycles)
+void Emulator::RunCycles(int cpuClocks)
 {
-	EmuTimer.RunCycles(cycles);
-	// OAM DMA counts machine cycles
-	for (auto cycle = 0; cycle < cycles; cycle += 4) EmuOamDma.RunCycle();
-	EmuGraphics.RunCycles(cycles);
-	EmuApu.RunCycles(cycles);
-	EmuSerial.RunCycles(cycles);
+	// The timer, OAM DMA and serial port run on the CPU's clock, so at double speed they do too. The PPU and APU run on
+	// the system clock, whose clocks last two of the CPU's at double speed
+	EmuTimer.RunCycles(cpuClocks);
+	EmuOamDma.RunCycle();
+	auto systemClocks = cpuClocks >> static_cast<int>(EmuCpu.IsDoubleSpeed());
+	EmuGraphics.RunCycles(systemClocks);
+	EmuApu.RunCycles(systemClocks);
+	EmuSerial.RunCycles(cpuClocks);
 }
 
-void Emulator::RunStoppedCycles(int cycles)
+void Emulator::RunStoppedCycles(int systemClocks)
 {
 	// Only the APU's sample output keeps time of its own. Simplification: a serial transfer on an external clock
 	// stands still too, though on hardware the other Game Boy could still clock it. The PPU stays where it stopped,
 	// but frames keep coming for the front end
-	EmuApu.RunStoppedCycles(cycles);
-	EmuGraphics.RunStoppedCycles(cycles);
+	EmuApu.RunStoppedCycles(systemClocks);
+	EmuGraphics.RunStoppedCycles(systemClocks);
 }
 
 Emulator::Emulator(std::shared_ptr<Cartridge> cartridge) : Emulator(cartridge, ModelForRom(cartridge->GetRom()))
@@ -52,7 +54,9 @@ void Emulator::SetModel(GameBoyModel model)
 	EmuGraphics.SetVramDma(cgb ? &EmuVramDma : nullptr);
 	EmuMemoryMap.SetVramDma(&EmuVramDma);
 	EmuVramDma.SetCpu(&EmuCpu);
+	EmuMemoryMap.SetCpu(&EmuCpu);
 
+	EmuCpu.SetCgbMode(cgb);
 	EmuMemoryMap.SetCgbMode(cgb);
 	EmuGraphics.SetCgbMode(cgb);
 	EmuOamDma.SetCgbMode(cgb);

@@ -432,6 +432,13 @@ void Cpu::Stop(unsigned char opcode)
 		return;
 	}
 
+	if (_speedSwitchArmed)
+	{
+		SwitchSpeed();
+		if (twoByteOpcode) _registers.PC++;
+		return;
+	}
+
 	// The system clock stops, which resets DIV. Skipping the byte after STOP takes no time that anything can see.
 	// Simplification: SameBoy also holds DIV in reset for a cycle when IME is clear, which it notes as untrusted
 	_memoryMap.WriteByte(MemoryMap::DividerPort, 0);
@@ -439,18 +446,62 @@ void Cpu::Stop(unsigned char opcode)
 	if (twoByteOpcode) _registers.PC++;
 }
 
+void Cpu::SwitchSpeed()
+{
+	// Per https://gbdev.io/pandocs/CGB_Registers.html#ff4d--key1spd-cgb-mode-only-prepare-speed-switch, STOP with
+	// KEY1 armed switches speed, disarms KEY1 and resets DIV, then the CPU pauses. Gambatte's hardware tests, recorded
+	// on a CGB-04C (test/hwtests/speedchange in https://github.com/pokemon-speedrunning/gambatte-core), contradict
+	// Pan Docs twice:
+	// - The pause is about 0x20000 CPU clocks, not 2050 machine cycles: speedchange_ly97_ly, speedchange_ly44_m3_ly
+	//   and speedchange2_ly44_m3_ly_1 read LY as $8C, $39 and $25 after it. SameBoy and Gambatte pause that long
+	//   (0x20008 and 0x20000 of their clocks, plus their STOP's own cycles).
+	// - DIV, the timer and the APU keep running through the pause, where Pan Docs says DIV doesn't tick:
+	//   speedchange_lcdoff_tima00_1 reads TIMA $80 (0x20000 clocks of counting every 1024), and in
+	//   speedchange_ch2_nr52_1b CH2's length runs out during the pause. SameBoy and Gambatte run them too.
+	// speedchange_div_1 and _2 (DIV ticking over between two reads) and speedchange_lcdoff_tima01_1 and _2 (TIMA
+	// counting every 16 CPU clocks) fix DIV's restart from 0 at 0x20000 clocks before the CPU resumes, but not where in
+	// the pause it comes. Pauses of 0x20004 to 0x20010 clocks after STOP's opcode fetch, with DIV restarting 4 to 16
+	// clocks in, all fit them. speedchange_tima01_1 and _2 (TIMA synchronised to its interrupt with the LCD on, $07
+	// and $08) fit only 0x20008 and 8, SameBoy's 0x20008, which also match the most of Gambatte's speedchange tests
+	// (150 of the 206 that don't record audio, against at most 132 for the others).
+	// The DIV reset is its own write, so the timer and the APU see its falling edges as they would any DIV write.
+	// Simplifications: interrupts wait for the pause to end, where both emulators let one end it as it ends a HALT
+	// (and SameBoy skips it when one is already pending), and the PPU carries on as normal, where Pan Docs says its
+	// access to VRAM and OAM is frozen as the switch found it. Of Gambatte's speedchange tests, some on the APU (as
+	// speedchange_ch2_nr52_1a, where CH2's length runs out a little sooner than on the hardware), the PPU's mode 3 STAT
+	// timing and speedchange_tima00 still fail by a cycle or so: details of the timing across the switch that aren't
+	// modelled (see docs/known-gaps.md)
+
+	// The STOP's own machine cycles ran at the old speed
+	if (_doubleSpeed) _instructionCycles >>= 1;
+	else _instructionCycles <<= 1;
+
+	_doubleSpeed = !_doubleSpeed;
+	_speedSwitchArmed = false;
+	_speedSwitchPauseLeft = SpeedSwitchPauseCycles;
+	_state = CpuState::SpeedSwitchPause;
+}
+
+void Cpu::RunSpeedSwitchPause()
+{
+	if (_speedSwitchPauseLeft == SpeedSwitchPauseCycles - SpeedSwitchDivResetCycles) _memoryMap.WriteByte(MemoryMap::DividerPort, 0);
+	InternalCycle();
+	if (--_speedSwitchPauseLeft == 0) _state = CpuState::Running;
+}
+
 void Cpu::RunVramDma()
 {
 	// Per SameBoy (GB_hdma_run), the transfer takes the machine cycle after the opcode fetch to start, then copies 2
-	// bytes per machine cycle, 2 bytes per microsecond (https://gbdev.io/pandocs/CGB_Registers.html#transfer-timings):
-	// a 16-byte block holds the CPU for 9 machine cycles
+	// bytes per machine cycle at normal speed, or 1 at double speed, so always 2 bytes per microsecond
+	// (https://gbdev.io/pandocs/CGB_Registers.html#transfer-timings): a 16-byte block holds the CPU for 9 machine
+	// cycles at normal speed and 17 at double speed
 	_vramDmaRequested = false;
 	InternalCycle();
 
 	while (_vramDma->IsCopying())
 	{
 		InternalCycle();
-		_vramDma->Copy(2);
+		_vramDma->Copy(_doubleSpeed ? 1 : 2);
 	}
 }
 
@@ -765,7 +816,7 @@ void Cpu::RunStopped()
 {
 	// Time passes, but nothing runs on the system clock
 	_instructionCycles += OneCycle;
-	if (_hardware != nullptr) _hardware->RunStoppedCycles(OneCycle);
+	if (_hardware != nullptr) _hardware->RunStoppedCycles(ToSystemClocks(OneCycle));
 
 	// STOP mode ends when a selected button pulls its input line low, whether or not the joypad interrupt is enabled.
 	// Simplification: waking takes no time here, where SameBoy spends 2 machine cycles
@@ -821,9 +872,14 @@ int Cpu::DoNextInstruction()
 		// The rest of the hardware keeps running
 		InternalCycle();
 	}
+	else if (_state == CpuState::SpeedSwitchPause)
+	{
+		RunSpeedSwitchPause();
+	}
 
-	_totalCycles += _instructionCycles;
-	return _instructionCycles;
+	auto systemClocks = ToSystemClocks(_instructionCycles);
+	_totalCycles += systemClocks;
+	return systemClocks;
 }
 
 void Cpu::ApplyCgbPostBootState()
@@ -857,6 +913,14 @@ void Cpu::WriteState(StateWriter& writer) const
 	writer.WriteU8(_waitingInterrupts);
 	writer.WriteBool(_softwareBreakpointHit);
 
+	// The CGB's speed switch, in CGB states only
+	if (_cgbMode)
+	{
+		writer.WriteBool(_doubleSpeed);
+		writer.WriteBool(_speedSwitchArmed);
+		writer.WriteInt(_speedSwitchPauseLeft);
+	}
+
 	writer.EndSection();
 }
 
@@ -872,7 +936,7 @@ void Cpu::ReadState(StateReader& reader)
 	// F's low four bits always read 0
 	_registers.F &= 0xf0;
 
-	_state = reader.ReadEnum(CpuState::Locked);
+	_state = reader.ReadEnum(CpuState::SpeedSwitchPause);
 	_totalCycles = reader.ReadU64();
 	_skipNextPCIncrement = reader.ReadBool();
 	_interruptsEnabled = reader.ReadBool();
@@ -881,6 +945,19 @@ void Cpu::ReadState(StateReader& reader)
 	_enabledInterrupts = reader.ReadU8();
 	_waitingInterrupts = reader.ReadU8() & InterruptFlags::AllInt;
 	_softwareBreakpointHit = reader.ReadBool();
+
+	_doubleSpeed = false;
+	_speedSwitchArmed = false;
+	_speedSwitchPauseLeft = 0;
+	if (_cgbMode)
+	{
+		_doubleSpeed = reader.ReadBool();
+		_speedSwitchArmed = reader.ReadBool();
+		_speedSwitchPauseLeft = reader.ReadInt(0, SpeedSwitchPauseCycles);
+	}
+
+	// A pause always has cycles left
+	if ((_state == CpuState::SpeedSwitchPause) != (_speedSwitchPauseLeft > 0)) reader.Fail("its speed switch pause is inconsistent");
 
 	// The VRAM DMA restores its own request (see Emulator::ReadState)
 	_vramDmaRequested = false;

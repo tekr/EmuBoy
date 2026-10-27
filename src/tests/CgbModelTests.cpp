@@ -132,12 +132,13 @@ TEST(CgbPostBootTest, HardwareRegistersHaveTheirDocumentedValues)
 	EXPECT_EQ(0xf8, Read(*emulator, 0xff70));	// SVBK
 }
 
-TEST(CgbPostBootTest, InterruptRegistersHaveTheirDocumentedValues)
+TEST(CgbPostBootTest, InterruptRegistersAndKey1HaveTheirDocumentedValues)
 {
 	// Read by the program, as the CPU holds IF and IE
 	CgbTestProgram program;
 	program.ReadIo(0x0f).Op({ 0x47 });	// LD B,A
 	program.ReadIo(0xff).Op({ 0x4f });	// LD C,A
+	program.ReadIo(0x4d).Op({ 0x57 });	// LD D,A
 	auto end = program.Here();
 	program.Loop();
 
@@ -147,6 +148,7 @@ TEST(CgbPostBootTest, InterruptRegistersHaveTheirDocumentedValues)
 	auto& registers = emulator->GetCpu().GetRegisters();
 	EXPECT_EQ(0xe1, registers.B);	// IF: V-Blank requested
 	EXPECT_EQ(0x00, registers.C);	// IE
+	EXPECT_EQ(0x7e, registers.D);	// KEY1: normal speed, not armed
 }
 
 TEST(CgbPostBootTest, WaveRamHoldsTheBootRomsPattern)

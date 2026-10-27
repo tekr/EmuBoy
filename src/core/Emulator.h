@@ -28,8 +28,8 @@ class Emulator : ClockedHardware
 	GameBoyModel EmuModel{ GameBoyModel::Dmg };
 
 	// Called by the CPU for each machine cycle
-	void RunCycles(int cycles) override;
-	void RunStoppedCycles(int cycles) override;
+	void RunCycles(int cpuClocks) override;
+	void RunStoppedCycles(int systemClocks) override;
 
 	// Puts every component in the model's mode
 	void SetModel(GameBoyModel model);
@@ -74,7 +74,8 @@ public:
 	Serial& GetSerial() { return EmuSerial; }
 	const OamDma& GetOamDma() const { return EmuOamDma; }
 
-	// Clocks of the 4 MHz system clock since power-on, including time halted or stopped
+	// Clocks of the 4 MHz system clock since power-on, including time halted or stopped. At the CGB's double speed
+	// the CPU runs two of its own clocks in each
 	uint64_t GetSystemClocks() const { return EmuCpu.GetTotalSystemClocks(); }
 	const Cpu& GetCpu() const { return EmuCpu; }
 

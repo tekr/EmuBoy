@@ -267,12 +267,12 @@ TEST_F(SaveStateTest, RejectsAStateWithAnotherAmountOfCartridgeRam)
 
 TEST_F(SaveStateTest, RejectsOutOfRangeValues)
 {
-	// The CPU's state (running, halted, stopped or locked) follows its six register pairs
+	// The CPU's state (running, halted, stopped, locked or pausing to switch speed) follows its six register pairs
 	auto state = State;
-	WriteU32(state, FindSection(state, "CPU ") + 12, 4);
+	WriteU32(state, FindSection(state, "CPU ") + 12, 5);
 	FixCrc(state);
 
-	ExpectRejected(state, "invalid in its CPU section: a value is 4, outside 0 to 3");
+	ExpectRejected(state, "invalid in its CPU section: a value is 5, outside 0 to 4");
 }
 
 TEST_F(SaveStateTest, RejectsAPpuEventThatCantHappenOnItsLine)
