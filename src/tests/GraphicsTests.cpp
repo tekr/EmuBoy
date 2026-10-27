@@ -9,7 +9,7 @@
 
 void RunCpu(Cpu& cpu, int& currentCycle, int cycleTarget)
 {
-	while (currentCycle < cycleTarget && cpu.IsClockRunning())
+	while (currentCycle < cycleTarget && cpu.IsRunning())
 	{
 		currentCycle += cpu.DoNextInstruction();
 	}

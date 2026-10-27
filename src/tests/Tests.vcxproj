@@ -146,6 +146,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="BlarggRomRunner.h" />
     <ClInclude Include="ApuTestHelpers.h" />
     <ClInclude Include="CpuTestFixture.h" />
     <ClInclude Include="GraphicsTestFixture.h" />
@@ -154,8 +155,17 @@
     <ClInclude Include="TestCpu.h" />
     <ClInclude Include="TestGraphics.h" />
     <ClInclude Include="TestMemoryMap.h" />
+    <ClInclude Include="TimerTestHardware.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="CpuIllegalOpcodeTests.cpp" />
+    <ClCompile Include="CpuStopTests.cpp" />
+    <ClCompile Include="ApuStoppedTests.cpp" />
+    <ClCompile Include="CpuTimerTests.cpp" />
+    <ClCompile Include="CpuTimingTests.cpp" />
+    <ClCompile Include="BlarggCpuTests.cpp" />
+    <ClCompile Include="BlarggRomRunner.cpp" />
+    <ClCompile Include="SerialTests.cpp" />
     <ClCompile Include="ApuTests.cpp" />
     <ClCompile Include="ApuTestsChannels.cpp" />
     <ClCompile Include="ApuTestsMixing.cpp" />

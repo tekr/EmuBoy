@@ -15,6 +15,30 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="CpuIllegalOpcodeTests.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="CpuStopTests.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ApuStoppedTests.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="CpuTimerTests.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="CpuTimingTests.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="BlarggCpuTests.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="BlarggRomRunner.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="SerialTests.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="ApuTests.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -89,10 +113,16 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="BlarggRomRunner.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="ApuTestHelpers.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="CpuTestFixture.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="TimerTestHardware.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="stdafx.h">

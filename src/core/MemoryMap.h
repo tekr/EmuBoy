@@ -6,6 +6,7 @@
 #include "Timer.h"
 #include "Apu.h"
 #include "InputJoypad.h"
+#include "Serial.h"
 
 class MemoryMap
 {
@@ -18,6 +19,7 @@ public:
 	static const unsigned short RamOam		  = 0xfe00;
 	static const unsigned short UnusableArea1 = 0xfea0;
 	static const unsigned short IoPorts		  = 0xff00;
+	static const unsigned short SerialPorts	  = 0xff01;
 	static const unsigned short TimerPorts	  = 0xff04;
 	static const unsigned short AfterTimerPorts	= 0xff08;
 	static const unsigned short SoundPorts	  = 0xff10;
@@ -29,6 +31,7 @@ public:
 	static const size_t RamBankSize = 1 << 13;
 
 	static const unsigned short JoypadPort = 0xff00;
+	static const unsigned short DividerPort = 0xff04;
 	static const unsigned short InternalRomDisable = 0xff50;
 
 	static const unsigned short Joypad = 0xff00;
@@ -38,6 +41,7 @@ protected:
 	Graphics* _graphics;
 	Timer* _timer;
 	Apu* _apu;
+	Serial* _serial;
 	InputJoypad& _joypad;
 
 	unsigned char _fixedRam[RamBankSize];
@@ -54,6 +58,7 @@ public:
 	void SetGraphics(Graphics* graphics) { _graphics = graphics; }
 	void SetTimer(Timer* timer) { _timer = timer; }
 	void SetApu(Apu* apu) { _apu = apu; }
+	void SetSerial(Serial* serial) { _serial = serial; }
 
 	// The boot ROM overlays the cartridge until it hands over by writing to $FF50
 	bool InternalRomEnabled() const { return _internalRomEnabled; }
