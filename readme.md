@@ -81,7 +81,7 @@ As of now Emu Boy is still in its early stages and is very much a work in progre
   bug are emulated to the machine cycle. The pixels aren't: each line is drawn in one go as its mode 3 starts, so a
   game changing the scroll, palette, LCDC or window registers partway through mode 3 doesn't affect that line.
   Passes dmg-acid2, blargg's CPU, timing and oam_bug test ROMs, the mooneye-test-suite acceptance tests that apply
-  to the DMG
+  to the DMG, and gbmicrotest's STAT write bug tests
 * Runs (at least) the included snake and Super Mario Land
 * Sound: all four channels of the original Game Boy's sound hardware, including its documented quirks. Passes all of
   blargg's dmg_sound test ROMs

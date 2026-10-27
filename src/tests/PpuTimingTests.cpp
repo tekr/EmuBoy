@@ -255,24 +255,100 @@ TEST_F(PpuTimingTests, LycMatchHoldingLineHighBlocksModeInterrupts)
 	EXPECT_FALSE(StatRequested());
 }
 
-TEST_F(PpuTimingTests, WritingStatOutsideMode3RequestsSpuriousInterrupt)
+// The STAT write bug: per https://gbdev.io/pandocs/STAT.html#spurious-stat-interrupts, writing STAT on the DMG
+// behaves as if $FF were written first, so even writing 0 can request an interrupt. The details are those that
+// aappleby's gbmicrotest stat_write_glitch ROMs (https://github.com/aappleby/gbmicrotest) measure on a DMG, which
+// match SameBoy (https://github.com/LIJI32/SameBoy, Core/sm83_cpu.c and display.c)
+
+TEST_F(PpuTimingTests, WritingStatInHBlankRequestsSpuriousInterrupt)
 {
-	// Per https://gbdev.io/pandocs/STAT.html#spurious-stat-interrupts, the DMG behaves as if $FF were written for a
-	// machine cycle, so even writing 0 requests an interrupt in modes 0-2
+	// stat_write_glitch_l1_b and _c, from the first machine cycle of mode 0 to the first of the next line
 	TurnOn();
-	RunTo(1, 8);
+	RunTo(1, HBlankStart);
 	ClearInterrupts();
 	SetStat(0);
 	EXPECT_TRUE(StatRequested());
 
+	RunTo(2, 0);
+	ClearInterrupts();
+	SetStat(0);
+	EXPECT_TRUE(StatRequested());
+}
+
+TEST_F(PpuTimingTests, WritingStatInMode2RequestsNoSpuriousInterrupt)
+{
+	// stat_write_glitch_l1_d: the mode 2 condition feeds the interrupt line only as mode 2 starts (in SameBoy too),
+	// against Pan Docs, which lists the OAM scan as a time the bug requests an interrupt
+	TurnOn();
+	RunTo(2, 4);
+	ClearInterrupts();
+	SetStat(0);
+	EXPECT_FALSE(StatRequested());
+
+	RunTo(2, 40);
+	SetStat(0);
+	EXPECT_FALSE(StatRequested());
+}
+
+TEST_F(PpuTimingTests, WritingStatInMode3RequestsNoSpuriousInterrupt)
+{
+	// stat_write_glitch_l1_a: $FF lasts less than a machine cycle (one clock in SameBoy), rather than Pan Docs'
+	// whole machine cycle, so writing in mode 3's last machine cycle doesn't select mode 0 as it starts
+	TurnOn();
 	RunTo(1, 100);
 	ClearInterrupts();
 	SetStat(0);
 	EXPECT_FALSE(StatRequested());
 
-	RunTo(1, HBlankStart + 4);
+	RunTo(1, HBlankStart - 4);
+	SetStat(0);
+	RunTo(1, HBlankStart);
+	EXPECT_FALSE(StatRequested());
+}
+
+TEST_F(PpuTimingTests, WritingStatWhileLyMatchesLycRequestsSpuriousInterrupt)
+{
+	// stat_write_glitch_l0_a and l154_a: on line 0 with LYC at 0, in mode 2 as well as before line 0's first mode 3
+	// after the LCD is turned on; stat_write_glitch_l0_c: not once LY has moved on
+	TurnOn();
+	SetLyc(0);
+	RunTo(0, 20);
+	ClearInterrupts();
 	SetStat(0);
 	EXPECT_TRUE(StatRequested());
+
+	RunTo(Graphics::FrameLines, 20);
+	ASSERT_EQ(LcdcStatus::OamReadMode, Mode());
+	ClearInterrupts();
+	SetStat(0);
+	EXPECT_TRUE(StatRequested());
+
+	RunTo(Graphics::FrameLines + 1, 4);
+	ClearInterrupts();
+	SetStat(0);
+	EXPECT_FALSE(StatRequested());
+}
+
+TEST_F(PpuTimingTests, WritingStatInVBlankRequestsSpuriousInterrupt)
+{
+	// Pan Docs and SameBoy, where the mode 1 condition feeds the line throughout V-Blank
+	TurnOn();
+	SetLyc(0xff);
+	RunTo(Graphics::VertPixels + 2, 100);
+	ClearInterrupts();
+	SetStat(0);
+	EXPECT_TRUE(StatRequested());
+}
+
+TEST_F(PpuTimingTests, WritingStatWithLineAlreadyHighRequestsNoSpuriousInterrupt)
+{
+	// The interrupt is requested only as the line rises (https://gbdev.io/pandocs/Interrupt_Sources.html)
+	TurnOn();
+	SetStat(Mode0IntSelect);
+	RunTo(1, HBlankStart + 4);
+	ClearInterrupts();
+	SetStat(Mode0IntSelect);
+	EXPECT_FALSE(StatRequested());
 }
 
 TEST_F(PpuTimingTests, NoSpuriousInterruptWhileLcdIsOff)

@@ -37,6 +37,15 @@ converted to text so the tests need no image library: one line per screen row, o
 the DMG shade from 0 (lightest, PNG value $FF) to 3 (darkest, $00), i.e. `3 - value / 85` for each 8-bit
 greyscale value. `DmgAcid2Tests.cpp` runs the ROM and compares the frame with it pixel for pixel.
 
+gbmicrotest
+-----------
+
+`gbmicrotest/` holds the STAT write bug ROMs (`stat_write_glitch_*`) from aappleby's gbmicrotest (MIT licence, in
+`LICENSE`), from the prebuilt `bin/` directory of https://github.com/aappleby/gbmicrotest. Each tests one register
+at one machine cycle, as checked on a DMG, and leaves its result at $FF80-$FF82. `GbMicrotestTests.cpp` runs them.
+`stat_write_glitch_l154_d` isn't included: it expects IF to read $E0 after running through line 144, which requests
+the V-Blank interrupt, without clearing IF first as `stat_write_glitch_l154_c` does.
+
 mooneye-test-suite
 ------------------
 

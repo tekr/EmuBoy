@@ -144,12 +144,18 @@ void Graphics::StartLine(unsigned int line)
 void Graphics::StartOamScan()
 {
 	_mode = LcdcStatus::OamReadMode;
-	_interruptMode = LcdcStatus::OamReadMode;
 	_oamWriteBlocked = true;
 	_lyForComparison = _currentScanline;
 	if (_oamDma != nullptr && _oamDma->IsTransferring()) _dmaDuringOamScan = true;
 
+	// The mode 2 condition feeds the STAT interrupt line only as mode 2 starts, not for the rest of it, as in
+	// SameBoy. So writing STAT (the STAT write bug) in mode 2 doesn't request an interrupt for mode 2, as
+	// gbmicrotest's stat_write_glitch_l1_d shows on a DMG
+	_interruptMode = LcdcStatus::OamReadMode;
 	UpdateStat();
+	_interruptMode = NoInterruptMode;
+	UpdateStat();
+
 	Schedule(LineEvent::OamScanLastCycle, OamScanLastCycle);
 }
 
@@ -409,8 +415,11 @@ void Graphics::WriteRegister(unsigned short address, unsigned char value)
 	}
 
 	case RegLcdStatus:
-		// Per https://gbdev.io/pandocs/STAT.html#spurious-stat-interrupts, the DMG behaves as if $FF were written
-		// for a machine cycle first, so a write can request an interrupt in modes 0-2 or while LY=LYC
+		// The STAT write bug: per https://gbdev.io/pandocs/STAT.html#spurious-stat-interrupts, the DMG behaves as if
+		// $FF were written first, so a write can request an interrupt in modes 0 and 1 or while LY=LYC (in mode 2
+		// too, says Pan Docs, but see StartOamScan). Pan Docs says $FF lasts a machine cycle, but gbmicrotest's
+		// stat_write_glitch_l1_a shows it doesn't on a DMG: a write in mode 3's last machine cycle doesn't select
+		// mode 0 as it starts. In SameBoy it lasts a single clock, so both values apply in the write's machine cycle
 		if (DisplayEnabled()) SetStatLine(StatLineFor(AllIntSelects));
 
 		_registers[RegLcdStatus] = value & AllIntSelects;

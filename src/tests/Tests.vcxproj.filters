@@ -39,6 +39,9 @@
     <ClCompile Include="MooneyeAcceptanceTests.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="GbMicrotestTests.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="BlarggOamBugTests.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
