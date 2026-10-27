@@ -13,18 +13,18 @@
 #include "../core/SaveState.h"
 #include "../core/StateStream.h"
 
-// Save states taken at the moments where state hidden from the registers decides what happens next: between EI and
-// the instruction after it, on the byte after the HALT bug, while halted, before and during OAM DMA, between TIMA
+// Save states taken at the moments where state hidden from the registers decides what happens next: between EI and the
+// instruction after it, on the byte after the HALT bug, while halted, before and during OAM DMA, between TIMA
 // overflowing and being reloaded, mid serial transfer, part-way through a second of the MBC3's clock, between the two
-// writes that latch the clock, with the APU's length counters, envelopes and frame sequencer part-way through, and
-// just after the APU is powered on with DIV's bit 4 set, and with the CPU stopped or locked up. Each test runs a small hand-assembled program instruction by
-// instruction to the moment, found by what the program can see (PC, registers, clocks) rather than by the state
-// itself, and checks the state holds the hidden value. It then restores the state into a newly powered-on emulator
-// and runs both side by side, checking every instruction, frame, sound sample and serial byte comes out the same.
-// The programs read back what they depend on, so leaving a value these moments depend on out of save states shows up
-// as a difference. A few saved values can't affect anything once an instruction has finished, as the next machine
-// cycle always replaces them: EI's flag for the instruction it precedes, the byte OAM DMA last read and the cycles
-// left of TIMA's reload. SaveStateRoundTripTests.cpp does the same with test ROMs over longer runs.
+// writes that latch the clock, with the APU's length counters, envelopes and frame sequencer part-way through, and just
+// after the APU is powered on with DIV's bit 4 set, and with the CPU stopped or locked up. Each test runs a small
+// hand-assembled program instruction by instruction to the moment, found by what the program can see (PC, registers,
+// clocks) rather than by the state itself, and checks the state holds the hidden value. It then restores the state into
+// a newly powered-on emulator and runs both side by side, checking every instruction, frame, sound sample and serial
+// byte comes out the same. The programs read back what they depend on, so leaving a value these moments depend on out
+// of save states shows up as a difference. A few saved values can't affect anything once an instruction has finished,
+// as the next machine cycle always replaces them: EI's flag for the instruction it precedes, the byte OAM DMA last read
+// and the cycles left of TIMA's reload. SaveStateRoundTripTests.cpp does the same with test ROMs over longer runs.
 
 namespace
 {

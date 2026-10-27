@@ -2,6 +2,7 @@
 #include <gtest/gtest.h>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 #include "../core/Emulator.h"
@@ -19,7 +20,8 @@ namespace
 {
 	const int FramesAfterSave = 30;
 
-	const size_t RamFromHeader = 0;
+	// Loads the ROM with the RAM its header declares
+	const std::optional<size_t> RamFromHeader = std::nullopt;
 	const size_t OneRamBank = Cartridge::RamBankSize;
 
 	struct Rom
@@ -27,12 +29,12 @@ namespace
 		std::string Path;
 
 		// RAM in bytes for ROMs that use RAM without declaring it in their header, as blargg's do, or RamFromHeader
-		size_t RamSize;
+		std::optional<size_t> RamSize;
 	};
 
 	std::unique_ptr<Emulator> PowerOn(const Rom& rom)
 	{
-		auto cartridge = rom.RamSize == RamFromHeader ? CartridgeFactory::LoadFromFile(rom.Path) : CartridgeFactory::LoadFromFileWithRamSize(rom.Path, rom.RamSize);
+		auto cartridge = rom.RamSize ? CartridgeFactory::LoadFromFileWithRamSize(rom.Path, *rom.RamSize) : CartridgeFactory::LoadFromFile(rom.Path);
 		return cartridge == nullptr ? nullptr : std::make_unique<Emulator>(cartridge);
 	}
 
