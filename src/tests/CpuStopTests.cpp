@@ -4,6 +4,7 @@
 #include "CpuTestFixture.h"
 #include "../core/Emulator.h"
 #include "TimerTestHardware.h"
+#include "ApuTestHelpers.h"
 
 // STOP on the DMG, per the "Using the STOP Instruction" diagram in
 // https://gbdev.io/pandocs/Reducing_Power_Consumption.html (the DMG has no speed switch, so KEY1 never applies):
@@ -247,6 +248,53 @@ TEST_F(CpuStopTests, JoypadInterruptIsDispatchedAfterWakingWhenEnabled)
 	EXPECT_EQ(0x60, Cpu.Registers().PC);
 }
 
+TEST_F(CpuStopTests, InterruptAfterWakingFromAOneByteStopReturnsToTheByteAfterStop)
+{
+	// EI takes effect after the instruction that follows it, so STOP runs with an interrupt pending, then IME is set
+	MemoryMap.SetBytes(0, { 0xfb, 0x10, IncB, IncA });	// EI; STOP; INC B; INC A
+	MakeInterruptPending();
+
+	Step(2);
+	ASSERT_EQ(CpuState::Stopped, Cpu.State());
+	EXPECT_TRUE(Cpu.InterruptsEnabled());
+
+	Joypad.SetKeysDown(JoypadKey::Right);
+	Step(2);
+	EXPECT_EQ(0x50, Cpu.Registers().PC);
+	EXPECT_EQ(StackTop - 2, Cpu.Registers().SP);
+	EXPECT_EQ(0x02, MemoryMap.ReadByte(StackTop - 2));
+	EXPECT_EQ(0x00, MemoryMap.ReadByte(StackTop - 1));
+}
+
+TEST_F(CpuStopTests, DivResetIncrementsTimaLikeADivWrite)
+{
+	// Per https://gbdev.io/pandocs/Timer_Obscure_Behaviour.html, resetting DIV while the divider bit that TAC selects
+	// is set is a falling edge, which increments TIMA
+	MemoryMap.WriteByte(DivAddress, 0);
+	MemoryMap.WriteByte(TacAddress, 0x05);	// Enabled, divider bit 3
+	MemoryMap.WriteByte(TimaAddress, 0x80);
+	Timer.RunCycles(8);						// STOP's opcode fetch takes the divider to 12: bit 3 still set
+
+	Step(1);
+	EXPECT_EQ(0x81, MemoryMap.ReadByte(TimaAddress));
+}
+
+TEST_F(CpuStopTests, DivResetStepsTheApuFrameSequencerLikeADivWrite)
+{
+	// Per https://gbdev.io/pandocs/Audio_details.html, resetting DIV while its bit 4 is set steps the frame
+	// sequencer. Its first step clocks the length counters, so a channel with 1 step of length left stops
+	ApuTest::ApuHarness apu;
+	MemoryMap.SetApu(&apu.Device);
+	apu.Write(ApuTest::Nr22, 0xf0);
+	apu.Write(ApuTest::Nr21, 63);
+	apu.Write(ApuTest::Nr24, 0xc0);
+	apu.Device.RunCycles(4096);				// DIV bit 4 is bit 12 of the divider
+	ASSERT_EQ(2, apu.Read(ApuTest::Nr52) & 2);
+
+	Step(1);
+	EXPECT_EQ(0, apu.Read(ApuTest::Nr52) & 2);
+}
+
 // Runs STOP through the whole emulator. The front end keeps calling GetFrame at the normal frame rate, so while
 // stopped each call must still take a frame's worth of emulated time and produce that much audio
 class EmulatorStopTests : public testing::Test
@@ -343,4 +391,16 @@ TEST_F(EmulatorStopTests, DivRunsAgainAfterWaking)
 	Emulator.GetFrame();
 
 	EXPECT_NE(0, ReadByte(DivAddress));
+}
+
+TEST_F(EmulatorStopTests, PpuRestartsWithTheFrameOnWaking)
+{
+	// A documented simplification: rather than resuming from where it stopped (mode 2 of line 0 here), the PPU picks
+	// up at the frame loop's position. The front end changes keys between frames, so the woken frame is a whole one
+	// and ends in VBlank (mode 1)
+	Emulator.GetFrame();
+	Emulator.GetJoypad().SetKeysDown(JoypadKey::Right);
+	Emulator.GetFrame();
+
+	EXPECT_EQ(1, ReadByte(StatAddress) & 3);
 }
