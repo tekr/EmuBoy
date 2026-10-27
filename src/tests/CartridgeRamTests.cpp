@@ -2,6 +2,7 @@
 #include <gtest/gtest.h>
 #include "../core/CartridgeFactory.h"
 #include "../core/Mbc1Cartridge.h"
+#include "../core/Mbc5Cartridge.h"
 #include <cstdio>
 #include <fstream>
 #include <string>
@@ -108,6 +109,21 @@ TEST(CartridgeRamSizeTest, BankBeyondCartridgeRamMirrorsLowerBanks)
 	Mbc1Cartridge cartridge{ RomWithRamSizeCode(2), Cartridge::RamBankSize };
 
 	EXPECT_FALSE(RamBankIsDistinctFromBank0(cartridge, 3));
+}
+
+TEST(CartridgeRamSizeTest, RamBanksAreStoredInOrder)
+{
+	// Bank n is at n * 8 KB in the RAM contents, the layout other emulators' save files use
+	Mbc5Cartridge cartridge{ RomWithRamSizeCode(3), 4 * Cartridge::RamBankSize };
+	cartridge.RomWriteByte(0x0000, 0x0a);
+
+	cartridge.RomWriteByte(0x4000, 0x02);
+	cartridge.RamWriteByte(0x1fff, 0x12);
+	cartridge.RomWriteByte(0x4000, 0x07);
+	cartridge.RamWriteByte(0x0001, 0x34);
+
+	EXPECT_EQ(0x12, cartridge.GetRam()[2 * Cartridge::RamBankSize + 0x1fff]);
+	EXPECT_EQ(0x34, cartridge.GetRam()[3 * Cartridge::RamBankSize + 0x0001]);
 }
 
 TEST(CartridgeRamSizeTest, LoadFromFileSizesRamFromHeader)
