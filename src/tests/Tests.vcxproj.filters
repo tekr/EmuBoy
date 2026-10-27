@@ -170,6 +170,9 @@
     <ClInclude Include="MooneyeRomRunner.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="GbMicrotestRunner.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="CartridgeTestHelpers.h">
       <Filter>Header Files</Filter>
     </ClInclude>
