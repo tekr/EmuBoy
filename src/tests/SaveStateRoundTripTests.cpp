@@ -442,6 +442,12 @@ TEST(SaveStateRoundTripTest, CgbAcid2)
 		{ { "Frame 2", Frames(2) }, MidFrame(72), InMode(2), InMode(3), InMode(0), { "Frame 40", Frames(30) } });
 }
 
+TEST(SaveStateRoundTripTest, BlarggCgbSoundWaveRead)
+{
+	ExpectRoundTrips({ "roms/cgb_sound/09-wave read while on.gb", OneRamBank, GameBoyModel::Cgb },
+		{ { "Wave playing", Until([](Emulator& e) { return ChannelsPlaying(e, 4); }) }, { "Mid-frame", Instructions(2500) } });
+}
+
 TEST(SaveStateRoundTripTest, BlarggCgbCpuInstructionsAtDoubleSpeed)
 {
 	auto doubleSpeed = [](Emulator& e) { return e.GetCpu().IsDoubleSpeed(); };

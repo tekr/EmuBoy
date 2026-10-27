@@ -3,9 +3,24 @@
 #include <string>
 #include "BlarggRomRunner.h"
 
-// Runs blargg's test ROMs on the Game Boy Color in CGB mode (see roms/readme.md): interrupt_time, which is for the
-// CGB, and the CPU tests, which mark themselves as working on both models and run here on the CGB as well as (in
-// BlarggCpuTests.cpp) on the DMG
+// Runs blargg's test ROMs on the Game Boy Color in CGB mode (see roms/readme.md): cgb_sound and interrupt_time, which
+// are for the CGB, and the CPU tests, which mark themselves as working on both models and run here on the CGB as
+// well as (in BlarggCpuTests.cpp) on the DMG
+
+class BlarggCgbSoundTest : public testing::TestWithParam<const char*>
+{
+};
+
+TEST_P(BlarggCgbSoundTest, Passes)
+{
+	ExpectBlarggRomPasses(std::string("roms/cgb_sound/") + GetParam() + ".gb", 60 * 60, nullptr, GameBoyModel::Cgb);
+}
+
+// INSTANTIATE_TEST_CASE_P (not _SUITE_P) and no name generator, for the Google Test 1.7 used on Windows
+INSTANTIATE_TEST_CASE_P(CgbSound, BlarggCgbSoundTest, testing::Values(
+	"01-registers", "02-len ctr", "03-trigger", "04-sweep", "05-sweep details", "06-overflow on trigger",
+	"07-len sweep period sync", "08-len ctr during power", "09-wave read while on", "10-wave trigger while on",
+	"11-regs after power", "12-wave"));
 
 class BlarggCgbCpuInstrsTest : public testing::TestWithParam<const char*>
 {

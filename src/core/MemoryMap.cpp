@@ -215,6 +215,10 @@ unsigned char MemoryMap::ReadCgbRegister(unsigned short address) const
 	case WorkRamBankRegister:
 		return 0xf8 | _workRamBankRegister;
 
+	case Pcm12Register:
+	case Pcm34Register:
+		return _apu->ReadPcm(address);
+
 	case SpeedSwitchRegister:
 		return _cpu->ReadSpeedSwitchRegister();
 

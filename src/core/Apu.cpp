@@ -158,7 +158,8 @@ unsigned char Apu::ReadRegister(unsigned short address) const
 
 	if (reg >= WaveRam)
 	{
-		// While CH3 plays, the CPU sees the byte CH3 is reading, and on DMG only at the moment CH3 reads it
+		// While CH3 plays, the CPU sees the byte CH3 is reading, and on DMG only at the moment CH3 reads it (on CGB
+		// at any time)
 		if (!_wave.Active) return _registers[reg];
 		return WaveRamAccessible() ? _registers[PlayingWaveIndex()] : 0xff;
 	}
@@ -206,8 +207,9 @@ void Apu::Write(int reg, unsigned char value)
 
 	if (!_powered)
 	{
-		// DMG keeps its length counters writable while powered off (Pan Docs, gbdev wiki); nothing else is
-		if (reg == Nr11 || reg == Nr21 || reg == Nr31 || reg == Nr41) WriteLength(reg / RegistersPerChannel, value);
+		// DMG keeps its length counters writable while powered off (Pan Docs, gbdev wiki); nothing else is, and on
+		// CGB not even those
+		if (!_cgbMode && (reg == Nr11 || reg == Nr21 || reg == Nr31 || reg == Nr41)) WriteLength(reg / RegistersPerChannel, value);
 		return;
 	}
 
@@ -342,7 +344,7 @@ void Apu::TriggerWave()
 	// DMG corrupts wave RAM when CH3 is retriggered in the 2 MHz tick before it reads a sample (gbdev wiki;
 	// SameBoy's sample_countdown == 0, counted in 2 MHz ticks): the first bytes are overwritten with the byte, or
 	// 4-byte block, being read
-	if (_wave.Active && _wave.Timer <= 2)
+	if (!_cgbMode && _wave.Active && _wave.Timer <= 2)
 	{
 		auto offset = ((_wave.Position + 1) >> 1) & 15;
 		auto wave = _registers + WaveRam;
@@ -455,7 +457,7 @@ void Apu::PowerOff()
 {
 	// Powering off clears NR10-NR51 and all channel state, except that DMG keeps the length counters
 	int lengths[ChannelCount];
-	for (auto i = 0; i < ChannelCount; i++) lengths[i] = GetChannel(i).Length.Counter;
+	for (auto i = 0; i < ChannelCount; i++) lengths[i] = _cgbMode ? 0 : GetChannel(i).Length.Counter;
 
 	_square[Ch1] = SquareChannel();
 	_square[Ch2] = SquareChannel();
@@ -538,6 +540,14 @@ int Apu::ChannelOutput(int channel) const
 	default:
 		return _noise.Active && (_noise.Lfsr & 1) ? _noise.Env.Volume : 0;
 	}
+}
+
+unsigned char Apu::ReadPcm(unsigned short address) const
+{
+	auto first = address == 0xff76 ? 1 : 3;
+	auto low = std::max(ChannelOutput(first), 0);
+	auto high = std::max(ChannelOutput(first + 1), 0);
+	return static_cast<unsigned char>(low | high << 4);
 }
 
 void Apu::ApplyCgbPostBootState()

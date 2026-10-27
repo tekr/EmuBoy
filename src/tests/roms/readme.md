@@ -18,6 +18,7 @@ at $A000.
 | `mem_timing-2/` | The same, from a later version of the test shell         | `BlarggCpuTests.cpp`    |
 | `halt_bug/`     | The HALT bug                                             | `BlarggCpuTests.cpp`    |
 | `oam_bug/`      | OAM corruption by 16-bit increments and decrements       | `BlarggOamBugTests.cpp` |
+| `cgb_sound/`    | Game Boy Color sound hardware (the single-test ROMs)     | `BlarggCgbTests.cpp`    |
 | `interrupt_time/` | Interrupt timing at both of the CGB's CPU speeds       | `BlarggCgbTests.cpp`    |
 
 Most of the DMG ROMs mark themselves as working on the Game Boy Color too ($80 at $0143), so the DMG tests choose the

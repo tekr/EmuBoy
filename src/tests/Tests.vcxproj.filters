@@ -93,6 +93,9 @@
     <ClCompile Include="SaveStateRoundTripTests.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="ApuCgbTests.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="BlarggCgbTests.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>

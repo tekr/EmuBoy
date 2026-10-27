@@ -60,6 +60,7 @@ void Emulator::SetModel(GameBoyModel model)
 	EmuMemoryMap.SetCgbMode(cgb);
 	EmuGraphics.SetCgbMode(cgb);
 	EmuOamDma.SetCgbMode(cgb);
+	EmuApu.SetCgbMode(cgb);
 	EmuSerial.SetCgbMode(cgb);
 }
 

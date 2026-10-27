@@ -48,6 +48,8 @@ public:
 	static const unsigned short SpeedSwitchRegister = 0xff4d;
 	static const unsigned short InfraredRegister = 0xff56;
 	static const unsigned short WorkRamBankRegister = 0xff70;
+	static const unsigned short Pcm12Register = 0xff76;
+	static const unsigned short Pcm34Register = 0xff77;
 
 	static const unsigned short JoypadPort = 0xff00;
 	static const unsigned short DividerPort = 0xff04;

@@ -191,6 +191,40 @@ TEST_F(CgbMemoryTest, UndocumentedRegisterFf75KeepsOnlyBits4To6)
 	EXPECT_EQ(0x8f, Read(0xff75));
 }
 
+TEST_F(CgbMemoryTest, PcmRegistersReadTheChannelsOutputs)
+{
+	// CH1 still on from the boot sound at volume 0
+	EXPECT_EQ(0x00, Read(0xff76));
+	EXPECT_EQ(0x00, Read(0xff77));
+
+	// CH2 at volume 9 with duty 75%, which is high from its first duty step: PCM12's high nibble
+	Write(0xff16, 0xc0);
+	Write(0xff17, 0x90);
+	Write(0xff18, 0x00);
+	Write(0xff19, 0x87);
+	for (auto i = 0; i < 2000 && Read(0xff76) == 0; i++) GameBoy->RunInstruction();
+	EXPECT_EQ(0x90, Read(0xff76));
+
+	// CH4 at volume 6: PCM34's high nibble whenever the LFSR's bit 0 is 1
+	Write(0xff21, 0x60);
+	Write(0xff22, 0x00);
+	Write(0xff23, 0x80);
+	auto seen = 0;
+	for (auto i = 0; i < 2000; i++)
+	{
+		GameBoy->RunInstruction();
+		seen |= Read(0xff77);
+	}
+	EXPECT_EQ(0x60, seen);
+
+	// The registers are read-only: with the APU off every channel outputs 0, whatever is written
+	Write(0xff26, 0x00);
+	Write(0xff76, 0x12);
+	Write(0xff77, 0x34);
+	EXPECT_EQ(0x00, Read(0xff76));
+	EXPECT_EQ(0x00, Read(0xff77));
+}
+
 TEST_F(CgbMemoryTest, SerialControlKeepsTheClockSpeedBit)
 {
 	EXPECT_EQ(0x7f, Read(0xff02));
