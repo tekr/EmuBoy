@@ -160,3 +160,7 @@ Various features remain to be added including:
 * Menus & ROM file selector
 * Drawing pixels as mode 3 runs (a pixel FIFO), for effects that change registers partway through a line
 * Performance optimisation
+
+Known bugs are tracked as [GitHub issues](https://github.com/tekr/EmuBoy/issues). Places where the emulator may
+differ from the hardware, but where the right behaviour is unclear or unlikely to matter, are listed in
+[docs/known-gaps.md](docs/known-gaps.md).
