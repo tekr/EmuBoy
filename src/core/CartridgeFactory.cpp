@@ -32,27 +32,28 @@ CartridgeFactory::CartridgeType CartridgeFactory::TypeFromHeader(const std::vect
 	}
 }
 
-int CartridgeFactory::RamBanksFromHeader(const std::vector<unsigned char>& rom)
+size_t CartridgeFactory::RamSizeFromHeader(const std::vector<unsigned char>& rom)
 {
-	// 8 KB banks per RAM size code. Code 1 (2 KB) still needs a whole bank, and code 5 (64 KB) is smaller than code 4 (128 KB)
-	static const std::array<int, 6> ramBanksBySizeCode{ { 0, 1, 1, 4, 16, 8 } };
+	// Per https://gbdev.io/pandocs/The_Cartridge_Header.html#0149--ram-size. No licensed cartridge uses code 1, but
+	// it is a 2 KB chip (mirrored through $A000-$BFFF) in BGB, SameBoy and VBA-M, whose save files are 2 KB. Code 5
+	// (64 KB) is smaller than code 4 (128 KB)
+	static const std::array<size_t, 6> ramSizeBySizeCode{ { 0, 2 << 10, 8 << 10, 32 << 10, 128 << 10, 64 << 10 } };
 
 	if (rom.size() <= RamSizeHeaderOffset) return 0;
 
 	auto sizeCode = rom[RamSizeHeaderOffset];
-	return sizeCode < ramBanksBySizeCode.size() ? ramBanksBySizeCode[sizeCode] : 0;
+	return sizeCode < ramSizeBySizeCode.size() ? ramSizeBySizeCode[sizeCode] : 0;
 }
 
 std::shared_ptr<Cartridge> CartridgeFactory::Create(std::vector<unsigned char>&& rom)
 {
-	auto ramBanks = RamBanksFromHeader(rom);
-	return Create(std::move(rom), ramBanks);
+	auto ramSize = RamSizeFromHeader(rom);
+	return Create(std::move(rom), ramSize);
 }
 
-std::shared_ptr<Cartridge> CartridgeFactory::Create(std::vector<unsigned char>&& rom, int ramBanks)
+std::shared_ptr<Cartridge> CartridgeFactory::Create(std::vector<unsigned char>&& rom, size_t ramSize)
 {
 	auto type = TypeFromHeader(rom);
-	auto ramSize = ramBanks * Cartridge::RamBankSize;
 
 	switch (type.Mapper)
 	{
@@ -86,10 +87,10 @@ std::shared_ptr<Cartridge> CartridgeFactory::LoadFromFile(const std::string& fil
 	return ReadFile(filePath, rom) ? Create(std::move(rom)) : nullptr;
 }
 
-std::shared_ptr<Cartridge> CartridgeFactory::LoadFromFile(const std::string& filePath, int ramBanks)
+std::shared_ptr<Cartridge> CartridgeFactory::LoadFromFile(const std::string& filePath, size_t ramSize)
 {
 	std::vector<unsigned char> rom;
-	return ReadFile(filePath, rom) ? Create(std::move(rom), ramBanks) : nullptr;
+	return ReadFile(filePath, rom) ? Create(std::move(rom), ramSize) : nullptr;
 }
 
 bool CartridgeFactory::ReadFile(const std::string& filePath, std::vector<unsigned char>& contents)

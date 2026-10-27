@@ -19,9 +19,9 @@ namespace
 		return rom;
 	}
 
-	int RamBanksForSizeCode(unsigned char sizeCode)
+	size_t RamSizeForSizeCode(unsigned char sizeCode)
 	{
-		return CartridgeFactory::RamBanksFromHeader(RomWithRamSizeCode(sizeCode));
+		return CartridgeFactory::RamSizeFromHeader(RomWithRamSizeCode(sizeCode));
 	}
 
 	void EnableRam(Cartridge& cartridge)
@@ -62,21 +62,44 @@ namespace
 	}
 }
 
-TEST(CartridgeRamSizeTest, RamBanksFromHeader)
+TEST(CartridgeRamSizeTest, RamSizeFromHeader)
 {
-	EXPECT_EQ(0, RamBanksForSizeCode(0));
-	EXPECT_EQ(1, RamBanksForSizeCode(1));
-	EXPECT_EQ(1, RamBanksForSizeCode(2));
-	EXPECT_EQ(4, RamBanksForSizeCode(3));
-	EXPECT_EQ(16, RamBanksForSizeCode(4));
-	EXPECT_EQ(8, RamBanksForSizeCode(5));
+	// Pan Docs' RAM size table, with code 1 as the 2 KB that BGB, SameBoy and VBA-M give it
+	EXPECT_EQ(0u, RamSizeForSizeCode(0));
+	EXPECT_EQ(2048u, RamSizeForSizeCode(1));
+	EXPECT_EQ(8192u, RamSizeForSizeCode(2));
+	EXPECT_EQ(32768u, RamSizeForSizeCode(3));
+	EXPECT_EQ(131072u, RamSizeForSizeCode(4));
+	EXPECT_EQ(65536u, RamSizeForSizeCode(5));
 }
 
-TEST(CartridgeRamSizeTest, RamBanksFromUnknownOrMissingHeaderIsZero)
+TEST(CartridgeRamSizeTest, RamSizeFromUnknownOrMissingHeaderIsZero)
 {
-	EXPECT_EQ(0, RamBanksForSizeCode(6));
-	EXPECT_EQ(0, RamBanksForSizeCode(0xff));
-	EXPECT_EQ(0, CartridgeFactory::RamBanksFromHeader(std::vector<unsigned char>(0x100)));
+	EXPECT_EQ(0u, RamSizeForSizeCode(6));
+	EXPECT_EQ(0u, RamSizeForSizeCode(0xff));
+	EXPECT_EQ(0u, CartridgeFactory::RamSizeFromHeader(std::vector<unsigned char>(0x100)));
+}
+
+TEST(CartridgeRamSizeTest, TwoKbRamMirrorsThroughA000ToBfff)
+{
+	// Only 11 address lines reach a 2 KB chip, so it repeats every $800 bytes and the bank number is ignored
+	auto cartridge = CartridgeFactory::Create(RomWithRamSizeCode(1));
+	ASSERT_EQ(2048u, cartridge->GetRam().size());
+	EnableRam(*cartridge);
+
+	cartridge->RamWriteByte(0x0000, 0x12);
+	cartridge->RamWriteByte(0x17ff, 0x34);
+
+	EXPECT_EQ(0x12, cartridge->RamReadByte(0x0800));
+	EXPECT_EQ(0x12, cartridge->RamReadByte(0x1000));
+	EXPECT_EQ(0x12, cartridge->RamReadByte(0x1800));
+	EXPECT_EQ(0x34, cartridge->RamReadByte(0x07ff));
+	EXPECT_EQ(0x34, cartridge->RamReadByte(0x1fff));
+	EXPECT_EQ(0x12, cartridge->GetRam()[0x0000]);
+	EXPECT_EQ(0x34, cartridge->GetRam()[0x07ff]);
+
+	SelectRamBank(*cartridge, 1);
+	EXPECT_EQ(0x12, cartridge->RamReadByte(0x0000));
 }
 
 TEST(CartridgeRamSizeTest, CartridgeWithoutRamReadsFfAndIgnoresWrites)
@@ -133,13 +156,14 @@ TEST(CartridgeRamSizeTest, LoadFromFileSizesRamFromHeader)
 	std::remove(RomFilePath().c_str());
 
 	ASSERT_NE(nullptr, cartridge);
+	EXPECT_EQ(32768u, cartridge->GetRam().size());
 	EXPECT_TRUE(RamBankIsDistinctFromBank0(*cartridge, 3));
 }
 
-TEST(CartridgeRamSizeTest, LoadFromFileWithRamBanksIgnoresHeader)
+TEST(CartridgeRamSizeTest, LoadFromFileWithRamSizeIgnoresHeader)
 {
 	ASSERT_TRUE(WriteRomFile(RomWithRamSizeCode(3)));
-	auto cartridge = CartridgeFactory::LoadFromFile(RomFilePath(), 1);
+	auto cartridge = CartridgeFactory::LoadFromFile(RomFilePath(), Cartridge::RamBankSize);
 	std::remove(RomFilePath().c_str());
 
 	ASSERT_NE(nullptr, cartridge);
@@ -149,5 +173,5 @@ TEST(CartridgeRamSizeTest, LoadFromFileWithRamBanksIgnoresHeader)
 TEST(CartridgeRamSizeTest, LoadFromMissingFileIsNull)
 {
 	EXPECT_EQ(nullptr, CartridgeFactory::LoadFromFile("missing.gb"));
-	EXPECT_EQ(nullptr, CartridgeFactory::LoadFromFile("missing.gb", 1));
+	EXPECT_EQ(nullptr, CartridgeFactory::LoadFromFile("missing.gb", Cartridge::RamBankSize));
 }

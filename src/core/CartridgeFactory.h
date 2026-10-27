@@ -31,16 +31,17 @@ public:
 	};
 
 	static CartridgeType TypeFromHeader(const std::vector<unsigned char>& rom);
-	static int RamBanksFromHeader(const std::vector<unsigned char>& rom);
+	// The cartridge RAM's size in bytes, from the header's RAM size code
+	static size_t RamSizeFromHeader(const std::vector<unsigned char>& rom);
 
 	static std::shared_ptr<Cartridge> Create(std::vector<unsigned char>&& rom);
 
-	// Overrides the header's RAM size, for ROMs that need RAM without declaring it
-	static std::shared_ptr<Cartridge> Create(std::vector<unsigned char>&& rom, int ramBanks);
+	// Overrides the header's RAM size (in bytes, a power of two), for ROMs that need RAM without declaring it
+	static std::shared_ptr<Cartridge> Create(std::vector<unsigned char>&& rom, size_t ramSize);
 
 	// Returns null if the file can't be read
 	static std::shared_ptr<Cartridge> LoadFromFile(const std::string& filePath);
-	static std::shared_ptr<Cartridge> LoadFromFile(const std::string& filePath, int ramBanks);
+	static std::shared_ptr<Cartridge> LoadFromFile(const std::string& filePath, size_t ramSize);
 
 	static bool ReadFile(const std::string& filePath, std::vector<unsigned char>& contents);
 };

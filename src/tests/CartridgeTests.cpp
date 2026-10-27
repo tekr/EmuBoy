@@ -11,7 +11,7 @@ public:
 
 	CartridgeRamTest()
 	{
-		Memory.SetCartridge(std::make_shared<Mbc1Cartridge>(std::vector<unsigned char>(2 * MemoryMap::RomBankSize), MemoryMap::RamBankSize));
+		Memory.SetCartridge(std::make_shared<Mbc1Cartridge>(std::vector<unsigned char>(2 * MemoryMap::RomBankSize), Cartridge::RamBankSize));
 	}
 };
 
