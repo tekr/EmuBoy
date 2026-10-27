@@ -17,6 +17,21 @@ void Emulator::RunCycles(int cycles)
 	EmuSerial.RunCycles(cycles);
 }
 
+void Emulator::RunStoppedCycles(int cycles)
+{
+	EmuApu.RunStoppedCycles(cycles);
+}
+
+void Emulator::SetPpuMode(LcdcStatus status)
+{
+	if (!EmuCpu.IsStopped()) EmuGraphics.SetLcdcStatus(status);
+}
+
+void Emulator::RenderLine()
+{
+	if (!EmuCpu.IsStopped()) EmuGraphics.RenderLine();
+}
+
 Emulator::Emulator(std::shared_ptr<Cartridge> cartridge)
 {
 	EmuCpu.SetClockedHardware(this);
@@ -37,30 +52,33 @@ int* Emulator::GetFrame()
 
 	for (auto i = 0; i < Graphics::VertPixels; i++)
 	{
-		EmuGraphics.SetLcdcStatus(LcdcStatus::OamReadMode);
+		SetPpuMode(LcdcStatus::OamReadMode);
 		cycleTarget += Graphics::OamReadClocks;
 		Run(cycleCounter, cycleTarget);
 
-		EmuGraphics.SetLcdcStatus(LcdcStatus::OamAndVramReadMode);
+		SetPpuMode(LcdcStatus::OamAndVramReadMode);
 		cycleTarget += Graphics::OamAndVramReadClocks;
 		Run(cycleCounter, cycleTarget);
 
-		EmuGraphics.SetLcdcStatus(LcdcStatus::HBlankMode);
+		SetPpuMode(LcdcStatus::HBlankMode);
 		cycleTarget += Graphics::HBlankPeriodClocks;
 		Run(cycleCounter, cycleTarget);
 
-		EmuGraphics.RenderLine();
+		RenderLine();
 	}
 
-	EmuGraphics.SetLcdcStatus(LcdcStatus::VBlankMode);
+	SetPpuMode(LcdcStatus::VBlankMode);
 
 	for (auto i = 0; i < Graphics::VBlankLines; i++)
 	{
 		cycleTarget += Graphics::ScanlineClocks;
 		Run(cycleCounter, cycleTarget);
 
-		EmuGraphics.RenderLine();
+		RenderLine();
 	}
+
+	// Per SameBoy (display.c), a DMG's screen is blank while stopped
+	if (EmuCpu.IsStopped()) EmuGraphics.BlankScreen();
 
 	return EmuGraphics.Bitmap;
 }

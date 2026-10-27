@@ -21,8 +21,13 @@ class Emulator : ClockedHardware
 
 	void Run(int& currentCycle, int cycleTarget);
 
+	// The PPU runs on the system clock, so does nothing while STOP has stopped it
+	void SetPpuMode(LcdcStatus status);
+	void RenderLine();
+
 	// Called by the CPU for each machine cycle
 	void RunCycles(int cycles) override;
+	void RunStoppedCycles(int cycles) override;
 
 public:
 	explicit Emulator(std::shared_ptr<Cartridge> cartridge);

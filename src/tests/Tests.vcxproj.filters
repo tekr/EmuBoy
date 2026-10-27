@@ -18,6 +18,9 @@
     <ClCompile Include="CpuIllegalOpcodeTests.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="CpuStopTests.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="CpuTimerTests.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
