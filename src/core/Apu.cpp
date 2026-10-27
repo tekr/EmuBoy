@@ -548,8 +548,7 @@ void Apu::OutputSample()
 
 int Apu::CyclesToNextEvent()
 {
-	auto cycles = std::min(FrameSequencerPeriod - (_divider & (FrameSequencerPeriod - 1)),
-		(CpuClockHz - _samplePhase + _sampleRate - 1) / _sampleRate);
+	auto cycles = std::min(FrameSequencerPeriod - (_divider & (FrameSequencerPeriod - 1)), CyclesToNextSample());
 
 	// NR43 may have moved the LFSR out of its stopped state since the timer was last loaded
 	if (NoiseRunning() && _noise.Timer <= 0) _noise.Timer = NoisePeriod();
@@ -562,12 +561,19 @@ int Apu::CyclesToNextEvent()
 	return cycles;
 }
 
-// Runs cycles up to (at most) the next event, without handling it
-void Apu::Advance(int cycles)
+// Adds the mixed output over cycles to the sample being built, up to (at most) the next sample
+void Apu::AdvanceOutput(int cycles)
 {
 	_sumLeft += static_cast<long long>(_mixLeft) * cycles;
 	_sumRight += static_cast<long long>(_mixRight) * cycles;
 	_sampleCycles += cycles;
+	_samplePhase += cycles * _sampleRate;
+}
+
+// Runs cycles up to (at most) the next event, without handling it
+void Apu::Advance(int cycles)
+{
+	AdvanceOutput(cycles);
 
 	for (auto i = 0; i < ChannelCount; i++)
 	{
@@ -576,7 +582,14 @@ void Apu::Advance(int cycles)
 
 	_wave.JustRead = false;
 	_divider = static_cast<unsigned short>(_divider + cycles);
-	_samplePhase += cycles * _sampleRate;
+}
+
+void Apu::OutputSampleIfDue()
+{
+	if (_samplePhase < CpuClockHz) return;
+
+	_samplePhase -= CpuClockHz;
+	OutputSample();
 }
 
 void Apu::CatchUp()
@@ -618,13 +631,24 @@ void Apu::RunEvents(int cycles)
 
 		if ((_divider & (FrameSequencerPeriod - 1)) == 0) FrameSequencerEvent();
 
-		if (_samplePhase >= CpuClockHz)
-		{
-			_samplePhase -= CpuClockHz;
-			OutputSample();
-		}
+		OutputSampleIfDue();
 
 		if (changed) UpdateMix();
+	}
+
+	_cyclesToEvent = CyclesToNextEvent();
+}
+
+void Apu::RunStoppedCycles(int cycles)
+{
+	CatchUp();
+
+	while (cycles > 0)
+	{
+		auto run = std::min(cycles, CyclesToNextSample());
+		AdvanceOutput(run);
+		cycles -= run;
+		OutputSampleIfDue();
 	}
 
 	_cyclesToEvent = CyclesToNextEvent();
