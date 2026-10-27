@@ -1,0 +1,365 @@
+#include "stdafx.h"
+#include <gtest/gtest.h>
+#include "../frontend/InputMapper.h"
+#include <stdexcept>
+
+namespace
+{
+	enum TestKey { KeyRight = 1, KeyLeft, KeyUp, KeyDown, KeyA, KeyA2, KeyPause, KeyFastForward, KeyF };
+
+	const unsigned ButtonA = 1;
+	const unsigned ButtonB = 0;
+	const unsigned ButtonStart = 7;
+
+	// As SFML reports axes
+	const float AxisRange = 100.f;
+
+	GamepadLayout Layout(bool hatUpIsPositive = true)
+	{
+		return { { { ButtonB, JoypadKey::B }, { ButtonA, JoypadKey::A }, { ButtonStart, JoypadKey::Start } }, AxisRange,
+			0.5f, hatUpIsPositive };
+	}
+
+	InputMapper Mapper(bool hatUpIsPositive = true)
+	{
+		return InputMapper{
+			{ { KeyRight, JoypadKey::Right }, { KeyLeft, JoypadKey::Left }, { KeyUp, JoypadKey::Up },
+				{ KeyDown, JoypadKey::Down }, { KeyA, JoypadKey::A }, { KeyA2, JoypadKey::A } },
+			{ { { KeyPause, NoModifiers }, Command::TogglePause }, { { KeyFastForward, NoModifiers }, Command::FastForward },
+				{ { KeyF, ControlModifier | SystemModifier }, Command::ToggleFullscreen },
+				{ { KeyF, ShiftModifier }, Command::Screenshot } },
+			Layout(hatUpIsPositive) };
+	}
+
+	JoypadKey Keys(int keys)
+	{
+		return static_cast<JoypadKey>(keys);
+	}
+}
+
+TEST(InputMapperTest, NothingHeldAtStart)
+{
+	auto mapper = Mapper();
+
+	EXPECT_EQ(JoypadKey::NoKey, mapper.GetKeysDown());
+	EXPECT_FALSE(mapper.IsHeld(Command::FastForward));
+}
+
+TEST(InputMapperTest, KeysPressAndReleaseTheirButtons)
+{
+	auto mapper = Mapper();
+
+	mapper.KeyPressed(KeyRight);
+	mapper.KeyPressed(KeyA);
+	EXPECT_EQ(Keys(JoypadKey::Right | JoypadKey::A), mapper.GetKeysDown());
+
+	mapper.KeyReleased(KeyRight);
+	EXPECT_EQ(JoypadKey::A, mapper.GetKeysDown());
+}
+
+TEST(InputMapperTest, UnmappedKeysDoNothing)
+{
+	auto mapper = Mapper();
+
+	EXPECT_EQ(Command::None, mapper.KeyPressed(99));
+	mapper.KeyReleased(98);
+
+	EXPECT_EQ(JoypadKey::NoKey, mapper.GetKeysDown());
+}
+
+TEST(InputMapperTest, ButtonStaysDownWhileAnotherKeyForItIsHeld)
+{
+	auto mapper = Mapper();
+
+	mapper.KeyPressed(KeyA);
+	mapper.KeyPressed(KeyA2);
+	mapper.KeyReleased(KeyA);
+
+	EXPECT_EQ(JoypadKey::A, mapper.GetKeysDown());
+}
+
+TEST(InputMapperTest, CommandKeysReturnTheirCommandOncePerPress)
+{
+	auto mapper = Mapper();
+
+	EXPECT_EQ(Command::TogglePause, mapper.KeyPressed(KeyPause));
+	EXPECT_EQ(Command::None, mapper.KeyPressed(KeyPause));
+
+	mapper.KeyReleased(KeyPause);
+	EXPECT_EQ(Command::TogglePause, mapper.KeyPressed(KeyPause));
+}
+
+TEST(InputMapperTest, CommandKeysDontPressGameButtons)
+{
+	auto mapper = Mapper();
+
+	mapper.KeyPressed(KeyPause);
+	mapper.KeyPressed(KeyFastForward);
+
+	EXPECT_EQ(JoypadKey::NoKey, mapper.GetKeysDown());
+}
+
+TEST(InputMapperTest, HeldCommandLastsUntilItsKeyIsReleased)
+{
+	auto mapper = Mapper();
+
+	EXPECT_EQ(Command::FastForward, mapper.KeyPressed(KeyFastForward));
+	EXPECT_TRUE(mapper.IsHeld(Command::FastForward));
+	EXPECT_FALSE(mapper.IsHeld(Command::TogglePause));
+
+	mapper.KeyReleased(KeyFastForward);
+	EXPECT_FALSE(mapper.IsHeld(Command::FastForward));
+}
+
+TEST(InputMapperTest, RejectsKeyMappedTwice)
+{
+	EXPECT_THROW((InputMapper{ { { 1, JoypadKey::A }, { 1, JoypadKey::B } }, {}, Layout() }), std::invalid_argument);
+	EXPECT_THROW((InputMapper{ { { 1, JoypadKey::A } }, { { { 1, NoModifiers }, Command::Reset } }, Layout() }),
+		std::invalid_argument);
+	EXPECT_THROW((InputMapper{ {}, { { { 2, NoModifiers }, Command::Reset }, { { 2, NoModifiers }, Command::Screenshot } },
+		Layout() }), std::invalid_argument);
+}
+
+TEST(InputMapperTest, RejectsGameKeyInChord)
+{
+	// The game button would be pressed along with the command
+	EXPECT_THROW((InputMapper{ { { 1, JoypadKey::A } }, { { { 1, ControlModifier }, Command::Reset } }, Layout() }),
+		std::invalid_argument);
+}
+
+TEST(InputMapperTest, ChordNeedsItsModifiers)
+{
+	auto mapper = Mapper();
+
+	EXPECT_EQ(Command::None, mapper.KeyPressed(KeyF));
+	mapper.KeyReleased(KeyF);
+	EXPECT_EQ(Command::None, mapper.KeyPressed(KeyF, ControlModifier));
+	mapper.KeyReleased(KeyF);
+
+	EXPECT_EQ(Command::ToggleFullscreen, mapper.KeyPressed(KeyF, ControlModifier | SystemModifier));
+}
+
+TEST(InputMapperTest, ChordNeedsExactlyItsModifiers)
+{
+	auto mapper = Mapper();
+
+	EXPECT_EQ(Command::None, mapper.KeyPressed(KeyF, ControlModifier | SystemModifier | ShiftModifier));
+	mapper.KeyReleased(KeyF);
+	EXPECT_EQ(Command::None, mapper.KeyPressed(KeyPause, AltModifier));
+}
+
+TEST(InputMapperTest, SameKeyWithOtherModifiersIsAnotherCommand)
+{
+	auto mapper = Mapper();
+
+	EXPECT_EQ(Command::Screenshot, mapper.KeyPressed(KeyF, ShiftModifier));
+}
+
+TEST(InputMapperTest, ChordDoesntRepeatWhileHeld)
+{
+	auto mapper = Mapper();
+
+	EXPECT_EQ(Command::ToggleFullscreen, mapper.KeyPressed(KeyF, ControlModifier | SystemModifier));
+	EXPECT_EQ(Command::None, mapper.KeyPressed(KeyF, ControlModifier | SystemModifier));
+}
+
+TEST(InputMapperTest, GameKeysIgnoreModifiers)
+{
+	auto mapper = Mapper();
+
+	mapper.KeyPressed(KeyA, ShiftModifier);
+
+	EXPECT_EQ(JoypadKey::A, mapper.GetKeysDown());
+}
+
+TEST(InputMapperTest, HeldCommandNeedsItsModifiersWhenPressed)
+{
+	auto mapper = Mapper();
+
+	mapper.KeyPressed(KeyFastForward, ShiftModifier);
+
+	EXPECT_FALSE(mapper.IsHeld(Command::FastForward));
+}
+
+TEST(InputMapperTest, GamepadButtonsPressTheirButtons)
+{
+	auto mapper = Mapper();
+
+	mapper.ButtonPressed(0, ButtonA);
+	mapper.ButtonPressed(0, ButtonStart);
+	EXPECT_EQ(Keys(JoypadKey::A | JoypadKey::Start), mapper.GetKeysDown());
+
+	mapper.ButtonReleased(0, ButtonA);
+	EXPECT_EQ(JoypadKey::Start, mapper.GetKeysDown());
+}
+
+TEST(InputMapperTest, UnmappedGamepadButtonsDoNothing)
+{
+	auto mapper = Mapper();
+
+	mapper.ButtonPressed(0, 12);
+
+	EXPECT_EQ(JoypadKey::NoKey, mapper.GetKeysDown());
+}
+
+TEST(InputMapperTest, KeyboardAndGamepadCombine)
+{
+	auto mapper = Mapper();
+
+	mapper.KeyPressed(KeyA);
+	mapper.ButtonPressed(0, ButtonA);
+	mapper.ButtonPressed(0, ButtonB);
+	mapper.KeyReleased(KeyA);
+
+	EXPECT_EQ(Keys(JoypadKey::A | JoypadKey::B), mapper.GetKeysDown());
+}
+
+TEST(InputMapperTest, GamepadsAreTrackedSeparately)
+{
+	auto mapper = Mapper();
+
+	mapper.ButtonPressed(0, ButtonA);
+	mapper.ButtonPressed(1, ButtonA);
+	mapper.ButtonReleased(0, ButtonA);
+
+	EXPECT_EQ(JoypadKey::A, mapper.GetKeysDown());
+}
+
+TEST(InputMapperTest, StickPressesDirectionsBeyondDeadzone)
+{
+	auto mapper = Mapper();
+
+	mapper.AxisMoved(0, GamepadAxis::StickX, -80.f);
+	EXPECT_EQ(JoypadKey::Left, mapper.GetKeysDown());
+
+	mapper.AxisMoved(0, GamepadAxis::StickX, 80.f);
+	EXPECT_EQ(JoypadKey::Right, mapper.GetKeysDown());
+
+	mapper.AxisMoved(0, GamepadAxis::StickX, 0.f);
+	mapper.AxisMoved(0, GamepadAxis::StickY, -80.f);
+	EXPECT_EQ(JoypadKey::Up, mapper.GetKeysDown());
+
+	mapper.AxisMoved(0, GamepadAxis::StickY, 80.f);
+	EXPECT_EQ(JoypadKey::Down, mapper.GetKeysDown());
+}
+
+TEST(InputMapperTest, AxisPositionsAreScaledToRange)
+{
+	// 0.8 is well inside the deadzone when full deflection is 100, but beyond it when full deflection is 1
+	auto sfmlRange = Mapper();
+	sfmlRange.AxisMoved(0, GamepadAxis::StickX, 0.8f);
+	EXPECT_EQ(JoypadKey::NoKey, sfmlRange.GetKeysDown());
+
+	InputMapper unitRange{ {}, {}, { {}, 1.f, 0.5f, true } };
+	unitRange.AxisMoved(0, GamepadAxis::StickX, 0.8f);
+	EXPECT_EQ(JoypadKey::Right, unitRange.GetKeysDown());
+
+	unitRange.AxisMoved(0, GamepadAxis::HatY, 1.f);
+	EXPECT_EQ(Keys(JoypadKey::Right | JoypadKey::Up), unitRange.GetKeysDown());
+}
+
+TEST(InputMapperTest, StickInsideDeadzoneDoesNothing)
+{
+	auto mapper = Mapper();
+
+	mapper.AxisMoved(0, GamepadAxis::StickX, 40.f);
+	mapper.AxisMoved(0, GamepadAxis::StickY, -50.f);
+
+	EXPECT_EQ(JoypadKey::NoKey, mapper.GetKeysDown());
+}
+
+TEST(InputMapperTest, StickDiagonalPressesTwoDirections)
+{
+	auto mapper = Mapper();
+
+	mapper.AxisMoved(0, GamepadAxis::StickX, 70.f);
+	mapper.AxisMoved(0, GamepadAxis::StickY, 70.f);
+
+	EXPECT_EQ(Keys(JoypadKey::Right | JoypadKey::Down), mapper.GetKeysDown());
+}
+
+TEST(InputMapperTest, HatPressesDirections)
+{
+	auto mapper = Mapper(true);
+
+	mapper.AxisMoved(0, GamepadAxis::HatX, 100.f);
+	mapper.AxisMoved(0, GamepadAxis::HatY, 100.f);
+	EXPECT_EQ(Keys(JoypadKey::Right | JoypadKey::Up), mapper.GetKeysDown());
+
+	mapper.AxisMoved(0, GamepadAxis::HatX, -100.f);
+	mapper.AxisMoved(0, GamepadAxis::HatY, -100.f);
+	EXPECT_EQ(Keys(JoypadKey::Left | JoypadKey::Down), mapper.GetKeysDown());
+}
+
+TEST(InputMapperTest, HatWithUpNegative)
+{
+	auto mapper = Mapper(false);
+
+	mapper.AxisMoved(0, GamepadAxis::HatY, -100.f);
+	EXPECT_EQ(JoypadKey::Up, mapper.GetKeysDown());
+
+	mapper.AxisMoved(0, GamepadAxis::HatY, 100.f);
+	EXPECT_EQ(JoypadKey::Down, mapper.GetKeysDown());
+}
+
+TEST(InputMapperTest, HatDiagonalFromAngle)
+{
+	// Windows reports a hat as an angle, which SFML gives as about 71 on each axis on a diagonal
+	auto mapper = Mapper(true);
+
+	mapper.AxisMoved(0, GamepadAxis::HatX, 71.f);
+	mapper.AxisMoved(0, GamepadAxis::HatY, 71.f);
+
+	EXPECT_EQ(Keys(JoypadKey::Right | JoypadKey::Up), mapper.GetKeysDown());
+}
+
+TEST(InputMapperTest, HatAndStickCombine)
+{
+	auto mapper = Mapper();
+
+	mapper.AxisMoved(0, GamepadAxis::HatX, 100.f);
+	mapper.AxisMoved(0, GamepadAxis::StickY, 100.f);
+
+	EXPECT_EQ(Keys(JoypadKey::Right | JoypadKey::Down), mapper.GetKeysDown());
+}
+
+TEST(InputMapperTest, DisconnectReleasesThatGamepadOnly)
+{
+	auto mapper = Mapper();
+	mapper.ButtonPressed(0, ButtonA);
+	mapper.AxisMoved(0, GamepadAxis::StickX, 100.f);
+	mapper.ButtonPressed(1, ButtonB);
+	mapper.KeyPressed(KeyUp);
+
+	mapper.GamepadDisconnected(0);
+
+	EXPECT_EQ(Keys(JoypadKey::B | JoypadKey::Up), mapper.GetKeysDown());
+}
+
+TEST(InputMapperTest, ReconnectedGamepadStartsReleased)
+{
+	auto mapper = Mapper();
+	mapper.AxisMoved(0, GamepadAxis::StickX, 100.f);
+	mapper.GamepadDisconnected(0);
+
+	mapper.ButtonPressed(0, ButtonA);
+
+	EXPECT_EQ(JoypadKey::A, mapper.GetKeysDown());
+}
+
+TEST(InputMapperTest, ReleaseKeysReleasesKeysOnly)
+{
+	auto mapper = Mapper();
+	mapper.KeyPressed(KeyLeft);
+	mapper.KeyPressed(KeyFastForward);
+	mapper.ButtonPressed(0, ButtonA);
+	mapper.AxisMoved(1, GamepadAxis::HatX, 100.f);
+
+	mapper.ReleaseKeys();
+
+	EXPECT_EQ(Keys(JoypadKey::A | JoypadKey::Right), mapper.GetKeysDown());
+	EXPECT_FALSE(mapper.IsHeld(Command::FastForward));
+
+	// A key held through the focus change starts a command again when next pressed
+	EXPECT_EQ(Command::FastForward, mapper.KeyPressed(KeyFastForward));
+}

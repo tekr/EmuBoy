@@ -33,6 +33,15 @@ void Mbc1Cartridge::UpdateRomBanks()
 	SetRomBanks(_mode1 ? upperBits : 0, upperBits | lowerBits);
 }
 
+void Mbc1Cartridge::ResetRegisters()
+{
+	_bank1 = 1;
+	_bank2 = 0;
+	_mode1 = false;
+	_ramEnabled = false;
+	UpdateRomBanks();
+}
+
 void Mbc1Cartridge::RomWriteByte(unsigned short address, unsigned char value)
 {
 	if (address < 0x2000)
