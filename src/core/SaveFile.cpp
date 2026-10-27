@@ -18,6 +18,8 @@ namespace
 	const unsigned char Mbc2UnusedBits = 0xf0;
 	const size_t Mbc2PackedSize = Mbc2Cartridge::RamSize / 2;
 
+	const size_t TwoKbRamSize = 2 << 10;
+
 	bool IsMbc2(Cartridge& cartridge)
 	{
 		return dynamic_cast<Mbc2Cartridge*>(&cartridge) != nullptr;
@@ -118,12 +120,25 @@ std::string SaveFile::Deserialise(Cartridge& cartridge, const std::vector<unsign
 	auto& ram = cartridge.GetRam();
 	auto clock = cartridge.GetRealTimeClock();
 
+	// The RAM sizes a save may hold: the cartridge's own, and for 2 KB RAM also mGBA's 8 KB, as it gives RAM size
+	// code 1 a whole bank. The game uses the first 2 KB of that bank
+	std::vector<size_t> savedRamSizes{ ram.size() };
+	if (ram.size() == TwoKbRamSize) savedRamSizes.push_back(Cartridge::RamBankSize);
+
 	// The footer is recognised by its size, as it has no signature
 	size_t footerSize = 0;
-	if (clock != nullptr)
+	auto sizeMatches = false;
+	for (auto savedRamSize : savedRamSizes)
 	{
-		if (data.size() == ram.size() + RtcFooterSize) footerSize = RtcFooterSize;
-		else if (data.size() == ram.size() + LegacyRtcFooterSize) footerSize = LegacyRtcFooterSize;
+		if (clock == nullptr)
+		{
+			sizeMatches |= data.size() == savedRamSize;
+		}
+		else if (data.size() == savedRamSize + RtcFooterSize || data.size() == savedRamSize + LegacyRtcFooterSize)
+		{
+			footerSize = data.size() - savedRamSize;
+			sizeMatches = true;
+		}
 	}
 
 	auto ramData = data.size() - footerSize;
@@ -138,7 +153,7 @@ std::string SaveFile::Deserialise(Cartridge& cartridge, const std::vector<unsign
 	if (footerSize != 0) RestoreClock(*clock, data.data() + ramData, footerSize, unixTime);
 
 	std::ostringstream warning;
-	if (ramData != ram.size() || (clock != nullptr && footerSize == 0))
+	if (!sizeMatches)
 	{
 		warning << "The save is " << data.size() << " bytes but " << ExpectedSize(cartridge) << " were expected";
 		if (ramData < ram.size()) warning << "; the rest of the RAM is left blank";

@@ -78,16 +78,48 @@ TEST(CartridgeFactoryTest, MapsSupportedCartridgeTypes)
 
 TEST(CartridgeFactoryTest, UnsupportedTypesFallBackToMbc1)
 {
-	// MMM01, MBC6, MBC7, Pocket Camera, TAMA5, HuC3, HuC1 and unassigned codes
-	for (unsigned char code : { 0x04, 0x0b, 0x0d, 0x20, 0x22, 0xfc, 0xfd, 0xfe, 0xff })
+	// Unassigned codes, MMM01, MMM01+RAM, MMM01+RAM+BATTERY, MBC6, MBC7+SENSOR+RUMBLE+RAM+BATTERY, Pocket Camera,
+	// TAMA5, HuC3 (battery-backed RAM and a clock) and HuC1+RAM+BATTERY
+	const ExpectedType types[] =
 	{
-		SCOPED_TRACE(static_cast<int>(code));
-		auto type = TypeOf(code);
+		{ 0x04, MapperType::Mbc1, false, false, false },
+		{ 0x0b, MapperType::Mbc1, false, false, false },
+		{ 0x0c, MapperType::Mbc1, false, false, false },
+		{ 0x0d, MapperType::Mbc1, true, false, false },
+		{ 0x20, MapperType::Mbc1, false, false, false },
+		{ 0x22, MapperType::Mbc1, true, false, true },
+		{ 0xfc, MapperType::Mbc1, true, false, false },
+		{ 0xfd, MapperType::Mbc1, false, false, false },
+		{ 0xfe, MapperType::Mbc1, true, true, false },
+		{ 0xff, MapperType::Mbc1, true, false, false },
+	};
 
+	for (auto& expected : types)
+	{
+		SCOPED_TRACE(static_cast<int>(expected.Code));
+		auto type = TypeOf(expected.Code);
+
+		EXPECT_EQ(expected.Mapper, type.Mapper);
+		EXPECT_EQ(expected.HasBattery, type.HasBattery);
+		EXPECT_EQ(expected.HasClock, type.HasClock);
+		EXPECT_EQ(expected.HasRumble, type.HasRumble);
 		EXPECT_FALSE(type.IsSupported);
-		EXPECT_EQ(MapperType::Mbc1, type.Mapper);
-		EXPECT_NE(nullptr, dynamic_cast<Mbc1Cartridge*>(CartridgeFactory::Create(RomWithHeader(code)).get()));
+		EXPECT_NE(nullptr, dynamic_cast<Mbc1Cartridge*>(CartridgeFactory::Create(RomWithHeader(expected.Code)).get()));
 	}
+}
+
+TEST(CartridgeFactoryTest, UnsupportedTypeKeepsBatteryAndHeaderRamSize)
+{
+	// HuC1+RAM+BATTERY with 32 KB RAM, and a Pocket Camera with 128 KB, keep their saves while running as MBC1
+	auto cartridge = CartridgeFactory::Create(RomWithHeader(0xff, 0x03));
+	EXPECT_TRUE(cartridge->HasBattery());
+	EXPECT_EQ(32768u, cartridge->GetRam().size());
+
+	cartridge = CartridgeFactory::Create(RomWithHeader(0xfc, 0x04));
+	EXPECT_TRUE(cartridge->HasBattery());
+	EXPECT_EQ(131072u, cartridge->GetRam().size());
+
+	EXPECT_FALSE(CartridgeFactory::Create(RomWithHeader(0x0c, 0x02))->HasBattery());
 }
 
 TEST(CartridgeFactoryTest, RomWithoutHeaderIsRomOnly)
