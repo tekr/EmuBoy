@@ -199,6 +199,11 @@ unsigned char MemoryMap::ReadCgbRegister(unsigned short address) const
 	switch (address)
 	{
 	case Graphics::VramBankRegister:
+	case Graphics::BackgroundPaletteIndex:
+	case Graphics::BackgroundPaletteData:
+	case Graphics::ObjectPaletteIndex:
+	case Graphics::ObjectPaletteData:
+	case Graphics::ObjectPriorityMode:
 		return _graphics->ReadCgbRegister(address);
 
 	case InfraredRegister:
@@ -226,6 +231,11 @@ void MemoryMap::WriteCgbRegister(unsigned short address, unsigned char value)
 	switch (address)
 	{
 	case Graphics::VramBankRegister:
+	case Graphics::BackgroundPaletteIndex:
+	case Graphics::BackgroundPaletteData:
+	case Graphics::ObjectPaletteIndex:
+	case Graphics::ObjectPaletteData:
+	case Graphics::ObjectPriorityMode:
 		_graphics->WriteCgbRegister(address, value);
 		break;
 

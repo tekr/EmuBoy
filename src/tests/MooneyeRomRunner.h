@@ -1,5 +1,6 @@
 #pragma once
 #include <ostream>
+#include <optional>
 #include <string>
 #include "../core/Emulator.h"
 #include "../core/CartridgeFactory.h"
@@ -24,8 +25,9 @@ public:
 		Registers FinalRegisters;
 	};
 
-	// The slowest MBC tests take around 12 seconds of emulated time; a minute leaves plenty of margin
-	static Result Run(const std::string& romPath, int maxFrames = 60 * 60)
+	// The slowest MBC tests take around 12 seconds of emulated time; a minute leaves plenty of margin. The ROM runs on
+	// the given model, or the one its header asks for
+	static Result Run(const std::string& romPath, int maxFrames = 60 * 60, std::optional<GameBoyModel> model = std::nullopt)
 	{
 		auto cartridge = CartridgeFactory::LoadFromFile(romPath);
 		if (cartridge == nullptr) return { Outcome::RomNotFound, {} };
@@ -33,7 +35,7 @@ public:
 		static const unsigned char passSignature[] = { 3, 5, 8, 13, 21, 34 };
 		static const unsigned char failSignature[] = { 0x42, 0x42, 0x42, 0x42, 0x42, 0x42 };
 
-		Emulator emulator{ cartridge };
+		Emulator emulator{ cartridge, model.value_or(ModelForRom(cartridge->GetRom())) };
 		auto& cpu = emulator.GetCpu();
 
 		for (auto frame = 0; frame < maxFrames; frame++)

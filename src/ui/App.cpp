@@ -29,7 +29,8 @@ App::App(const Options& options, std::shared_ptr<Cartridge> cartridge, std::stri
 	_frameTexture.create(Graphics::HozPixels, Graphics::VertPixels);
 	_frameSprite.setTexture(_frameTexture);
 
-	// Frames are drawn at 60% opacity over the previous ones to emulate the slow LCD. They build up in a texture
+	// Frames are drawn partly transparent over the previous ones to emulate the slow LCD: 60% opaque on the DMG, 80%
+	// on the faster CGB screen (the emulator sets each pixel's alpha). They build up in a texture
 	// the app owns, as a window's back buffer isn't guaranteed to keep its contents between frames
 	_screen.create(Graphics::HozPixels, Graphics::VertPixels);
 	_screen.setSmooth(true);
@@ -270,7 +271,7 @@ void App::ShowSlot()
 
 void App::SaveScreenshot()
 {
-	// The emulator's frames are 60% opaque for the slow-LCD effect; screenshots shouldn't be
+	// The emulator's frames are partly transparent for the slow-LCD effect; screenshots shouldn't be
 	auto image = _frameTexture.copyToImage();
 	auto size = image.getSize();
 	for (unsigned y = 0; y < size.y; y++)

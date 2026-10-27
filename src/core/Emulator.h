@@ -60,6 +60,9 @@ public:
 	// The frame as drawn so far, which between calls to GetFrame is the frame it returned
 	const int* GetScreen() const { return EmuGraphics.Bitmap; }
 
+	// In CGB mode, the frame as drawn so far as 15-bit colours, before colour correction (see Graphics::CgbFrameRgb555)
+	const unsigned short* GetCgbScreenRgb555() const { return EmuGraphics.CgbFrameRgb555(); }
+
 	// Runs one instruction, interrupt dispatch or halted machine cycle. Returns true if that completed a frame, which
 	// GetFrame would have returned then. For stopping between frames, e.g. to save a state there
 	bool RunInstruction();

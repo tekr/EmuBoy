@@ -329,7 +329,7 @@ public:
 		return std::all_of(frame, frame + Graphics::HozPixels * Graphics::VertPixels, [=](int pixel) { return pixel == colour; });
 	}
 
-	static bool IsBlank(const int* frame) { return IsAll(frame, Graphics::BlankColour); }
+	static bool IsBlank(const int* frame) { return IsAll(frame, Graphics::DmgLcdOffPixel); }
 };
 
 TEST_F(EmulatorStopTests, EachFrameLastsAFrameOfClocksWhileStopped)

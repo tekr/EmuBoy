@@ -3,6 +3,7 @@
 #include <vector>
 #include "CgbTestProgram.h"
 #include "../core/GameBoyModel.h"
+#include "../core/CgbColourCorrection.h"
 
 // Choosing the model from the header's CGB flag (https://gbdev.io/pandocs/The_Cartridge_Header.html#0143--cgb-flag),
 // and the state CGB mode starts in, which the CGB boot ROM would have left
@@ -152,3 +153,21 @@ TEST(CgbPostBootTest, WaveRamHoldsTheBootRomsPattern)
 	}
 }
 
+TEST(CgbPostBootTest, BackgroundPalettesAreWhite)
+{
+	auto emulator = CgbTestProgram().PowerOn();
+	auto& memory = emulator->GetMemoryMap();
+
+	for (unsigned char index = 0; index < 64; index++)
+	{
+		memory.WriteByte(0xff68, index);
+		EXPECT_EQ(index & 1 ? 0x7f : 0xff, memory.ReadByte(0xff69)) << "byte " << static_cast<int>(index);
+	}
+}
+
+TEST(CgbPostBootTest, TheScreenIsBlankUntilTheFirstFrameIsDrawn)
+{
+	auto emulator = CgbTestProgram().PowerOn();
+	EXPECT_EQ(Graphics::LcdOffRgb555, emulator->GetCgbScreenRgb555()[0]);
+	EXPECT_EQ(CgbColourCorrection::LcdOffPixel(), emulator->GetScreen()[0]);
+}

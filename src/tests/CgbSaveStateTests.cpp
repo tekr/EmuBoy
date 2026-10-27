@@ -123,6 +123,38 @@ TEST(CgbSaveStateTest, LoadingAStateSwitchesTheEmulatorToItsModel)
 	EXPECT_TRUE(dmgState == SaveState::Create(*dmg));
 }
 
+TEST(CgbSaveStateTest, TheCgbScreenComesBackFromAState)
+{
+	auto cartridge = CartridgeFactory::LoadFromFile("roms/cgb-acid2/cgb-acid2.gbc");
+	ASSERT_NE(nullptr, cartridge);
+	Emulator emulator{ cartridge };
+	for (auto i = 0; i < 10; i++) emulator.GetFrame();
+	auto state = SaveState::Create(emulator);
+
+	Emulator restored{ CartridgeFactory::LoadFromFile("roms/cgb-acid2/cgb-acid2.gbc") };
+	ASSERT_EQ("", SaveState::Restore(restored, state));
+
+	auto size = Graphics::HozPixels * Graphics::VertPixels;
+	EXPECT_TRUE(std::equal(emulator.GetCgbScreenRgb555(), emulator.GetCgbScreenRgb555() + size, restored.GetCgbScreenRgb555()));
+	EXPECT_TRUE(std::equal(emulator.GetScreen(), emulator.GetScreen() + size, restored.GetScreen()));
+}
+
+TEST(CgbSaveStateTest, AStateWithACgbColourOutOfRangeIsRejected)
+{
+	auto emulator = CgbTestProgram().PowerOn();
+	auto state = SaveState::Create(*emulator);
+
+	// The frame's pixels follow VRAM, OAM, the registers, 8 values, 11 flags and the frame position
+	auto ppu = FindSection(state, "PPU ");
+	auto firstPixel = ppu + 0x2000 + 160 + 12 + 8 * 4 + 11 + 4;
+	state[firstPixel] = 0x00;
+	state[firstPixel + 1] = 0x80;
+	FixCrc(state);
+
+	auto error = SaveState::Restore(*emulator, state);
+	EXPECT_NE(std::string::npos, error.find("a pixel's colour is 32768")) << error;
+}
+
 TEST(CgbSaveStateTest, VersionsOutsideTwoToThreeAreRejected)
 {
 	auto emulator = CgbTestProgram().PowerOn();

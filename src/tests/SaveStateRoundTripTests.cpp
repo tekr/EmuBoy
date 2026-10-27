@@ -436,3 +436,9 @@ TEST(SaveStateRoundTripTest, MooneyeOamDmaBeforeTheTransferStarts)
 	ExpectRoundTrips({ "roms/mooneye-test-suite/acceptance/oam_dma/basic.gb", RamFromHeader }, { DuringOamDmaStartDelay });
 }
 
+TEST(SaveStateRoundTripTest, CgbAcid2)
+{
+	ExpectRoundTrips({ "roms/cgb-acid2/cgb-acid2.gbc", RamFromHeader, GameBoyModel::Cgb },
+		{ { "Frame 2", Frames(2) }, MidFrame(72), InMode(2), InMode(3), InMode(0), { "Frame 40", Frames(30) } });
+}
+

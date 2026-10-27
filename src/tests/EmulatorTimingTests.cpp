@@ -124,7 +124,7 @@ TEST(EmulatorTimingTest, FramesAreBlankWhileLcdIsOff)
 	while (emulator.GetMemoryMap().InternalRomEnabled()) emulator.GetFrame();
 
 	auto frame = emulator.GetFrame();
-	const int blank = Graphics::BlankColour;
+	const int blank = Graphics::DmgLcdOffPixel;
 
 	for (auto pixel = 0u; pixel < Graphics::HozPixels * Graphics::VertPixels; pixel++)
 	{

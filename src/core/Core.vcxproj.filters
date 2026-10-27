@@ -18,7 +18,16 @@
     <ClCompile Include="OamDma.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="CgbColourCorrection.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="CgbPalettes.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="GameBoyModel.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="GraphicsCgb.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Serial.cpp">
@@ -99,6 +108,12 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="OamDma.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="CgbColourCorrection.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="CgbPalettes.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="GameBoyModel.h">

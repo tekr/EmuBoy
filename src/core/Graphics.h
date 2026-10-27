@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include "CgbPalettes.h"
 
 class MemoryMap;
 class Cpu;
@@ -21,7 +22,11 @@ enum SpriteFlags : unsigned char
 	PaletteSelector = 0x10,
 	XFlip			= 0x20,
 	YFlip			= 0x40,
-	ZPriority		= 0x80
+	ZPriority		= 0x80,
+
+	// CGB mode only: the object's colour palette and the VRAM bank of its tiles
+	CgbPalette		= 0x07,
+	CgbVramBank		= 0x08
 };
 
 // How the CPU touched OAM while the PPU was scanning it, which decides how the DMG's OAM corruption bug corrupts it
@@ -54,7 +59,8 @@ struct SpriteData
 
 // The PPU. It runs alongside the CPU one machine cycle at a time, drawing each line in one go as the line's mode 3
 // starts, and keeping the LCD's timing, STAT interrupts and the CPU's access to VRAM and OAM accurate to the cycle.
-// In CGB mode it adds a second VRAM bank
+// In CGB mode it adds a second VRAM bank, colour palettes, background map attributes and the CGB's object
+// attributes and priorities (GraphicsCgb.cpp)
 class Graphics
 {
 public:
@@ -80,6 +86,11 @@ public:
 
 	// CGB registers, by full address
 	static const unsigned short VramBankRegister = 0xff4f;
+	static const unsigned short BackgroundPaletteIndex = 0xff68;
+	static const unsigned short BackgroundPaletteData = 0xff69;
+	static const unsigned short ObjectPaletteIndex = 0xff6a;
+	static const unsigned short ObjectPaletteData = 0xff6b;
+	static const unsigned short ObjectPriorityMode = 0xff6c;
 
 protected:
 	static const unsigned short TileDataTableBase1 = 0;
@@ -191,15 +202,27 @@ protected:
 	unsigned int _framePosition{ 0 };
 	bool _frameCompleted{ false };
 
-	// Per https://gbdev.io/pandocs/LCDC.html#lcdc7--lcd-enable, the screen stays blank for the first frame after
-	// the LCD is turned on
-	bool _blankFrame{ false };
+	// Per https://gbdev.io/pandocs/LCDC.html#lcdc7--lcd-enable, the screen stays as with the LCD off for the first
+	// frame after the LCD is turned on
+	bool _lcdOffFrame{ false };
 
 	// CGB mode
 	bool _cgbMode{ false };
 
 	// VBK: the offset into _vram of the bank the CPU sees
 	unsigned int _vramBankOffset{ 0 };
+
+	CgbPalettes _palettes;
+
+	// OPRI bit 0, which selects priority by X position, as on the DMG, rather than by position in OAM. Only the boot
+	// ROM's write takes effect, so this is kept only for reading back (see WriteCgbRegister)
+	unsigned char _objectPriorityMode{ 0 };
+
+	// The frame as 15-bit colours, which Bitmap shows colour corrected (see CgbFrameRgb555)
+	unsigned short _cgbFrameRgb555[HozPixels * VertPixels]{};
+
+	// The colour of the screen while the LCD is off: DmgLcdOffPixel, or CgbColourCorrection::LcdOffPixel in CGB mode
+	int _lcdOffPixel;
 
 	bool DisplayEnabled() const { return (_registers[RegLcdControl] & 0x80) != 0; }
 	bool WindowEnabled() const { return (_registers[RegLcdControl] & 0x20) != 0; }
@@ -228,6 +251,9 @@ protected:
 	void StartDrawing();
 	void StartHBlank();
 	void CompareInVBlank();
+
+	// The STAT interrupt that the mode 2 interrupt select requests as V-Blank starts
+	void RequestVBlankOamStatInterrupt();
 	void SetLyForComparison(int line, LineEvent nextEvent, int nextPosition);
 	void TurnOn();
 	void TurnOff();
@@ -249,6 +275,16 @@ protected:
 	// The clocks the window and the line's sprites add to mode 3
 	int DrawPenalty(bool windowVisible, int windowStartX) const;
 
+	// The same in CGB mode, and its parts (GraphicsCgb.cpp)
+	int DrawCgbLine();
+	void DrawCgbBackground(unsigned char* colours, unsigned char* attributes, bool windowVisible, int windowStartX) const;
+	void DrawCgbObjects(unsigned char* colours, unsigned char* flags) const;
+
+	bool PaletteRamBlocked() const { return _mode == LcdcStatus::OamAndVramReadMode; }
+
+	// Fills the frame with the LCD-off colour
+	void ShowLcdOff();
+
 	void SpriteChanged(unsigned short address);
 
 	// Whether a line event is ever scheduled on the line, so a save state can't have the PPU draw a V-Blank line
@@ -265,12 +301,15 @@ public:
 
 	void SetOamDma(const OamDma* oamDma) { _oamDma = oamDma; }
 
-	// CGB mode adds a second VRAM bank
+	// CGB mode draws in colour and drops the DMG's OAM corruption and STAT write bugs
 	void SetCgbMode(bool cgbMode);
 
-	// As the CGB boot ROM leaves the PPU for a CGB game: LCDC $91 (on) and BGP $FC
+	// As the CGB boot ROM leaves the PPU for a CGB game: LCDC $91 (on), BGP $FC, white background palettes
 	// (https://gbdev.io/pandocs/Power_Up_Sequence.html#hardware-registers)
 	void ApplyCgbPostBootState();
+
+	// In CGB mode, the frame as the 15-bit colours Bitmap shows colour corrected, or LcdOffRgb555 where the LCD is off
+	const unsigned short* CgbFrameRgb555() const { return _cgbFrameRgb555; }
 
 	// The Bitmap colour for a DMG shade, 0 (lightest) to 3 (darkest)
 	static int ShadeColour(unsigned char shade)
@@ -279,8 +318,11 @@ public:
 		return 0x99000000 | ((3 - shade) * 0x40504a);
 	}
 
-	// The colour of the screen while the LCD is off
-	static const int BlankColour = -1;
+	// The DMG's screen while the LCD is off: white, whiter than shade 0
+	static const int DmgLcdOffPixel = -1;
+
+	// In CGB mode, a pixel of the frame's 15-bit colours while the LCD is off (see CgbFrameRgb555)
+	static const unsigned short LcdOffRgb555 = 0xffff;
 
 	void RunCycles(int cycles)
 	{
@@ -335,7 +377,7 @@ public:
 	unsigned char ReadRegister(unsigned short address) const;
 	void WriteRegister(unsigned short address, unsigned char value);
 
-	// VBK, by full address. It exists only in CGB mode, where MemoryMap passes it on
+	// VBK, BCPS/BCPD, OCPS/OCPD and OPRI, by full address. They exist only in CGB mode, where MemoryMap passes them on
 	unsigned char ReadCgbRegister(unsigned short address) const;
 	void WriteCgbRegister(unsigned short address, unsigned char value);
 

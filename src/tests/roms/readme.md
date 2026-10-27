@@ -40,6 +40,16 @@ converted to text so the tests need no image library: one line per screen row, o
 the DMG shade from 0 (lightest, PNG value $FF) to 3 (darkest, $00), i.e. `3 - value / 85` for each 8-bit
 greyscale value. `DmgAcid2Tests.cpp` runs the ROM and compares the frame with it pixel for pixel.
 
+cgb-acid2
+---------
+
+`cgb-acid2/` holds Matt Currie's cgb-acid2 PPU test for the Game Boy Color (MIT licence, in `LICENSE`), from
+https://github.com/mattcurrie/cgb-acid2. `cgb-acid2.gbc` is the v1.1 release ROM. `reference-cgb.txt` is the
+repository's reference image, `img/reference.png`, converted to text: one line per screen row, four hex digits per
+pixel giving its 15-bit CGB colour (red in bits 0-4, green 5-9, blue 10-14). The README says each 5-bit component
+`c` becomes `(c << 3) | (c >> 2)` in the PNG, so each PNG component `p` gives back `p >> 3`. `CgbAcid2Tests.cpp`
+runs the ROM and compares the frame, before colour correction, with it pixel for pixel.
+
 gbmicrotest
 -----------
 
@@ -64,6 +74,16 @@ left out are for other models, as the suffix of their names says (`dmg0` for the
 Boys, `mgb` and `sgb`/`sgb2` for the Game Boy Pocket and Super Game Boys), and depend on those models' boot ROMs:
 `boot_div-dmg0`, `boot_div-S`, `boot_div2-S`, `boot_hwio-dmg0`, `boot_hwio-S`, `boot_regs-dmg0`, `boot_regs-mgb`,
 `boot_regs-sgb` and `boot_regs-sgb2`.
+
+`MooneyeCgbTests.cpp` runs on the Game Boy Color, in CGB mode, `misc/ppu/vblank_stat_intr-C` and the acceptance ROMs
+that the suite's sources list as passing on the CGB. Their headers ask for the DMG, so the tests choose the CGB. On a
+real CGB they would run in its DMG compatibility mode, which Emu Boy doesn't emulate (a game whose header asks for
+the DMG runs on the DMG). The timings they check are the same in both of the CGB's modes. The suite's other `misc`
+ROMs for the CGB aren't included, because they check what the CGB boot ROM leaves in DMG compatibility mode, which
+differs from what it leaves for a CGB game: `boot_regs-cgb` expects DE=$0008 and HL=$007C (DE=$FF56 and HL=$000D in
+CGB mode); `boot_hwio-C` and `bits/unused_hwio-C` expect the CGB registers to read as they do in compatibility mode
+(e.g. SC bit 1 always 1, KEY1 and VBK $FF); and `boot_div-cgbABCDE` and `boot_div-cgb0` expect the DIV count after the
+compatibility-mode boot. The AGB ROMs (`boot_div-A`, `boot_regs-A`) are for the Game Boy Advance.
 
 rtc3test
 --------
