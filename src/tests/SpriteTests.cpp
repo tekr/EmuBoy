@@ -82,7 +82,7 @@ public:
 		Graphics.RenderLine();
 	}
 
-	int Pixel(int x) const { return Graphics.Bitmap[x]; }
+	int Pixel(int x, int y = 0) const { return Graphics.Bitmap[y * Graphics::HozPixels + x]; }
 	int Colour(unsigned char colour, TestGraphics::Palette palette) { return Graphics.MapColour(colour, palette); }
 };
 
@@ -133,4 +133,81 @@ TEST_F(SpriteTests, TransparentPixelOfBehindBgSpriteShowsLowerPrioritySprite)
 
 	// On the right, sprite 0's pixel wins over sprite 1 but is behind the non-zero background
 	EXPECT_EQ(Colour(1, TestGraphics::Palette::BgAndWindow), Pixel(4));
+}
+
+TEST_F(SpriteTests, SpriteMovedAfterLineRenderedIsDrawnAtNewPositionOnNextLine)
+{
+	SetSprite(0, ScreenLeft, SolidTile);
+	RenderFirstLine();
+
+	// As if written after line 0 was drawn (e.g. in its H-Blank), before line 1 is drawn
+	Graphics.WriteOam(1, ScreenLeft + 16);
+	Graphics.RenderLine();
+
+	EXPECT_EQ(Colour(0, TestGraphics::Palette::BgAndWindow), Pixel(0, 1));
+	EXPECT_EQ(Colour(1, TestGraphics::Palette::Sprite0), Pixel(16, 1));
+}
+
+TEST_F(SpriteTests, SpriteMovedInHBlankStaysAtOldPositionOnCurrentLine)
+{
+	SetSprite(0, ScreenLeft, SolidTile);
+	Graphics.ResetFrame();
+	Graphics.DrawLine();
+
+	// Written in line 0's H-Blank: line 0 has already been drawn
+	Graphics.SetLcdcStatus(LcdcStatus::HBlankMode);
+	Graphics.WriteOam(1, ScreenLeft + 16);
+	Graphics.EndLine();
+	Graphics.DrawLine();
+
+	EXPECT_EQ(Colour(1, TestGraphics::Palette::Sprite0), Pixel(0, 0));
+	EXPECT_EQ(Colour(0, TestGraphics::Palette::BgAndWindow), Pixel(16, 0));
+	EXPECT_EQ(Colour(0, TestGraphics::Palette::BgAndWindow), Pixel(0, 1));
+	EXPECT_EQ(Colour(1, TestGraphics::Palette::Sprite0), Pixel(16, 1));
+}
+
+TEST_F(SpriteTests, SpriteMovedOntoNextLineIsDrawnThere)
+{
+	// The sprite starts below line 1, so it isn't on line 1 when line 0 is drawn
+	SetSprite(0, ScreenLeft, SolidTile);
+	Graphics.WriteOam(0, FirstLine + 8);
+	RenderFirstLine();
+
+	Graphics.WriteOam(0, FirstLine);
+	Graphics.RenderLine();
+
+	EXPECT_EQ(Colour(1, TestGraphics::Palette::Sprite0), Pixel(0, 1));
+}
+
+TEST_F(SpriteTests, LowerHalfOfTallSpriteNotDrawnAfterSwitchToShortSprites)
+{
+	// 8x16 sprite using tiles 0 (blank) and 1 (solid), with only its lower half on lines 0-7
+	Graphics.WriteRegister(LcdControlReg, LcdControl | 0x04);
+	SetSprite(0, ScreenLeft, SolidTile);
+	Graphics.WriteOam(0, FirstLine - 8);
+	RenderFirstLine();
+	ASSERT_EQ(Colour(1, TestGraphics::Palette::Sprite0), Pixel(0));
+
+	// As an 8x8 sprite it covers only the 8 lines above the screen
+	Graphics.WriteRegister(LcdControlReg, LcdControl);
+	Graphics.RenderLine();
+
+	for (auto x = 0; x < SpriteManager::SpriteWidth; x++) EXPECT_EQ(Colour(0, TestGraphics::Palette::BgAndWindow), Pixel(x, 1)) << "at x = " << x;
+}
+
+TEST_F(SpriteTests, YFlippedTallSpriteNotDrawnAfterSwitchToShortSprites)
+{
+	// 8x16 sprite using tiles 2 (solid) and 3 (blank), Y-flipped so tile 2 is its lower half, on lines 0-7
+	SetTile(2, 0xff);
+	SetSprite(0, ScreenLeft, 2, SpriteFlags::YFlip);
+	Graphics.WriteRegister(LcdControlReg, LcdControl | 0x04);
+	Graphics.WriteOam(0, FirstLine - 8);
+	RenderFirstLine();
+	ASSERT_EQ(Colour(1, TestGraphics::Palette::Sprite0), Pixel(0));
+
+	// As an 8x8 sprite it covers only the 8 lines above the screen
+	Graphics.WriteRegister(LcdControlReg, LcdControl);
+	Graphics.RenderLine();
+
+	EXPECT_EQ(Colour(0, TestGraphics::Palette::BgAndWindow), Pixel(0, 1));
 }
