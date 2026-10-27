@@ -273,7 +273,7 @@ void Graphics::CompleteFrame()
 
 void Graphics::CompleteStoppedFrame()
 {
-	std::fill(std::begin(Bitmap), std::end(Bitmap), BlankColour);
+	std::fill(std::begin(Bitmap), std::end(Bitmap), DisplayEnabled() ? ShadeColour(0) : BlankColour);
 	_frameCompleted = true;
 	_framePosition -= FrameClocks;
 }

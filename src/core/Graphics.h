@@ -271,7 +271,9 @@ public:
 	}
 
 	// Time passing while STOP has the system clock, and so the PPU, stopped: the PPU carries on from where it is on
-	// waking, but the screen is blank (white, as in SameBoy's display.c), and frames keep coming every FrameClocks
+	// waking, and frames keep coming every FrameClocks. As in SameBoy (GB_display_vblank in display.c), a stopped
+	// DMG's screen shows the lightest shade while the LCD is on, whatever BGP holds, and the LCD-off colour while it's
+	// off
 	void RunStoppedCycles(int cycles)
 	{
 		_framePosition += cycles;
