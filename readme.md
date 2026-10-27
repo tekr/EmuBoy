@@ -75,7 +75,8 @@ tests as on macOS.
 ## Current status
 As of now Emu Boy is still in its early stages and is very much a work in progress. It currently supports the following:
 
-* Fairly cycle-accurate emulation of the LR35902 CPU (all documented instructions + interrupts)
+* Fairly cycle-accurate emulation of the LR35902 CPU (all documented instructions + interrupts), including STOP
+  and the lock-up caused by the unused opcodes
 * Full graphics implementation (sprites + background + window support)
 * Runs (at least) the included snake and Super Mario Land
 * Sound: all four channels of the original Game Boy's sound hardware, including its documented quirks. Passes all of

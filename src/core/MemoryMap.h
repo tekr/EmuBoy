@@ -31,6 +31,7 @@ public:
 	static const size_t RamBankSize = 1 << 13;
 
 	static const unsigned short JoypadPort = 0xff00;
+	static const unsigned short DividerPort = 0xff04;
 	static const unsigned short InternalRomDisable = 0xff50;
 
 	static const unsigned short Joypad = 0xff00;

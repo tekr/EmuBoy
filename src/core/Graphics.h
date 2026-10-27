@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include <cstring>
 
 class MemoryMap;
 class Cpu;
@@ -165,6 +166,9 @@ public:
 
 	// DrawLine then EndLine, for when there's nothing to run in between
 	int RenderLine();
+
+	// Fills the screen with white, as when the display is disabled
+	void BlankScreen() { memset(Bitmap, 0xff, sizeof(Bitmap)); }
 
 	void SetLcdcStatus(LcdcStatus status);
 };
