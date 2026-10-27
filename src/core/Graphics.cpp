@@ -259,6 +259,8 @@ void Graphics::TurnOff()
 
 void Graphics::CompleteFrame()
 {
+	// A frame completing with the LCD off, or the first after it was turned on, is blank, even if lines were drawn
+	// while it was on, as in SameBoy (GB_display_vblank and GB_FRAMESKIP_LCD_TURNED_ON) and Gambatte (blanklcd_)
 	if (!DisplayEnabled() || _blankFrame) std::fill(std::begin(Bitmap), std::end(Bitmap), BlankColour);
 	_blankFrame = false;
 

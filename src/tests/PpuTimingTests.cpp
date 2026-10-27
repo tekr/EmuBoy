@@ -674,3 +674,38 @@ TEST_F(PpuFrameTests, FrameWhileLcdIsOffIsBlank)
 		ASSERT_EQ(-1, Graphics.Bitmap[pixel]) << "pixel " << pixel;
 	}
 }
+
+TEST_F(PpuFrameTests, FramesStayBlankWhileLcdIsNeverOnForAWholeFrame)
+{
+	// A game that keeps the LCD on for most of each frame but turns it off before V-Blank never completes the first
+	// frame after turning it on, which a DMG doesn't show (https://gbdev.io/pandocs/LCDC.html#lcdc7--lcd-enable).
+	// SameBoy (its DMG-only GB_FRAMESKIP_LCD_TURNED_ON) and Gambatte show these frames blank too
+	WriteRegister(TestGraphics::RegBgWinPalette, 0xff);
+	auto frames = 0;
+
+	// Checks each frame as it completes, before later lines are drawn over it
+	auto runCheckingFrames = [&](int lines)
+	{
+		for (auto clocks = 0; clocks < lines * static_cast<int>(Graphics::ScanlineClocks); clocks += 4)
+		{
+			Run(4);
+			if (!Graphics.TakeCompletedFrame()) continue;
+
+			frames++;
+			for (auto pixel = 0u; pixel < Graphics::HozPixels * Graphics::VertPixels; pixel++)
+			{
+				ASSERT_EQ(-1, Graphics.Bitmap[pixel]) << "frame " << frames << ", pixel " << pixel;
+			}
+		}
+	};
+
+	for (auto toggle = 0; toggle < 10; toggle++)
+	{
+		TurnOn(0x01);
+		runCheckingFrames(90);
+		WriteRegister(TestGraphics::RegLcdControl, 0);
+		runCheckingFrames(9);
+	}
+
+	EXPECT_GT(frames, 0);
+}
