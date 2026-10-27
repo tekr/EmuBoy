@@ -1,7 +1,6 @@
 
 Emu Boy
 =======
-[![CI](https://github.com/tekr/EmuBoy/actions/workflows/ci.yml/badge.svg)](https://github.com/tekr/EmuBoy/actions/workflows/ci.yml)
 
 A Nintendo Game Boy emulator written in C++.
 
@@ -62,6 +61,7 @@ wasn't running.
 Install the dependencies with your package manager, then build with CMake. On Ubuntu 24.04 or Debian 12/13:
 
 ```sh
+sudo apt-get update
 sudo apt-get install cmake g++ libboost-dev libsfml-dev libgtest-dev
 cmake -S . -B build
 cmake --build build
