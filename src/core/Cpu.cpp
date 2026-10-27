@@ -425,8 +425,9 @@ void Cpu::Stop(unsigned char opcode)
 		return;
 	}
 
-	// The system clock stops, which resets DIV. Skipping the byte after STOP takes no time that anything can see
-	_memoryMap.WriteByte(DividerAddress, 0);
+	// The system clock stops, which resets DIV. Skipping the byte after STOP takes no time that anything can see.
+	// Simplification: SameBoy also holds DIV in reset for a cycle when IME is clear, which it notes as untrusted
+	_memoryMap.WriteByte(MemoryMap::DividerPort, 0);
 	_state = CpuState::Stopped;
 	if (twoByteOpcode) _registers.PC++;
 }
@@ -745,7 +746,8 @@ void Cpu::RunStopped()
 	_instructionCycles += OneCycle;
 	if (_hardware != nullptr) _hardware->RunStoppedCycles(OneCycle);
 
-	// STOP mode ends when a selected button pulls its input line low, whether or not the joypad interrupt is enabled
+	// STOP mode ends when a selected button pulls its input line low, whether or not the joypad interrupt is enabled.
+	// Simplification: waking takes no time here, where SameBoy spends 2 machine cycles, which it notes as unverified
 	if (SelectedButtonHeld()) _state = CpuState::Running;
 }
 

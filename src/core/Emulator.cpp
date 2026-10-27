@@ -19,6 +19,8 @@ void Emulator::RunCycles(int cycles)
 
 void Emulator::RunStoppedCycles(int cycles)
 {
+	// Only the APU's sample output keeps time of its own. Simplification: a serial transfer on an external clock
+	// stands still too, though on hardware the other Game Boy could still clock it
 	EmuApu.RunStoppedCycles(cycles);
 }
 

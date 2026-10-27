@@ -21,7 +21,10 @@ class Emulator : ClockedHardware
 
 	void Run(int& currentCycle, int cycleTarget);
 
-	// The PPU runs on the system clock, so does nothing while STOP has stopped it
+	// The PPU runs on the system clock, so while STOP has stopped it, it doesn't change mode, render or raise
+	// interrupts. Simplification: GetFrame's loop still keeps time, so on waking the PPU picks up wherever the loop
+	// has reached (in practice the next frame's start, as the front end only changes keys between frames) rather
+	// than resuming from where it stopped. No DMG game uses STOP, and a per-machine-cycle PPU would remove this
 	void SetPpuMode(LcdcStatus status);
 	void RenderLine();
 

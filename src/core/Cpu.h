@@ -84,7 +84,6 @@ class Cpu
 	static const unsigned short HiMemBaseAddress = 0xff00;
 	static const unsigned short WaitingInterruptsAddress = 0xff0f;
 	static const unsigned short EnabledInterruptsAddress = 0xffff;
-	static const unsigned short DividerAddress = 0xff04;
 
 	static const unsigned char FirstInterruptVector = 0x40;
 
@@ -364,7 +363,8 @@ public:
 
 	void SetClockedHardware(ClockedHardware* hardware) { _hardware = hardware; }
 
-	bool IsClockRunning() const	{ return _state == CpuState::Running; }
+	// Executing instructions: not halted, stopped or locked
+	bool IsRunning() const { return _state == CpuState::Running; }
 
 	// STOP has stopped the system clock, so the timer, PPU, APU and serial port don't run
 	bool IsStopped() const { return _state == CpuState::Stopped; }
