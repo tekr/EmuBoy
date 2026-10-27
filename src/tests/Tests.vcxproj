@@ -202,6 +202,7 @@
     <ClCompile Include="StateStreamTests.cpp" />
     <ClCompile Include="SaveStateTests.cpp" />
     <ClCompile Include="SaveStateRoundTripTests.cpp" />
+    <ClCompile Include="SaveStateInFlightTests.cpp" />
     <ClCompile Include="ComponentStateTests.cpp" />
     <ClCompile Include="Rtc3Tests.cpp" />
     <ClCompile Include="TimerTests.cpp" />

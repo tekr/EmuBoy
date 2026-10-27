@@ -78,6 +78,9 @@
     <ClCompile Include="SaveStateRoundTripTests.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="SaveStateInFlightTests.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="ComponentStateTests.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
