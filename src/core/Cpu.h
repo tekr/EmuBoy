@@ -32,7 +32,10 @@ enum class CpuState
 {
 	Running,
 	Halted,
-	Stopped
+	Stopped,
+
+	// An unused opcode hard-locked the CPU: it executes nothing more and ignores interrupts until power-off
+	Locked
 };
 
 // Register file representation for CPU
@@ -69,6 +72,10 @@ public:
 
 	// T-cycles (4194304 Hz)
 	virtual void RunCycles(int cycles) = 0;
+
+	// T-cycles of time passing while STOP has stopped the system clock. Only hardware with a clock of its own
+	// (such as the host's audio output) runs
+	virtual void RunStoppedCycles(int cycles) {}
 };
 
 // Gameboy LR35902 CPU
@@ -76,9 +83,6 @@ class Cpu
 {
 	// Machine cycle in terms of system clocks
 	static const int OneCycle = 4;
-
-	// Joypad wake-up from STOP waits 2^16 cycles to let the crystal oscillator stabilise
-	static const int StopWakeCycles = OneCycle * 65536;
 
 	// LD B,B, which debuggers and test ROMs use as a breakpoint
 	static const unsigned char LdBB = 0x40;
@@ -218,6 +222,9 @@ protected:
 
 	unsigned char PendingInterrupts() const { return _waitingInterrupts & _enabledInterrupts; }
 
+	// A button that JOYP selects is held, pulling its input line (P10-P13) low
+	bool SelectedButtonHeld() const { return (_memoryMap.ReadByte(MemoryMap::JoypadPort) & 0xf) != 0xf; }
+
 	// Runs one machine cycle of the rest of the hardware. Every memory access takes one, and is made at its end
 	void Tick()
 	{
@@ -291,6 +298,7 @@ protected:
 
 	void DispatchInterrupt();
 	bool RunHalted();
+	void RunStopped();
 
 	void Nop(unsigned char opcode);
 
@@ -385,9 +393,14 @@ public:
 
 	void SetClockedHardware(ClockedHardware* hardware) { _hardware = hardware; }
 
-	bool IsClockRunning() const	{ return _state == CpuState::Running; }
+	// Executing instructions: not halted, stopped or locked
+	bool IsRunning() const { return _state == CpuState::Running; }
 
-	// Gets the total number of elapsed emulated CPU cycles, including while halted
+	// STOP has stopped the system clock, so the timer, PPU, serial port and APU channels don't run (the APU's sample
+	// output keeps going)
+	bool IsStopped() const { return _state == CpuState::Stopped; }
+
+	// Gets the total number of elapsed emulated CPU cycles, including while halted or stopped
 	uint64_t GetTotalCycles() const { return _totalCycles; }
 
 	const Registers& GetRegisters() const { return _registers; }
@@ -398,7 +411,8 @@ public:
 	// Simulates an IRQ
 	void RequestInterrupt(InterruptFlags interruptFlags);
 
-	// Executes the next emulated CPU instruction, dispatches an interrupt, or runs a machine cycle while halted.
+	// Executes the next emulated CPU instruction, dispatches an interrupt, or runs a machine cycle while halted,
+	// stopped or locked.
 	// Runs the clocked hardware alongside. Returns emulated CPU cycles elapsed
 	int DoNextInstruction();
 

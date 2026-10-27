@@ -151,12 +151,19 @@ void Graphics::StartLine(unsigned int line)
 void Graphics::StartOamScan()
 {
 	_mode = LcdcStatus::OamReadMode;
-	_interruptMode = LcdcStatus::OamReadMode;
 	_oamWriteBlocked = true;
 	_lyForComparison = _currentScanline;
 	if (_oamDma != nullptr && _oamDma->IsTransferring()) _dmaDuringOamScan = true;
 
+	// The mode 2 condition feeds the STAT interrupt line only as mode 2 starts, so writing STAT (the STAT write
+	// bug) in mode 2 doesn't request an interrupt for mode 2. gbmicrotest's stat_write_glitch_l1_d measures that on
+	// a DMG for mode 2's first machine cycle; that it holds for the rest of mode 2 comes from SameBoy (which drops
+	// mode_for_interrupt to -1 straight after mode 2 starts) and mGBA (GBVideoWriteSTAT)
+	_interruptMode = LcdcStatus::OamReadMode;
 	UpdateStat();
+	_interruptMode = NoInterruptMode;
+	UpdateStat();
+
 	Schedule(LineEvent::OamScanLastCycle, OamScanLastCycle);
 }
 
@@ -260,6 +267,8 @@ void Graphics::TurnOff()
 
 void Graphics::CompleteFrame()
 {
+	// A frame completing with the LCD off, or the first after it was turned on, is blank, even if lines were drawn
+	// while it was on, as in SameBoy (GB_display_vblank and GB_FRAMESKIP_LCD_TURNED_ON) and Gambatte (blanklcd_)
 	if (!DisplayEnabled() || _blankFrame) std::fill(std::begin(Bitmap), std::end(Bitmap), BlankColour);
 	_blankFrame = false;
 
@@ -267,6 +276,13 @@ void Graphics::CompleteFrame()
 
 	// While the LCD is off frames keep to the cadence; when it's on they come with V-Blank
 	_framePosition = DisplayEnabled() ? 0 : _framePosition - FrameClocks;
+}
+
+void Graphics::CompleteStoppedFrame()
+{
+	std::fill(std::begin(Bitmap), std::end(Bitmap), DisplayEnabled() ? ShadeColour(0) : BlankColour);
+	_frameCompleted = true;
+	_framePosition -= FrameClocks;
 }
 
 void Graphics::SetBlocking(bool oam, bool vram)
@@ -416,8 +432,13 @@ void Graphics::WriteRegister(unsigned short address, unsigned char value)
 	}
 
 	case RegLcdStatus:
-		// Per https://gbdev.io/pandocs/STAT.html#spurious-stat-interrupts, the DMG behaves as if $FF were written
-		// for a machine cycle first, so a write can request an interrupt in modes 0-2 or while LY=LYC
+		// The STAT write bug: per https://gbdev.io/pandocs/STAT.html#spurious-stat-interrupts, the DMG behaves as if
+		// $FF were written first, so a write can request an interrupt in modes 0 and 1 or while LY=LYC (in mode 2
+		// too, says Pan Docs, but see StartOamScan). Pan Docs says $FF lasts a machine cycle, but gbmicrotest's
+		// stat_write_glitch_l1_a shows it doesn't on a DMG: a write in mode 3's last machine cycle doesn't select
+		// mode 0 as it starts. In SameBoy it lasts a single clock, so both values apply in the write's machine cycle.
+		// SameBoy writes ~$20 rather than $FF at the edge between H-Blank and mode 2 when mode 0 is selected and mode
+		// 2 isn't, which isn't modelled here
 		if (DisplayEnabled()) SetStatLine(StatLineFor(AllIntSelects));
 
 		_registers[RegLcdStatus] = value & AllIntSelects;

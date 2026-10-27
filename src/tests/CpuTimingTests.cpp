@@ -7,10 +7,7 @@
 
 namespace
 {
-	const int MachineCycle = 4;
-
 	const unsigned short CounterAddress = 0xff80;
-	const unsigned short StackTop = 0xc010;
 
 	// Counts machine cycles into a byte of high RAM, so an instruction that reads it sees the number of the cycle
 	// it reads in (the access is made at the end of its cycle), and a value written there is only incremented by
@@ -24,7 +21,7 @@ namespace
 
 		void RunCycles(int cycles) override
 		{
-			_memoryMap.WriteByte(CounterAddress, static_cast<unsigned char>(_memoryMap.ReadByte(CounterAddress) + cycles / MachineCycle));
+			_memoryMap.WriteByte(CounterAddress, static_cast<unsigned char>(_memoryMap.ReadByte(CounterAddress) + cycles / CpuTestFixture::MachineCycle));
 		}
 	};
 }

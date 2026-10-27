@@ -13,7 +13,7 @@
 #include <string>
 #include <vector>
 
-// The emulator's window: runs the game at the Game Boy's frame rate, shows its screen and plays its sound, and
+// The emulator's window: runs the game at the Game Boy's speed, shows its screen and plays its sound, and
 // handles the controls (see Controls.cpp)
 class App
 {

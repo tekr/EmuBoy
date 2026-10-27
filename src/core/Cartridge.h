@@ -78,6 +78,8 @@ protected:
 	std::shared_ptr<std::vector<unsigned char>> _rom;
 	std::vector<unsigned char> _ram;
 
+	// ramSize must be 0 or a power of two (as every size the cartridge header can declare is), as RAM addresses are
+	// masked to it
 	Cartridge(std::vector<unsigned char>&& rom, size_t ramSize, bool hasBattery);
 
 	// Maps ROM banks into $0000-$3FFF and $4000-$7FFF. Banks wrap to the ROM's size, as the mapper's upper bank
@@ -101,6 +103,7 @@ protected:
 private:
 	bool _hasBattery;
 	bool _hasUnsavedChanges{ false };
+	size_t _ramMask;
 	int _romBankMask;
 
 	// _rom's bytes, read on every instruction fetch

@@ -156,7 +156,10 @@ private:
 	static int MaxLength(int channel) { return channel == Ch3 ? 256 : 64; }
 
 	int CyclesToNextEvent();
+	int CyclesToNextSample() const { return (CpuClockHz - _samplePhase + _sampleRate - 1) / _sampleRate; }
+	void AdvanceOutput(int cycles);
 	void Advance(int cycles);
+	void OutputSampleIfDue();
 	void CatchUp();
 	void RunEvents(int cycles);
 	void Write(int reg, unsigned char value);
@@ -190,6 +193,10 @@ public:
 		if (_pendingCycles + cycles < _cyclesToEvent) _pendingCycles += cycles;
 		else RunEvents(cycles);
 	}
+
+	// T-cycles while STOP has stopped the system clock: the channels stand still and hold their output, but the
+	// host's audio output keeps taking samples of it at its own rate
+	void RunStoppedCycles(int cycles);
 
 	// DIV (0xff04) was written: apply the frame sequencer's DIV falling-edge rule
 	void ResetDivider();

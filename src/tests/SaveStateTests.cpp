@@ -26,9 +26,9 @@ namespace
 	const size_t HeaderSize = 12;
 	const size_t CrcSize = 4;
 
-	std::shared_ptr<Cartridge> LoadRom(int ramBanks = 1)
+	std::shared_ptr<Cartridge> LoadRom(size_t ramSize = Cartridge::RamBankSize)
 	{
-		return CartridgeFactory::LoadFromFile(RomPath, ramBanks);
+		return CartridgeFactory::LoadFromFileWithRamSize(RomPath, ramSize);
 	}
 
 	void RunFrames(Emulator& emulator, int frames)
@@ -235,7 +235,7 @@ TEST_F(SaveStateTest, RejectsCorruptStates)
 
 TEST_F(SaveStateTest, RejectsAStateForAnotherGame)
 {
-	Emulator other{ CartridgeFactory::LoadFromFile("roms/dmg-acid2/dmg-acid2.gb", 1) };
+	Emulator other{ CartridgeFactory::LoadFromFileWithRamSize("roms/dmg-acid2/dmg-acid2.gb", Cartridge::RamBankSize) };
 
 	ExpectRejected(SaveState::Create(other), "for another game (DMG-ACID2)");
 }
@@ -243,7 +243,7 @@ TEST_F(SaveStateTest, RejectsAStateForAnotherGame)
 TEST_F(SaveStateTest, RejectsAStateForAnotherUntitledGame)
 {
 	// blargg's ROMs have no title, so are told apart by their contents
-	Emulator other{ CartridgeFactory::LoadFromFile("roms/cpu_instrs/02-interrupts.gb", 1) };
+	Emulator other{ CartridgeFactory::LoadFromFileWithRamSize("roms/cpu_instrs/02-interrupts.gb", Cartridge::RamBankSize) };
 
 	ExpectRejected(SaveState::Create(other), "for another game (untitled)");
 }
@@ -253,26 +253,26 @@ TEST_F(SaveStateTest, RejectsAStateForAnotherVersionOfTheGame)
 	// The same header, but different code: a byte past the header changed
 	auto rom = Rom->GetRom();
 	rom[0x200] ^= 1;
-	Emulator other{ CartridgeFactory::Create(std::move(rom), 1) };
+	Emulator other{ CartridgeFactory::CreateWithRamSize(std::move(rom), Cartridge::RamBankSize) };
 
 	ExpectRejected(SaveState::Create(other), "for another game");
 }
 
 TEST_F(SaveStateTest, RejectsAStateWithAnotherAmountOfCartridgeRam)
 {
-	Emulator other{ LoadRom(4) };
+	Emulator other{ LoadRom(4 * Cartridge::RamBankSize) };
 
 	ExpectRejected(SaveState::Create(other), "32768 bytes of cartridge RAM rather than 8192");
 }
 
 TEST_F(SaveStateTest, RejectsOutOfRangeValues)
 {
-	// The CPU's state (running, halted or stopped) follows its six register pairs
+	// The CPU's state (running, halted, stopped or locked) follows its six register pairs
 	auto state = State;
-	WriteU32(state, FindSection(state, "CPU ") + 12, 3);
+	WriteU32(state, FindSection(state, "CPU ") + 12, 4);
 	FixCrc(state);
 
-	ExpectRejected(state, "invalid in its CPU section: a value is 3, outside 0 to 2");
+	ExpectRejected(state, "invalid in its CPU section: a value is 4, outside 0 to 3");
 }
 
 TEST_F(SaveStateTest, RejectsAPpuEventThatCantHappenOnItsLine)
@@ -325,8 +325,8 @@ TEST_F(SaveStateTest, RejectsExtraDataAfterTheSections)
 TEST_F(SaveStateTest, FailingLateInTheStateLeavesTheEmulatorRunningAsBefore)
 {
 	// The cartridge comes last, so every other component has been read before its RAM size is found to differ
-	auto target = std::make_unique<Emulator>(LoadRom(4));
-	auto twin = std::make_unique<Emulator>(LoadRom(4));
+	auto target = std::make_unique<Emulator>(LoadRom(4 * Cartridge::RamBankSize));
+	auto twin = std::make_unique<Emulator>(LoadRom(4 * Cartridge::RamBankSize));
 	RunFrames(*target, 380);
 	RunFrames(*twin, 380);
 

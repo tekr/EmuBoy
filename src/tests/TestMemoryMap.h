@@ -7,7 +7,7 @@
 class TestCartridge : public Mbc1Cartridge
 {
 public:
-	TestCartridge() : Mbc1Cartridge(std::vector<unsigned char>(MemoryMap::RomBankSize), MemoryMap::RamBankSize)
+	TestCartridge() : Mbc1Cartridge(std::vector<unsigned char>(MemoryMap::RomBankSize), Cartridge::RamBankSize)
 	{
 	}
 

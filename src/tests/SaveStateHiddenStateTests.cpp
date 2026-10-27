@@ -17,7 +17,7 @@
 // the instruction after it, on the byte after the HALT bug, while halted, before and during OAM DMA, between TIMA
 // overflowing and being reloaded, mid serial transfer, part-way through a second of the MBC3's clock, between the two
 // writes that latch the clock, with the APU's length counters, envelopes and frame sequencer part-way through, and
-// just after the APU is powered on with DIV's bit 4 set. Each test runs a small hand-assembled program instruction by
+// just after the APU is powered on with DIV's bit 4 set, and with the CPU stopped or locked up. Each test runs a small hand-assembled program instruction by
 // instruction to the moment, found by what the program can see (PC, registers, clocks) rather than by the state
 // itself, and checks the state holds the hidden value. It then restores the state into a newly powered-on emulator
 // and runs both side by side, checking every instruction, frame, sound sample and serial byte comes out the same.
@@ -260,8 +260,13 @@ namespace
 		return testing::AssertionFailure() << "The states differ " << when << ", first at byte " << offset;
 	}
 
+	// The keys held on each frame after saving
+	using KeysHeld = std::function<JoypadKey(int frame)>;
+
+	JoypadKey NoKeys(int) { return JoypadKey::NoKey; }
+
 	// Runs the original emulator and the restored one side by side for some frames, checking they do the same
-	testing::AssertionResult RunAlike(Emulator& original, Emulator& restored, int frames)
+	testing::AssertionResult RunAlike(Emulator& original, Emulator& restored, int frames, const KeysHeld& keys)
 	{
 		std::string originalSerial, restoredSerial;
 		original.GetSerial().SetByteSentHandler([&originalSerial](unsigned char byte) { originalSerial += static_cast<char>(byte); });
@@ -270,6 +275,8 @@ namespace
 		auto result = testing::AssertionSuccess();
 		std::vector<short> originalSamples, restoredSamples;
 		auto frame = 0;
+		original.GetJoypad().SetKeysDown(keys(frame));
+		restored.GetJoypad().SetKeysDown(keys(frame));
 		for (auto instruction = 0; frame < frames; instruction++)
 		{
 			if (instruction == frames * MaxInstructionsPerFrame)
@@ -313,6 +320,9 @@ namespace
 			if (!originalFrameDone) continue;
 
 			frame++;
+			original.GetJoypad().SetKeysDown(keys(frame));
+			restored.GetJoypad().SetKeysDown(keys(frame));
+
 			if (!std::equal(original.GetScreen(), original.GetScreen() + Graphics::HozPixels * Graphics::VertPixels, restored.GetScreen()))
 			{
 				result = testing::AssertionFailure() << "The frame differs " << when;
@@ -340,7 +350,7 @@ namespace
 
 	// Saves a state now, restores it into a newly powered-on emulator and checks the two carry on the same. The
 	// original runs on, so its registers show what happened next
-	void ExpectRestoredCarriesOnAlike(Emulator& original, const std::vector<unsigned char>& rom, int frames)
+	void ExpectRestoredCarriesOnAlike(Emulator& original, const std::vector<unsigned char>& rom, int frames, const KeysHeld& keys = NoKeys)
 	{
 		// Samples already produced go out before the save, so aren't in the state
 		std::vector<short> samples;
@@ -350,7 +360,7 @@ namespace
 		auto restored = PowerOn(rom);
 		ASSERT_EQ("", SaveState::Restore(*restored, state));
 		EXPECT_TRUE(SameState(original, *restored, "straight after restoring"));
-		EXPECT_TRUE(RunAlike(original, *restored, frames));
+		EXPECT_TRUE(RunAlike(original, *restored, frames, keys));
 	}
 }
 
@@ -411,9 +421,9 @@ TEST(SaveStateHiddenStateTest, WhileHalted)
 	{
 		SCOPED_TRACE(std::to_string(haltedCycles) + " machine cycles into the halt");
 		auto emulator = PowerOnWithoutBootRom(rom);
-		ASSERT_TRUE(RunUntil(*emulator, [](Emulator& e) { return !e.GetCpu().IsClockRunning(); }));
+		ASSERT_TRUE(RunUntil(*emulator, [](Emulator& e) { return !e.GetCpu().IsRunning(); }));
 		for (auto cycle = 0; cycle < haltedCycles; cycle++) emulator->RunInstruction();
-		ASSERT_FALSE(emulator->GetCpu().IsClockRunning());
+		ASSERT_FALSE(emulator->GetCpu().IsRunning());
 
 		ExpectRestoredCarriesOnAlike(*emulator, rom, 3);
 		EXPECT_EQ(0x50, CpuRegisters(*emulator).D) << "The timer interrupt didn't end the halt";
@@ -637,4 +647,57 @@ TEST(SaveStateHiddenStateTest, AfterPoweringTheApuOnWithDivBit4Set)
 
 	ExpectRestoredCarriesOnAlike(*emulator, rom, 2);
 	EXPECT_EQ(0xf0, CpuRegisters(*emulator).B) << "The length counter didn't stop square 1";
+}
+
+TEST(SaveStateHiddenStateTest, WhileStopped)
+{
+	// With the LCD on and the buttons selected in JOYP, STOP stops the system clock until a button is pressed, then
+	// the program counts in B (Pan Docs, Reducing power consumption). The timer runs, but stands still while stopped
+	Program program;
+	program.WriteIo(0x40, 0x91).WriteIo(0x00, 0x10).WriteIo(0x07, 0x05);	// LCDC on; JOYP selects the buttons; TAC = 16 clocks
+	program.Op({ 0x10, 0x00 });	// STOP
+	auto afterStop = program.Here();
+	program.Op({ 0x04 }).JrTo(afterStop);	// INC B
+
+	auto rom = program.Rom();
+
+	// A, pressed two frames after saving
+	auto pressA = [](int frame) { return frame >= 2 ? JoypadKey::A : JoypadKey::NoKey; };
+
+	// Just stopped, then a frame and a half later, part-way through a stopped frame
+	for (auto stoppedClocks : { 0u, Graphics::FrameClocks * 3 / 2 })
+	{
+		SCOPED_TRACE(std::to_string(stoppedClocks) + " clocks into STOP");
+		auto emulator = PowerOnWithoutBootRom(rom);
+		ASSERT_TRUE(RunUntil(*emulator, [](Emulator& e) { return e.GetCpu().IsStopped(); }));
+		auto stoppedAt = emulator->GetCpuClocks();
+		ASSERT_TRUE(RunUntil(*emulator, [stoppedAt, stoppedClocks](Emulator& e) { return e.GetCpuClocks() >= stoppedAt + stoppedClocks; }));
+		ASSERT_TRUE(emulator->GetCpu().IsStopped());
+		EXPECT_EQ(0, emulator->GetMemoryMap().ReadByte(0xff04)) << "STOP didn't reset DIV";
+
+		ExpectRestoredCarriesOnAlike(*emulator, rom, 4, pressA);
+		EXPECT_TRUE(emulator->GetCpu().IsRunning()) << "Pressing A didn't end STOP";
+		EXPECT_GT(CpuRegisters(*emulator).B, 0);
+	}
+}
+
+TEST(SaveStateHiddenStateTest, WhileLockedUp)
+{
+	// An unused opcode locks the CPU up for good, ignoring the timer interrupt, while the timer keeps counting
+	// (Pan Docs, CPU instruction set)
+	Program program;
+	program.WriteIo(0xff, 0x04).WriteIo(0x07, 0x05).Op({ 0xfb });	// IE = timer; TAC = 16 clocks; EI
+	program.Op({ 0xd3 });	// Unused
+	program.Op({ 0x04 }).Loop();	// INC B
+
+	auto rom = program.Rom();
+	auto emulator = PowerOnWithoutBootRom(rom);
+	ASSERT_TRUE(RunUntil(*emulator, [](Emulator& e) { return !e.GetCpu().IsRunning(); }));
+	ASSERT_FALSE(emulator->GetCpu().IsStopped());
+	auto lockedAt = CpuRegisters(*emulator).PC;
+
+	ExpectRestoredCarriesOnAlike(*emulator, rom, 2);
+	EXPECT_EQ(lockedAt, CpuRegisters(*emulator).PC);
+	EXPECT_EQ(0, CpuRegisters(*emulator).E) << "Interrupts dispatched while locked up";
+	EXPECT_EQ(0x04, emulator->GetMemoryMap().ReadByte(0xff0f) & 0x04) << "The timer stopped";
 }

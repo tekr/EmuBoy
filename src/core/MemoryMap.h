@@ -35,6 +35,7 @@ public:
 	static const size_t RamBankSize = 1 << 13;
 
 	static const unsigned short JoypadPort = 0xff00;
+	static const unsigned short DividerPort = 0xff04;
 	static const unsigned short InternalRomDisable = 0xff50;
 	static const unsigned short OamDmaPort = 0xff46;
 
@@ -49,7 +50,7 @@ protected:
 	OamDma* _oamDma;
 	InputJoypad& _joypad;
 
-	// Zeroed so that every run is the same, though their contents at power-on are random on hardware
+	// Zeroed for repeatability, though their contents at power-on are random on hardware
 	unsigned char _fixedRam[RamBankSize]{};
 	unsigned char _highRam[128]{};
 

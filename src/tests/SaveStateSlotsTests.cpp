@@ -15,7 +15,7 @@ namespace
 
 	std::unique_ptr<Emulator> PowerOn(const std::string& romPath = RomPath)
 	{
-		auto cartridge = CartridgeFactory::LoadFromFile(romPath, 1);
+		auto cartridge = CartridgeFactory::LoadFromFileWithRamSize(romPath, Cartridge::RamBankSize);
 		return cartridge == nullptr ? nullptr : std::make_unique<Emulator>(cartridge);
 	}
 

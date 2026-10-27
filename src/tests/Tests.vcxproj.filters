@@ -15,6 +15,15 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="CpuIllegalOpcodeTests.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="CpuStopTests.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ApuStoppedTests.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="CpuTimerTests.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -37,6 +46,12 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="MooneyeAcceptanceTests.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="GbMicrotestTests.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="MemoryMapTests.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="BlarggOamBugTests.cpp">
@@ -224,6 +239,9 @@
     <ClInclude Include="MooneyeRomRunner.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="GbMicrotestRunner.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="CartridgeTestHelpers.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -231,6 +249,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="CpuTestFixture.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="TimerTestHardware.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="stdafx.h">

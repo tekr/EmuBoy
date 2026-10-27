@@ -24,14 +24,17 @@ class Emulator : ClockedHardware
 
 	// Called by the CPU for each machine cycle
 	void RunCycles(int cycles) override;
+	void RunStoppedCycles(int cycles) override;
 
 public:
 	explicit Emulator(std::shared_ptr<Cartridge> cartridge);
 
 	// Runs until the PPU completes a frame and returns it. Frames come as V-Blank starts, so they're FrameClocks
 	// apart while the LCD stays on, and every FrameClocks while it's off. Turning the LCD on moves the boundary: the
-	// next frame comes at its first V-Blank, so the frame it's turned on in lasts up to nearly two frames. Pace by
-	// GetCpuClocks rather than by frames
+	// next frame comes at its first V-Blank, so the frame it's turned on in lasts up to nearly two frames. While STOP
+	// has the system clock stopped, blank frames come every FrameClocks, and waking does the same as turning the LCD
+	// on: the frame it wakes in lasts until the PPU reaches V-Blank, from a machine cycle to nearly two frames. Pace
+	// by GetCpuClocks rather than by frames
 	int* GetFrame();
 
 	// The frame as drawn so far, which between calls to GetFrame is the frame it returned

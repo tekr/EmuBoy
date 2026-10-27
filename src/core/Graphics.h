@@ -156,7 +156,8 @@ protected:
 	LineEvent _nextEvent{ LineEvent::LineEnd };
 
 	// The mode STAT shows, and the mode whose interrupt select feeds the STAT interrupt line (or NoInterruptMode).
-	// They differ around mode changes, as on hardware
+	// They differ around mode changes, as on hardware, and for all of mode 2, whose condition feeds the line only as
+	// it starts
 	LcdcStatus _mode{ LcdcStatus::HBlankMode };
 	int _interruptMode{ NoInterruptMode };
 
@@ -220,6 +221,7 @@ protected:
 	void TurnOn();
 	void TurnOff();
 	void CompleteFrame();
+	void CompleteStoppedFrame();
 
 	void SetBlocking(bool oam, bool vram);
 
@@ -276,7 +278,17 @@ public:
 		while (_linePosition >= _nextEventPosition) RunLineEvent();
 	}
 
-	// True once per frame: as V-Blank starts, or every FrameClocks while the LCD is off
+	// Time passing while STOP has the system clock, and so the PPU, stopped: the PPU carries on from where it is on
+	// waking, and frames keep coming every FrameClocks. As in SameBoy (GB_display_vblank in display.c), a stopped
+	// DMG's screen shows the lightest shade while the LCD is on, whatever BGP holds, and the LCD-off colour while it's
+	// off
+	void RunStoppedCycles(int cycles)
+	{
+		_framePosition += cycles;
+		while (_framePosition >= FrameClocks) CompleteStoppedFrame();
+	}
+
+	// True once per frame: as V-Blank starts, or every FrameClocks while the LCD is off or the PPU is stopped
 	bool TakeCompletedFrame()
 	{
 		auto completed = _frameCompleted;

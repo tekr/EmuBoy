@@ -2,6 +2,7 @@
 #include "Cartridge.h"
 #include "StateStream.h"
 #include "Crc32.h"
+#include <cassert>
 
 namespace
 {
@@ -15,8 +16,11 @@ namespace
 }
 
 Cartridge::Cartridge(std::vector<unsigned char>&& rom, size_t ramSize, bool hasBattery) :
-	_rom{ std::make_shared<std::vector<unsigned char>>(std::move(rom)) }, _ram(ramSize), _hasBattery(hasBattery)
+	_rom{ std::make_shared<std::vector<unsigned char>>(std::move(rom)) }, _ram(ramSize), _hasBattery(hasBattery),
+	_ramMask(ramSize == 0 ? 0 : ramSize - 1)
 {
+	assert((ramSize & (ramSize - 1)) == 0);
+
 	auto banks = RomBankCount(_rom->size());
 
 	// Padding reads as $FF, like an absent ROM chip
@@ -46,8 +50,9 @@ void Cartridge::SetRomBanks(int bank0, int bank1)
 
 size_t Cartridge::RamIndex(int bank, unsigned short address) const
 {
-	auto banks = (_ram.size() + RamBankSize - 1) / RamBankSize;
-	return (bank % banks * RamBankSize + (address & (RamBankSize - 1))) % _ram.size();
+	// Banks and addresses beyond the RAM's size wrap, as the chip's upper address lines aren't connected. RAM is a
+	// power-of-two size, so this mirrors as the hardware does with no division on each access
+	return (bank * RamBankSize | (address & (RamBankSize - 1))) & _ramMask;
 }
 
 unsigned char Cartridge::ReadRamBank(int bank, unsigned short address) const

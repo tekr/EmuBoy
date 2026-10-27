@@ -13,7 +13,7 @@ class RunState
 	int64_t _messageUntil{ 0 };
 
 public:
-	// Fast-forward runs up to this many frames in the time of one, as fast as the computer allows
+	// Fast-forward runs the game up to this many times normal speed, as far as the computer allows
 	static constexpr int FastForwardSpeed = 8;
 
 	void TogglePause() { _paused = !_paused; }
@@ -25,8 +25,8 @@ public:
 	// How long a message stays in the title, in microseconds
 	static constexpr int64_t MessageDuration = 2000000;
 
-	// Frames to run per Game Boy frame time: 1 normally, FastForwardSpeed when fast-forwarding. Not meaningful
-	// while paused, when no frames run
+	// How many times normal speed to run the emulated clock: 1 normally, FastForwardSpeed when fast-forwarding. Not
+	// meaningful while paused, when nothing runs
 	int GetSpeed() const { return IsFastForwarding() ? FastForwardSpeed : 1; }
 
 	// Shows a message, such as "Saved state 1", in the title for MessageDuration from now (in microseconds), in
