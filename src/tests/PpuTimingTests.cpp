@@ -675,13 +675,14 @@ TEST_F(PpuFrameTests, FrameWhileLcdIsOffIsBlank)
 	}
 }
 
-TEST_F(PpuFrameTests, FramesStayBlankWhileLcdIsNeverOnForAWholeFrame)
+TEST_F(PpuFrameTests, FramesStayBlankWhileLcdIsTurnedOffEveryFrame)
 {
-	// A game that keeps the LCD on for most of each frame but turns it off before V-Blank never completes the first
-	// frame after turning it on, which a DMG doesn't show (https://gbdev.io/pandocs/LCDC.html#lcdc7--lcd-enable).
-	// SameBoy (its DMG-only GB_FRAMESKIP_LCD_TURNED_ON) and Gambatte show these frames blank too
+	// A game that turns the LCD off for a few lines in each V-Blank, so that each frame is the first after the LCD
+	// was turned on, which a DMG doesn't show (https://gbdev.io/pandocs/LCDC.html#lcdc7--lcd-enable). SameBoy
+	// (its DMG-only GB_FRAMESKIP_LCD_TURNED_ON, which lasts until line 144) and Gambatte (blanklcd_) show these
+	// frames blank too. Each completes at line 144 with the LCD on, so the LCD-off blanking doesn't cover it
 	WriteRegister(TestGraphics::RegBgWinPalette, 0xff);
-	auto frames = 0;
+	auto framesWithLcdOn = 0;
 
 	// Checks each frame as it completes, before later lines are drawn over it
 	auto runCheckingFrames = [&](int lines)
@@ -691,21 +692,21 @@ TEST_F(PpuFrameTests, FramesStayBlankWhileLcdIsNeverOnForAWholeFrame)
 			Run(4);
 			if (!Graphics.TakeCompletedFrame()) continue;
 
-			frames++;
+			if (ReadRegister(TestGraphics::RegLcdControl) & 0x80) framesWithLcdOn++;
 			for (auto pixel = 0u; pixel < Graphics::HozPixels * Graphics::VertPixels; pixel++)
 			{
-				ASSERT_EQ(-1, Graphics.Bitmap[pixel]) << "frame " << frames << ", pixel " << pixel;
+				ASSERT_EQ(-1, Graphics.Bitmap[pixel]) << "pixel " << pixel;
 			}
 		}
 	};
 
-	for (auto toggle = 0; toggle < 10; toggle++)
+	for (auto frame = 0; frame < 5; frame++)
 	{
 		TurnOn(0x01);
-		runCheckingFrames(90);
+		runCheckingFrames(Graphics::VertPixels + 2);
 		WriteRegister(TestGraphics::RegLcdControl, 0);
-		runCheckingFrames(9);
+		runCheckingFrames(4);
 	}
 
-	EXPECT_GT(frames, 0);
+	EXPECT_EQ(5, framesWithLcdOn);
 }
