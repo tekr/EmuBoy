@@ -10,6 +10,9 @@ public:
 	static const size_t CartridgeTypeHeaderOffset = 0x147;
 	static const size_t RamSizeHeaderOffset = 0x149;
 
+	// RAM size code 1's 2 KB; see RamSizeFromHeader
+	static const size_t RamSizeCode1Bytes = 2 << 10;
+
 	enum class MapperType
 	{
 		RomOnly,
@@ -42,12 +45,12 @@ public:
 
 	static std::shared_ptr<Cartridge> Create(std::vector<unsigned char>&& rom);
 
-	// Overrides the header's RAM size (in bytes, a power of two), for ROMs that need RAM without declaring it
-	static std::shared_ptr<Cartridge> Create(std::vector<unsigned char>&& rom, size_t ramSize);
+	// Overrides the header's RAM size (in bytes, 0 or a power of two), for ROMs that need RAM without declaring it
+	static std::shared_ptr<Cartridge> CreateWithRamSize(std::vector<unsigned char>&& rom, size_t ramSize);
 
 	// Returns null if the file can't be read
 	static std::shared_ptr<Cartridge> LoadFromFile(const std::string& filePath);
-	static std::shared_ptr<Cartridge> LoadFromFile(const std::string& filePath, size_t ramSize);
+	static std::shared_ptr<Cartridge> LoadFromFileWithRamSize(const std::string& filePath, size_t ramSize);
 
 	static bool ReadFile(const std::string& filePath, std::vector<unsigned char>& contents);
 };

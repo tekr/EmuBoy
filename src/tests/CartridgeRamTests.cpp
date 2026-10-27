@@ -2,6 +2,7 @@
 #include <gtest/gtest.h>
 #include "../core/CartridgeFactory.h"
 #include "../core/Mbc1Cartridge.h"
+#include "../core/Mbc3Cartridge.h"
 #include "../core/Mbc5Cartridge.h"
 #include <cstdio>
 #include <fstream>
@@ -134,6 +135,32 @@ TEST(CartridgeRamSizeTest, BankBeyondCartridgeRamMirrorsLowerBanks)
 	EXPECT_FALSE(RamBankIsDistinctFromBank0(cartridge, 3));
 }
 
+TEST(CartridgeRamSizeTest, TwoKbRamIgnoresMbc3AndMbc5RamBankSelect)
+{
+	// The 2 KB chip has no bank lines, so on every mapper each bank and $800 block is the same 2 KB
+	const size_t twoKb = CartridgeFactory::RamSizeCode1Bytes;
+	Mbc3Cartridge mbc3{ RomWithRamSizeCode(1), twoKb };
+	Mbc5Cartridge mbc5{ RomWithRamSizeCode(1), twoKb };
+
+	for (Cartridge* cartridge : { static_cast<Cartridge*>(&mbc3), static_cast<Cartridge*>(&mbc5) })
+	{
+		SCOPED_TRACE(cartridge == &mbc3 ? "MBC3" : "MBC5");
+		EnableRam(*cartridge);
+		cartridge->RomWriteByte(0x4000, 0x00);
+		cartridge->RamWriteByte(0x0123, 0x12);
+
+		for (unsigned char bank : { 1, 2, 3 })
+		{
+			cartridge->RomWriteByte(0x4000, bank);
+			EXPECT_EQ(0x12, cartridge->RamReadByte(0x0123));
+			EXPECT_EQ(0x12, cartridge->RamReadByte(0x1923));
+		}
+
+		cartridge->RamWriteByte(0x1fff, 0x34);
+		EXPECT_EQ(0x34, cartridge->GetRam()[0x07ff]);
+	}
+}
+
 TEST(CartridgeRamSizeTest, RamBanksAreStoredInOrder)
 {
 	// Bank n is at n * 8 KB in the RAM contents, the layout other emulators' save files use
@@ -163,7 +190,7 @@ TEST(CartridgeRamSizeTest, LoadFromFileSizesRamFromHeader)
 TEST(CartridgeRamSizeTest, LoadFromFileWithRamSizeIgnoresHeader)
 {
 	ASSERT_TRUE(WriteRomFile(RomWithRamSizeCode(3)));
-	auto cartridge = CartridgeFactory::LoadFromFile(RomFilePath(), Cartridge::RamBankSize);
+	auto cartridge = CartridgeFactory::LoadFromFileWithRamSize(RomFilePath(), Cartridge::RamBankSize);
 	std::remove(RomFilePath().c_str());
 
 	ASSERT_NE(nullptr, cartridge);
@@ -173,5 +200,5 @@ TEST(CartridgeRamSizeTest, LoadFromFileWithRamSizeIgnoresHeader)
 TEST(CartridgeRamSizeTest, LoadFromMissingFileIsNull)
 {
 	EXPECT_EQ(nullptr, CartridgeFactory::LoadFromFile("missing.gb"));
-	EXPECT_EQ(nullptr, CartridgeFactory::LoadFromFile("missing.gb", Cartridge::RamBankSize));
+	EXPECT_EQ(nullptr, CartridgeFactory::LoadFromFileWithRamSize("missing.gb", Cartridge::RamBankSize));
 }
