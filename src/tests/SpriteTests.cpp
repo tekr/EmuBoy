@@ -29,36 +29,34 @@ const unsigned char FirstLine = SpriteManager::SpriteYOffset;
 class SpriteTests : public testing::Test
 {
 public:
-	// Members named after their types qualify the type with :: so the name's meaning doesn't change within the
-	// class, which GCC rejects
 	InputJoypad Joypad;
-	TestMemoryMap MemoryMap{ Joypad };
-	TestCpu Cpu{ MemoryMap };
-	::SpriteManager SpriteManager{};
-	TestGraphics Graphics{ Cpu, MemoryMap, SpriteManager };
+	TestMemoryMap Memory{ Joypad };
+	TestCpu Processor{ Memory };
+	SpriteManager Sprites{};
+	TestGraphics Ppu{ Processor, Memory, Sprites };
 
 	SpriteTests()
 	{
 		// VRAM and OAM aren't initialised. Each OAM byte is written twice so that every sprite is
 		// seen to move, and so is known to the sprite manager
-		for (auto i = 0; i < Graphics::VramSize; i++) Graphics.Vram(i) = 0;
+		for (auto i = 0; i < Graphics::VramSize; i++) Ppu.Vram(i) = 0;
 		for (auto i = 0; i < Graphics::OamSize; i++)
 		{
-			Graphics.WriteOam(i, 0xff);
-			Graphics.WriteOam(i, 0);
+			Ppu.WriteOam(i, 0xff);
+			Ppu.WriteOam(i, 0);
 		}
 
 		SetTile(SolidTile, 0xff);
 		SetTile(RightHalfTile, 0x0f);
 
-		Graphics.WriteRegister(LcdControlReg, LcdControl & ~DisplayOn);
-		Graphics.WriteRegister(BgScrollYReg, 0);
-		Graphics.WriteRegister(BgScrollXReg, 0);
+		Ppu.WriteRegister(LcdControlReg, LcdControl & ~DisplayOn);
+		Ppu.WriteRegister(BgScrollYReg, 0);
+		Ppu.WriteRegister(BgScrollXReg, 0);
 
 		// Colour 1 is a different shade in each palette
-		Graphics.WriteRegister(BgWinPaletteReg, 0x04);
-		Graphics.WriteRegister(Sprite0PaletteReg, 0x08);
-		Graphics.WriteRegister(Sprite1PaletteReg, 0x0c);
+		Ppu.WriteRegister(BgWinPaletteReg, 0x04);
+		Ppu.WriteRegister(Sprite0PaletteReg, 0x08);
+		Ppu.WriteRegister(Sprite1PaletteReg, 0x0c);
 	}
 
 	// Sets every row of a tile to colour 1 where a bit of the pattern is set, else colour 0
@@ -66,37 +64,37 @@ public:
 	{
 		for (auto row = 0; row < 8; row++)
 		{
-			Graphics.Vram(tile * 16 + row * 2) = pattern;
-			Graphics.Vram(tile * 16 + row * 2 + 1) = 0;
+			Ppu.Vram(tile * 16 + row * 2) = pattern;
+			Ppu.Vram(tile * 16 + row * 2 + 1) = 0;
 		}
 	}
 
 	void SetSprite(int index, unsigned char x, unsigned char tile, unsigned char flags = 0)
 	{
-		Graphics.WriteOam(index * 4, FirstLine);
-		Graphics.WriteOam(index * 4 + 1, x);
-		Graphics.WriteOam(index * 4 + 2, tile);
-		Graphics.WriteOam(index * 4 + 3, flags);
+		Ppu.WriteOam(index * 4, FirstLine);
+		Ppu.WriteOam(index * 4 + 1, x);
+		Ppu.WriteOam(index * 4 + 2, tile);
+		Ppu.WriteOam(index * 4 + 3, flags);
 	}
 
 	void Run(int clocks)
 	{
-		for (; clocks > 0; clocks -= 4) Graphics.RunCycles(4);
+		for (; clocks > 0; clocks -= 4) Ppu.RunCycles(4);
 	}
 
 	// Turns the LCD on, with the other LCDC bits as they are, and runs until line 0 is drawn as its mode 3 starts
 	void RenderFirstLine()
 	{
-		auto lcdControl = Graphics.ReadRegister(LcdControlReg);
-		Graphics.WriteRegister(LcdControlReg, lcdControl & ~DisplayOn);
-		Graphics.WriteRegister(LcdControlReg, lcdControl | DisplayOn);
+		auto lcdControl = Ppu.ReadRegister(LcdControlReg);
+		Ppu.WriteRegister(LcdControlReg, lcdControl & ~DisplayOn);
+		Ppu.WriteRegister(LcdControlReg, lcdControl | DisplayOn);
 		Run(TestGraphics::DrawStart - TestGraphics::FirstLineStart);
 	}
 
 	// Runs to the current line's H-Blank, when the CPU can write OAM again
 	void RunToHBlank()
 	{
-		for (auto clocks = 0; (Graphics.ReadRegister(LcdStatusReg) & 3) != LcdcStatus::HBlankMode; clocks += 4)
+		for (auto clocks = 0; (Ppu.ReadRegister(LcdStatusReg) & 3) != LcdcStatus::HBlankMode; clocks += 4)
 		{
 			ASSERT_LT(clocks, static_cast<int>(Graphics::ScanlineClocks)) << "no H-Blank";
 			Run(4);
@@ -106,8 +104,8 @@ public:
 	// Runs until the next line is drawn
 	void RenderNextLine()
 	{
-		auto line = Graphics.ReadRegister(LineCountReg);
-		for (auto clocks = 0; Graphics.ReadRegister(LineCountReg) == line; clocks += 4)
+		auto line = Ppu.ReadRegister(LineCountReg);
+		for (auto clocks = 0; Ppu.ReadRegister(LineCountReg) == line; clocks += 4)
 		{
 			ASSERT_LT(clocks, static_cast<int>(Graphics::ScanlineClocks)) << "LY didn't change";
 			Run(4);
@@ -116,8 +114,8 @@ public:
 		Run(TestGraphics::DrawStart);
 	}
 
-	int Pixel(int x, int y = 0) const { return Graphics.Bitmap[y * Graphics::HozPixels + x]; }
-	int Colour(unsigned char colour, TestGraphics::Palette palette) { return Graphics.MapColour(colour, palette); }
+	int Pixel(int x, int y = 0) const { return Ppu.Bitmap[y * Graphics::HozPixels + x]; }
+	int Colour(unsigned char colour, TestGraphics::Palette palette) { return Ppu.MapColour(colour, palette); }
 };
 
 TEST_F(SpriteTests, UsesPaletteOfSpriteDrawn)
@@ -176,7 +174,7 @@ TEST_F(SpriteTests, SpriteMovedAfterLineRenderedIsDrawnAtNewPositionOnNextLine)
 
 	// Written after line 0 was drawn, in its H-Blank, before line 1 is drawn
 	RunToHBlank();
-	Graphics.WriteOam(1, ScreenLeft + 16);
+	Ppu.WriteOam(1, ScreenLeft + 16);
 	RenderNextLine();
 
 	EXPECT_EQ(Colour(0, TestGraphics::Palette::BgAndWindow), Pixel(0, 1));
@@ -190,7 +188,7 @@ TEST_F(SpriteTests, SpriteMovedInHBlankStaysAtOldPositionOnCurrentLine)
 
 	// Written in line 0's H-Blank: line 0 has already been drawn
 	RunToHBlank();
-	Graphics.WriteOam(1, ScreenLeft + 16);
+	Ppu.WriteOam(1, ScreenLeft + 16);
 	RenderNextLine();
 
 	EXPECT_EQ(Colour(1, TestGraphics::Palette::Sprite0), Pixel(0, 0));
@@ -203,11 +201,11 @@ TEST_F(SpriteTests, SpriteMovedOntoNextLineIsDrawnThere)
 {
 	// The sprite starts below line 1, so it isn't on line 1 when line 0 is drawn
 	SetSprite(0, ScreenLeft, SolidTile);
-	Graphics.WriteOam(0, FirstLine + 8);
+	Ppu.WriteOam(0, FirstLine + 8);
 	RenderFirstLine();
 
 	RunToHBlank();
-	Graphics.WriteOam(0, FirstLine);
+	Ppu.WriteOam(0, FirstLine);
 	RenderNextLine();
 
 	EXPECT_EQ(Colour(1, TestGraphics::Palette::Sprite0), Pixel(0, 1));
@@ -216,14 +214,14 @@ TEST_F(SpriteTests, SpriteMovedOntoNextLineIsDrawnThere)
 TEST_F(SpriteTests, LowerHalfOfTallSpriteNotDrawnAfterSwitchToShortSprites)
 {
 	// 8x16 sprite using tiles 0 (blank) and 1 (solid), with only its lower half on lines 0-7
-	Graphics.WriteRegister(LcdControlReg, LcdControl | 0x04);
+	Ppu.WriteRegister(LcdControlReg, LcdControl | 0x04);
 	SetSprite(0, ScreenLeft, SolidTile);
-	Graphics.WriteOam(0, FirstLine - 8);
+	Ppu.WriteOam(0, FirstLine - 8);
 	RenderFirstLine();
 	ASSERT_EQ(Colour(1, TestGraphics::Palette::Sprite0), Pixel(0));
 
 	// As an 8x8 sprite it covers only the 8 lines above the screen
-	Graphics.WriteRegister(LcdControlReg, LcdControl);
+	Ppu.WriteRegister(LcdControlReg, LcdControl);
 	RenderNextLine();
 
 	for (auto x = 0; x < SpriteManager::SpriteWidth; x++) EXPECT_EQ(Colour(0, TestGraphics::Palette::BgAndWindow), Pixel(x, 1)) << "at x = " << x;
@@ -234,13 +232,13 @@ TEST_F(SpriteTests, YFlippedTallSpriteNotDrawnAfterSwitchToShortSprites)
 	// 8x16 sprite using tiles 2 (solid) and 3 (blank), Y-flipped so tile 2 is its lower half, on lines 0-7
 	SetTile(2, 0xff);
 	SetSprite(0, ScreenLeft, 2, SpriteFlags::YFlip);
-	Graphics.WriteRegister(LcdControlReg, LcdControl | 0x04);
-	Graphics.WriteOam(0, FirstLine - 8);
+	Ppu.WriteRegister(LcdControlReg, LcdControl | 0x04);
+	Ppu.WriteOam(0, FirstLine - 8);
 	RenderFirstLine();
 	ASSERT_EQ(Colour(1, TestGraphics::Palette::Sprite0), Pixel(0));
 
 	// As an 8x8 sprite it covers only the 8 lines above the screen
-	Graphics.WriteRegister(LcdControlReg, LcdControl);
+	Ppu.WriteRegister(LcdControlReg, LcdControl);
 	RenderNextLine();
 
 	EXPECT_EQ(Colour(0, TestGraphics::Palette::BgAndWindow), Pixel(0, 1));

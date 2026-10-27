@@ -29,14 +29,14 @@ namespace
 	struct CpuRig
 	{
 		InputJoypad Joypad;
-		TestMemoryMap MemoryMap{ Joypad };
-		TestCpu Cpu{ MemoryMap };
+		TestMemoryMap Memory{ Joypad };
+		TestCpu Processor{ Memory };
 
 		CpuRig()
 		{
 			// HALT, INC A, INC A
-			MemoryMap.SetBytes(MemoryMap::RomFixed, { 0x76, 0x3c, 0x3c });
-			Cpu.EnabledInterrupts() = InterruptFlags::TimerInt;
+			Memory.SetBytes(MemoryMap::RomFixed, { 0x76, 0x3c, 0x3c });
+			Processor.EnabledInterrupts() = InterruptFlags::TimerInt;
 		}
 	};
 }
@@ -46,16 +46,16 @@ TEST(CpuStateTest, RestoredJustAfterTheHaltBugStillReadsTheNextByteTwice)
 	// HALT with IME clear and an interrupt pending doesn't halt, but the next opcode fetch doesn't increment PC
 	// (Pan Docs, halt bug), so INC A runs twice
 	CpuRig saved;
-	saved.Cpu.RequestInterrupt(InterruptFlags::TimerInt);
-	saved.Cpu.DoNextInstruction();
+	saved.Processor.RequestInterrupt(InterruptFlags::TimerInt);
+	saved.Processor.DoNextInstruction();
 
 	CpuRig restored;
-	CopyState(saved.Cpu, restored.Cpu);
-	restored.Cpu.DoNextInstruction();
-	restored.Cpu.DoNextInstruction();
+	CopyState(saved.Processor, restored.Processor);
+	restored.Processor.DoNextInstruction();
+	restored.Processor.DoNextInstruction();
 
-	EXPECT_EQ(2, restored.Cpu.Registers().A);
-	EXPECT_EQ(2, restored.Cpu.Registers().PC);
+	EXPECT_EQ(2, restored.Processor.GetRegisters().A);
+	EXPECT_EQ(2, restored.Processor.GetRegisters().PC);
 }
 
 namespace
@@ -68,18 +68,18 @@ namespace
 	struct TimerRig
 	{
 		InputJoypad Joypad;
-		TestMemoryMap MemoryMap{ Joypad };
-		TestCpu Cpu{ MemoryMap };
-		::Timer Timer;
+		TestMemoryMap Memory{ Joypad };
+		TestCpu Processor{ Memory };
+		Timer DividerTimer;
 
 		TimerRig()
 		{
-			Timer.SetCpu(&Cpu);
-			Cpu.WaitingInterrupts() = 0;
+			DividerTimer.SetCpu(&Processor);
+			Processor.WaitingInterrupts() = 0;
 		}
 
-		unsigned char Counter() const { return Timer.ReadRegister(CounterReg); }
-		bool TimerInterruptRequested() { return (Cpu.WaitingInterrupts() & InterruptFlags::TimerInt) != 0; }
+		unsigned char Counter() const { return DividerTimer.ReadRegister(CounterReg); }
+		bool TimerInterruptRequested() { return (Processor.WaitingInterrupts() & InterruptFlags::TimerInt) != 0; }
 	};
 
 	class TimerStateTest : public testing::Test
@@ -92,21 +92,21 @@ namespace
 		// (Pan Docs, Timer Obscure Behaviour)
 		TimerStateTest()
 		{
-			Saved.Timer.WriteRegister(0, 0);
-			Saved.Timer.WriteRegister(ModuloReg, 0xf0);
-			Saved.Timer.WriteRegister(CounterReg, 0xff);
-			Saved.Timer.WriteRegister(ControlReg, 4 | 1);
+			Saved.DividerTimer.WriteRegister(0, 0);
+			Saved.DividerTimer.WriteRegister(ModuloReg, 0xf0);
+			Saved.DividerTimer.WriteRegister(CounterReg, 0xff);
+			Saved.DividerTimer.WriteRegister(ControlReg, 4 | 1);
 		}
 	};
 }
 
 TEST_F(TimerStateTest, RestoredBetweenOverflowAndReloadStillReloads)
 {
-	Saved.Timer.RunCycles(16);
+	Saved.DividerTimer.RunCycles(16);
 	ASSERT_EQ(0, Saved.Counter());
 
-	CopyState(Saved.Timer, Restored.Timer);
-	Restored.Timer.RunCycles(4);
+	CopyState(Saved.DividerTimer, Restored.DividerTimer);
+	Restored.DividerTimer.RunCycles(4);
 
 	EXPECT_EQ(0xf0, Restored.Counter());
 	EXPECT_TRUE(Restored.TimerInterruptRequested());
@@ -114,23 +114,23 @@ TEST_F(TimerStateTest, RestoredBetweenOverflowAndReloadStillReloads)
 
 TEST_F(TimerStateTest, RestoredInTheReloadCycleStillIgnoresCounterWrites)
 {
-	Saved.Timer.RunCycles(20);
+	Saved.DividerTimer.RunCycles(20);
 	ASSERT_EQ(0xf0, Saved.Counter());
 
-	CopyState(Saved.Timer, Restored.Timer);
-	Restored.Timer.WriteRegister(CounterReg, 0x42);
+	CopyState(Saved.DividerTimer, Restored.DividerTimer);
+	Restored.DividerTimer.WriteRegister(CounterReg, 0x42);
 
 	EXPECT_EQ(0xf0, Restored.Counter());
 }
 
 TEST_F(TimerStateTest, RestoredMidPeriodCountsAtTheSameTime)
 {
-	Saved.Timer.RunCycles(7);
+	Saved.DividerTimer.RunCycles(7);
 
-	CopyState(Saved.Timer, Restored.Timer);
-	Restored.Timer.RunCycles(8);
+	CopyState(Saved.DividerTimer, Restored.DividerTimer);
+	Restored.DividerTimer.RunCycles(8);
 	EXPECT_EQ(0xff, Restored.Counter());
-	Restored.Timer.RunCycles(1);
+	Restored.DividerTimer.RunCycles(1);
 	EXPECT_EQ(0, Restored.Counter());
 }
 
@@ -140,10 +140,10 @@ namespace
 	struct PpuRig
 	{
 		InputJoypad Joypad;
-		TestMemoryMap MemoryMap{ Joypad };
-		TestCpu Cpu{ MemoryMap };
-		::SpriteManager SpriteManager;
-		TestGraphics Ppu{ Cpu, MemoryMap, SpriteManager };
+		TestMemoryMap Memory{ Joypad };
+		TestCpu Processor{ Memory };
+		SpriteManager Sprites;
+		TestGraphics Ppu{ Processor, Memory, Sprites };
 
 		void Run(int clocks)
 		{

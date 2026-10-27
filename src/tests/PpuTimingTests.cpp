@@ -26,16 +26,16 @@ class PpuTimingTests : public GraphicsTestFixture
 public:
 	PpuTimingTests()
 	{
-		Cpu.WaitingInterrupts() = 0;
+		Processor.WaitingInterrupts() = 0;
 	}
 
 	int Mode() { return ReadRegister(TestGraphics::RegLcdStatus) & 3; }
 	int Ly() { return ReadRegister(TestGraphics::RegLineCount); }
 	bool LycFlagSet() { return (ReadRegister(TestGraphics::RegLcdStatus) & LycFlag) != 0; }
 
-	bool StatRequested() { return (Cpu.WaitingInterrupts() & InterruptFlags::LcdStatInt) != 0; }
-	bool VBlankRequested() { return (Cpu.WaitingInterrupts() & InterruptFlags::VBlankInt) != 0; }
-	void ClearInterrupts() { Cpu.WaitingInterrupts() = 0; }
+	bool StatRequested() { return (Processor.WaitingInterrupts() & InterruptFlags::LcdStatInt) != 0; }
+	bool VBlankRequested() { return (Processor.WaitingInterrupts() & InterruptFlags::VBlankInt) != 0; }
+	void ClearInterrupts() { Processor.WaitingInterrupts() = 0; }
 
 	void SetStat(unsigned char value) { WriteRegister(TestGraphics::RegLcdStatus, value); }
 	void SetLyc(unsigned char value) { WriteRegister(TestGraphics::RegLineCompare, value); }
@@ -407,17 +407,17 @@ TEST_F(PpuTimingTests, TurningLcdOnWithLycMatchAlreadySetRequestsNoInterrupt)
 TEST_F(PpuTimingTests, CpuCannotReadOamFromLineStartToHBlank)
 {
 	// Mooneye-test-suite's lcdon_timing-GS
-	MemoryMap.WriteByte(OamAddress, 0x12);
+	Memory.WriteByte(OamAddress, 0x12);
 	TurnOn();
 
 	for (auto position : { 0, 4, 80, 84, HBlankStart - 4 })
 	{
 		RunTo(1, position);
-		EXPECT_EQ(0xff, MemoryMap.ReadByte(OamAddress)) << "at " << position;
+		EXPECT_EQ(0xff, Memory.ReadByte(OamAddress)) << "at " << position;
 	}
 
 	RunTo(1, HBlankStart);
-	EXPECT_EQ(0x12, MemoryMap.ReadByte(OamAddress));
+	EXPECT_EQ(0x12, Memory.ReadByte(OamAddress));
 }
 
 TEST_F(PpuTimingTests, CpuCanWriteOamOnlyAtLineStartLastScanCycleAndHBlank)
@@ -430,35 +430,35 @@ TEST_F(PpuTimingTests, CpuCanWriteOamOnlyAtLineStartLastScanCycleAndHBlank)
 	for (unsigned short i = 0; i < 7; i++)
 	{
 		RunTo(1, positions[i]);
-		MemoryMap.WriteByte(OamAddress + i, 1);
+		Memory.WriteByte(OamAddress + i, 1);
 	}
 
 	RunTo(Graphics::VertPixels, 8);
 	for (unsigned short i = 0; i < 7; i++)
 	{
-		EXPECT_EQ(allowed[i] ? 1 : 0, MemoryMap.ReadByte(OamAddress + i)) << "written at " << positions[i];
+		EXPECT_EQ(allowed[i] ? 1 : 0, Memory.ReadByte(OamAddress + i)) << "written at " << positions[i];
 	}
 }
 
 TEST_F(PpuTimingTests, CpuCannotReadVramFromLastScanCycleNorWriteItInMode3)
 {
 	// Mooneye-test-suite's lcdon_timing-GS and lcdon_write_timing-GS
-	MemoryMap.WriteByte(VramAddress, 0x56);
+	Memory.WriteByte(VramAddress, 0x56);
 	TurnOn();
 
 	RunTo(1, 76);
-	EXPECT_EQ(0x56, MemoryMap.ReadByte(VramAddress));
+	EXPECT_EQ(0x56, Memory.ReadByte(VramAddress));
 
 	RunTo(1, 80);
-	EXPECT_EQ(0xff, MemoryMap.ReadByte(VramAddress));
-	MemoryMap.WriteByte(VramAddress, 0x78);
+	EXPECT_EQ(0xff, Memory.ReadByte(VramAddress));
+	Memory.WriteByte(VramAddress, 0x78);
 
 	RunTo(1, 84);
-	MemoryMap.WriteByte(VramAddress, 0x9a);
-	EXPECT_EQ(0xff, MemoryMap.ReadByte(VramAddress));
+	Memory.WriteByte(VramAddress, 0x9a);
+	EXPECT_EQ(0xff, Memory.ReadByte(VramAddress));
 
 	RunTo(1, HBlankStart);
-	EXPECT_EQ(0x78, MemoryMap.ReadByte(VramAddress));
+	EXPECT_EQ(0x78, Memory.ReadByte(VramAddress));
 }
 
 TEST_F(PpuTimingTests, CpuCanAccessVramAndOamOnFirstLineUntilMode3)
@@ -466,34 +466,34 @@ TEST_F(PpuTimingTests, CpuCanAccessVramAndOamOnFirstLineUntilMode3)
 	TurnOn();
 	RunTo(0, 80);
 
-	MemoryMap.WriteByte(VramAddress, 0x11);
-	MemoryMap.WriteByte(OamAddress, 0x22);
-	EXPECT_EQ(0x11, MemoryMap.ReadByte(VramAddress));
-	EXPECT_EQ(0x22, MemoryMap.ReadByte(OamAddress));
+	Memory.WriteByte(VramAddress, 0x11);
+	Memory.WriteByte(OamAddress, 0x22);
+	EXPECT_EQ(0x11, Memory.ReadByte(VramAddress));
+	EXPECT_EQ(0x22, Memory.ReadByte(OamAddress));
 }
 
 TEST_F(PpuTimingTests, CpuCanAccessVramAndOamInVBlankAndWhileLcdIsOff)
 {
-	MemoryMap.WriteByte(VramAddress, 0x11);
-	MemoryMap.WriteByte(OamAddress, 0x22);
-	EXPECT_EQ(0x11, MemoryMap.ReadByte(VramAddress));
-	EXPECT_EQ(0x22, MemoryMap.ReadByte(OamAddress));
+	Memory.WriteByte(VramAddress, 0x11);
+	Memory.WriteByte(OamAddress, 0x22);
+	EXPECT_EQ(0x11, Memory.ReadByte(VramAddress));
+	EXPECT_EQ(0x22, Memory.ReadByte(OamAddress));
 
 	TurnOn();
 	RunTo(150, 100);
-	MemoryMap.WriteByte(VramAddress, 0x33);
-	MemoryMap.WriteByte(OamAddress, 0x44);
-	EXPECT_EQ(0x33, MemoryMap.ReadByte(VramAddress));
-	EXPECT_EQ(0x44, MemoryMap.ReadByte(OamAddress));
+	Memory.WriteByte(VramAddress, 0x33);
+	Memory.WriteByte(OamAddress, 0x44);
+	EXPECT_EQ(0x33, Memory.ReadByte(VramAddress));
+	EXPECT_EQ(0x44, Memory.ReadByte(OamAddress));
 }
 
 TEST_F(PpuTimingTests, UnusableAreaAfterOamReadsZeroOrFFWhileOamIsBlocked)
 {
-	EXPECT_EQ(0, MemoryMap.ReadByte(0xfea0));
+	EXPECT_EQ(0, Memory.ReadByte(0xfea0));
 
 	TurnOn();
 	RunTo(1, 0);
-	EXPECT_EQ(0xff, MemoryMap.ReadByte(0xfea0));
+	EXPECT_EQ(0xff, Memory.ReadByte(0xfea0));
 }
 
 class Mode3LengthTests : public PpuTimingTests
@@ -513,14 +513,14 @@ public:
 	void SetSprite(int index, unsigned char x)
 	{
 		// On lines 0-7
-		Graphics.WriteOamDirect(static_cast<unsigned short>(index * 4), 16);
-		Graphics.WriteOamDirect(static_cast<unsigned short>(index * 4 + 1), x);
+		Ppu.WriteOamDirect(static_cast<unsigned short>(index * 4), 16);
+		Ppu.WriteOamDirect(static_cast<unsigned short>(index * 4 + 1), x);
 	}
 
 	Mode3LengthTests()
 	{
 		// Every sprite off screen above
-		for (unsigned short i = 0; i < Graphics::OamSize; i++) Graphics.WriteOamDirect(i, 0);
+		for (unsigned short i = 0; i < Graphics::OamSize; i++) Ppu.WriteOamDirect(i, 0);
 	}
 };
 
@@ -596,16 +596,16 @@ TEST_F(PpuFrameTests, FrameCompletesAsVBlankStarts)
 	TurnOn();
 
 	RunTo(Graphics::VertPixels, 0);
-	EXPECT_FALSE(Graphics.TakeCompletedFrame());
+	EXPECT_FALSE(Ppu.TakeCompletedFrame());
 
 	RunTo(Graphics::VertPixels, 4);
-	EXPECT_TRUE(Graphics.TakeCompletedFrame());
-	EXPECT_FALSE(Graphics.TakeCompletedFrame());
+	EXPECT_TRUE(Ppu.TakeCompletedFrame());
+	EXPECT_FALSE(Ppu.TakeCompletedFrame());
 
 	Run(Graphics::FrameClocks - 4);
-	EXPECT_FALSE(Graphics.TakeCompletedFrame());
+	EXPECT_FALSE(Ppu.TakeCompletedFrame());
 	Run(4);
-	EXPECT_TRUE(Graphics.TakeCompletedFrame());
+	EXPECT_TRUE(Ppu.TakeCompletedFrame());
 }
 
 TEST_F(PpuFrameTests, FramesCompleteEveryFrameClocksWhileLcdIsOff)
@@ -613,9 +613,9 @@ TEST_F(PpuFrameTests, FramesCompleteEveryFrameClocksWhileLcdIsOff)
 	for (auto frame = 0; frame < 3; frame++)
 	{
 		Run(Graphics::FrameClocks - 4);
-		EXPECT_FALSE(Graphics.TakeCompletedFrame());
+		EXPECT_FALSE(Ppu.TakeCompletedFrame());
 		Run(4);
-		EXPECT_TRUE(Graphics.TakeCompletedFrame());
+		EXPECT_TRUE(Ppu.TakeCompletedFrame());
 	}
 }
 
@@ -623,14 +623,14 @@ TEST_F(PpuFrameTests, FramesKeepTheirCadenceWhenLcdIsTurnedOff)
 {
 	TurnOn();
 	RunTo(Graphics::VertPixels, 4);
-	ASSERT_TRUE(Graphics.TakeCompletedFrame());
+	ASSERT_TRUE(Ppu.TakeCompletedFrame());
 
 	Run(1000);
 	WriteRegister(TestGraphics::RegLcdControl, 0);
 	Run(Graphics::FrameClocks - 1000 - 4);
-	EXPECT_FALSE(Graphics.TakeCompletedFrame());
+	EXPECT_FALSE(Ppu.TakeCompletedFrame());
 	Run(4);
-	EXPECT_TRUE(Graphics.TakeCompletedFrame());
+	EXPECT_TRUE(Ppu.TakeCompletedFrame());
 }
 
 TEST_F(PpuFrameTests, FrameTheLcdIsTurnedOnInEndsAtItsFirstVBlank)
@@ -642,10 +642,10 @@ TEST_F(PpuFrameTests, FrameTheLcdIsTurnedOnInEndsAtItsFirstVBlank)
 	Run(clocksOffBeforeTurnOn);
 	TurnOn();
 	Run(turnOnToVBlank - 4);
-	EXPECT_FALSE(Graphics.TakeCompletedFrame());
+	EXPECT_FALSE(Ppu.TakeCompletedFrame());
 
 	Run(4);
-	EXPECT_TRUE(Graphics.TakeCompletedFrame());
+	EXPECT_TRUE(Ppu.TakeCompletedFrame());
 }
 
 TEST_F(PpuFrameTests, FirstFrameAfterTurningLcdOnIsBlank)
@@ -655,12 +655,12 @@ TEST_F(PpuFrameTests, FirstFrameAfterTurningLcdOnIsBlank)
 	TurnOn(0x01);
 
 	RunTo(Graphics::VertPixels, 4);
-	ASSERT_TRUE(Graphics.TakeCompletedFrame());
-	EXPECT_EQ(-1, Graphics.Bitmap[0]);
+	ASSERT_TRUE(Ppu.TakeCompletedFrame());
+	EXPECT_EQ(-1, Ppu.Bitmap[0]);
 
 	Run(Graphics::FrameClocks);
-	ASSERT_TRUE(Graphics.TakeCompletedFrame());
-	EXPECT_EQ(Graphics::ShadeColour(3), Graphics.Bitmap[0]);
+	ASSERT_TRUE(Ppu.TakeCompletedFrame());
+	EXPECT_EQ(Graphics::ShadeColour(3), Ppu.Bitmap[0]);
 }
 
 TEST_F(PpuFrameTests, FrameWhileLcdIsOffIsBlank)
@@ -669,10 +669,10 @@ TEST_F(PpuFrameTests, FrameWhileLcdIsOffIsBlank)
 	WriteRegister(TestGraphics::RegLcdControl, 0);
 	Run(Graphics::FrameClocks);
 
-	ASSERT_TRUE(Graphics.TakeCompletedFrame());
+	ASSERT_TRUE(Ppu.TakeCompletedFrame());
 	for (auto pixel = 0u; pixel < Graphics::HozPixels * Graphics::VertPixels; pixel++)
 	{
-		ASSERT_EQ(-1, Graphics.Bitmap[pixel]) << "pixel " << pixel;
+		ASSERT_EQ(-1, Ppu.Bitmap[pixel]) << "pixel " << pixel;
 	}
 }
 
@@ -691,12 +691,12 @@ TEST_F(PpuFrameTests, FramesStayBlankWhileLcdIsTurnedOffEveryFrame)
 		for (auto clocks = 0; clocks < lines * static_cast<int>(Graphics::ScanlineClocks); clocks += 4)
 		{
 			Run(4);
-			if (!Graphics.TakeCompletedFrame()) continue;
+			if (!Ppu.TakeCompletedFrame()) continue;
 
 			if (ReadRegister(TestGraphics::RegLcdControl) & 0x80) framesWithLcdOn++;
 			for (auto pixel = 0u; pixel < Graphics::HozPixels * Graphics::VertPixels; pixel++)
 			{
-				ASSERT_EQ(-1, Graphics.Bitmap[pixel]) << "pixel " << pixel;
+				ASSERT_EQ(-1, Ppu.Bitmap[pixel]) << "pixel " << pixel;
 			}
 		}
 	};

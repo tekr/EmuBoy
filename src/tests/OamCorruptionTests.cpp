@@ -69,13 +69,13 @@ public:
 	// Every byte different, as in blargg's tests
 	OamCorruptionTests()
 	{
-		for (unsigned short i = 0; i < Graphics::OamSize; i++) Graphics.WriteOamDirect(i, static_cast<unsigned char>(i + 0x0c));
+		for (unsigned short i = 0; i < Graphics::OamSize; i++) Ppu.WriteOamDirect(i, static_cast<unsigned char>(i + 0x0c));
 	}
 
 	Oam CurrentOam() const
 	{
 		Oam oam;
-		for (unsigned short i = 0; i < Graphics::OamSize; i++) oam[i] = Graphics.OamByte(i);
+		for (unsigned short i = 0; i < Graphics::OamSize; i++) oam[i] = Ppu.OamByte(i);
 		return oam;
 	}
 };
@@ -87,7 +87,7 @@ TEST_F(OamCorruptionTests, WriteCorruptsRowBeingScanned)
 
 	TurnOn();
 	RunTo(1, RowPosition(6));
-	Graphics.CorruptOam(OamCorruption::Write);
+	Ppu.CorruptOam(OamCorruption::Write);
 
 	EXPECT_EQ(expected, CurrentOam());
 }
@@ -99,7 +99,7 @@ TEST_F(OamCorruptionTests, ReadCorruptsRowBeingScanned)
 
 	TurnOn();
 	RunTo(1, RowPosition(9));
-	Graphics.CorruptOam(OamCorruption::Read);
+	Ppu.CorruptOam(OamCorruption::Read);
 
 	EXPECT_EQ(expected, CurrentOam());
 }
@@ -111,7 +111,7 @@ TEST_F(OamCorruptionTests, ReadDuringIncDecCorruptsThreeRows)
 
 	TurnOn();
 	RunTo(1, RowPosition(6));
-	Graphics.CorruptOam(OamCorruption::ReadDuringIncDec);
+	Ppu.CorruptOam(OamCorruption::ReadDuringIncDec);
 
 	EXPECT_EQ(expected, CurrentOam());
 }
@@ -125,7 +125,7 @@ TEST_F(OamCorruptionTests, ReadDuringIncDecIsAPlainReadInFirstFourRowsAndLastRow
 
 		TurnOn();
 		RunTo(1, RowPosition(row));
-		Graphics.CorruptOam(OamCorruption::ReadDuringIncDec);
+		Ppu.CorruptOam(OamCorruption::ReadDuringIncDec);
 
 		EXPECT_EQ(expected, CurrentOam()) << "row " << row;
 	}
@@ -141,7 +141,7 @@ TEST_F(OamCorruptionTests, EachRowIsCorruptedInItsMachineCycleOfTheScan)
 		WriteCorruption(expected, row);
 
 		RunTo(1 + row, RowPosition(row));
-		Graphics.CorruptOam(OamCorruption::Write);
+		Ppu.CorruptOam(OamCorruption::Write);
 
 		EXPECT_EQ(expected, CurrentOam()) << "row " << row;
 	}
@@ -152,24 +152,24 @@ TEST_F(OamCorruptionTests, NothingIsCorruptedOutsideTheScanOrInTheFirstRow)
 	auto original = CurrentOam();
 
 	// LCD off
-	Graphics.CorruptOam(OamCorruption::Write);
+	Ppu.CorruptOam(OamCorruption::Write);
 	EXPECT_EQ(original, CurrentOam());
 
 	// The first line after the LCD is turned on has no OAM scan
 	TurnOn();
-	Graphics.CorruptOam(OamCorruption::Write);
+	Ppu.CorruptOam(OamCorruption::Write);
 	EXPECT_EQ(original, CurrentOam());
 
 	// The first row, then just after the scan, mode 3, H-Blank and V-Blank
 	for (auto position : { 0, 80, 84, 300 })
 	{
 		RunTo(1, position);
-		Graphics.CorruptOam(OamCorruption::Write);
+		Ppu.CorruptOam(OamCorruption::Write);
 		EXPECT_EQ(original, CurrentOam()) << "at " << position;
 	}
 
 	RunTo(Graphics::VertPixels, 20);
-	Graphics.CorruptOam(OamCorruption::Write);
+	Ppu.CorruptOam(OamCorruption::Write);
 	EXPECT_EQ(original, CurrentOam());
 }
 
@@ -178,20 +178,20 @@ class CpuOamCorruptionTests : public OamCorruptionTests
 {
 	class PpuClock : public ClockedHardware
 	{
-		::Graphics& _graphics;
+		Graphics& _graphics;
 
 	public:
-		explicit PpuClock(::Graphics& graphics) : _graphics(graphics) {}
+		explicit PpuClock(Graphics& graphics) : _graphics(graphics) {}
 		void RunCycles(int cycles) override { _graphics.RunCycles(cycles); }
 	};
 
-	PpuClock _clock{ Graphics };
+	PpuClock _clock{ Ppu };
 
 public:
 	CpuOamCorruptionTests()
 	{
-		Cpu.SetClockedHardware(&_clock);
-		Cpu.Registers().PC = 0;
+		Processor.SetClockedHardware(&_clock);
+		Processor.GetRegisters().PC = 0;
 		TurnOn();
 	}
 
@@ -199,9 +199,9 @@ public:
 	// which the PPU scans the row
 	void RunInstruction(std::vector<unsigned char>&& instruction, int cycle, int row)
 	{
-		MemoryMap.SetBytes(MemoryMap::RomFixed, std::move(instruction));
+		Memory.SetBytes(MemoryMap::RomFixed, std::move(instruction));
 		RunTo(1, RowPosition(row) - 4 * cycle);
-		Cpu.DoNextInstruction();
+		Processor.DoNextInstruction();
 	}
 };
 
@@ -211,11 +211,11 @@ TEST_F(CpuOamCorruptionTests, IncrementOfRegisterPairHoldingOamAddressIsAWrite)
 	auto expected = CurrentOam();
 	WriteCorruption(expected, 7);
 
-	Cpu.Registers().DE = 0xfe00;
+	Processor.GetRegisters().DE = 0xfe00;
 	RunInstruction({ 0x13 }, 2, 7);
 
 	EXPECT_EQ(expected, CurrentOam());
-	EXPECT_EQ(0xfe01, Cpu.Registers().DE);
+	EXPECT_EQ(0xfe01, Processor.GetRegisters().DE);
 }
 
 TEST_F(CpuOamCorruptionTests, DecrementOfAnyAddressFromFE00ToFEFFIsAWrite)
@@ -224,7 +224,7 @@ TEST_F(CpuOamCorruptionTests, DecrementOfAnyAddressFromFE00ToFEFFIsAWrite)
 	auto expected = CurrentOam();
 	WriteCorruption(expected, 7);
 
-	Cpu.Registers().SP = 0xfeff;
+	Processor.GetRegisters().SP = 0xfeff;
 	RunInstruction({ 0x3b }, 2, 7);
 
 	EXPECT_EQ(expected, CurrentOam());
@@ -234,7 +234,7 @@ TEST_F(CpuOamCorruptionTests, IncrementOutsideOamDoesNothing)
 {
 	auto original = CurrentOam();
 
-	Cpu.Registers().DE = 0xfd00;
+	Processor.GetRegisters().DE = 0xfd00;
 	RunInstruction({ 0x13 }, 2, 7);
 
 	EXPECT_EQ(original, CurrentOam());
@@ -245,8 +245,8 @@ TEST_F(CpuOamCorruptionTests, SixteenBitAddDoesNothing)
 	// Blargg's 3-non_causes: ADD HL,DE
 	auto original = CurrentOam();
 
-	Cpu.Registers().HL = 0xfe00;
-	Cpu.Registers().DE = 0x0001;
+	Processor.GetRegisters().HL = 0xfe00;
+	Processor.GetRegisters().DE = 0x0001;
 	RunInstruction({ 0x19 }, 2, 7);
 
 	EXPECT_EQ(original, CurrentOam());
@@ -258,11 +258,11 @@ TEST_F(CpuOamCorruptionTests, LoadWithIncrementIsAReadDuringIncDec)
 	auto expected = CurrentOam();
 	ReadDuringIncDecCorruption(expected, 8);
 
-	Cpu.Registers().HL = 0xfe40;
+	Processor.GetRegisters().HL = 0xfe40;
 	RunInstruction({ 0x2a }, 2, 8);
 
 	EXPECT_EQ(expected, CurrentOam());
-	EXPECT_EQ(0xff, Cpu.Registers().A);
+	EXPECT_EQ(0xff, Processor.GetRegisters().A);
 }
 
 TEST_F(CpuOamCorruptionTests, PopIsAReadDuringIncDecThenARead)
@@ -272,7 +272,7 @@ TEST_F(CpuOamCorruptionTests, PopIsAReadDuringIncDecThenARead)
 	ReadDuringIncDecCorruption(expected, 8);
 	ReadCorruption(expected, 9);
 
-	Cpu.Registers().SP = 0xfef0;
+	Processor.GetRegisters().SP = 0xfef0;
 	RunInstruction({ 0xc1 }, 2, 8);
 
 	EXPECT_EQ(expected, CurrentOam());
@@ -286,7 +286,7 @@ TEST_F(CpuOamCorruptionTests, PushIsThreeWrites)
 	WriteCorruption(expected, 9);
 	WriteCorruption(expected, 10);
 
-	Cpu.Registers().SP = 0xfef0;
+	Processor.GetRegisters().SP = 0xfef0;
 	RunInstruction({ 0xc5 }, 2, 8);
 
 	EXPECT_EQ(expected, CurrentOam());

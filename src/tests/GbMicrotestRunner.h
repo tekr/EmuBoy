@@ -20,7 +20,7 @@ public:
 
 	struct Result
 	{
-		GbMicrotestRunner::Outcome Outcome;
+		Outcome Status;
 		unsigned char Actual;
 		unsigned char Expected;
 	};
@@ -60,8 +60,8 @@ inline std::ostream& operator<<(std::ostream& os, const GbMicrotestRunner::Resul
 {
 	static const char* outcomes[] = { "ROM not found (run the tests from src/tests)", "timed out", "passed", "failed" };
 
-	os << outcomes[static_cast<int>(result.Outcome)];
-	if (result.Outcome == GbMicrotestRunner::Outcome::RomNotFound) return os;
+	os << outcomes[static_cast<int>(result.Status)];
+	if (result.Status == GbMicrotestRunner::Outcome::RomNotFound) return os;
 
 	return os << std::hex << ", reading $" << +result.Actual << " where $" << +result.Expected << " was expected";
 }

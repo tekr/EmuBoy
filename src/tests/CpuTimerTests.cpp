@@ -21,50 +21,48 @@ namespace
 class CpuTimerTests : public CpuTestFixture
 {
 public:
-	// Members named after their types qualify the type with :: so the name's meaning doesn't change within the
-	// class, which GCC rejects
-	::Timer Timer;
-	TimerTestHardware Hardware{ Timer };
+	Timer DividerTimer;
+	TimerTestHardware Hardware{ DividerTimer };
 
 	CpuTimerTests()
 	{
-		Timer.SetCpu(&Cpu);
-		MemoryMap.SetTimer(&Timer);
-		Cpu.SetClockedHardware(&Hardware);
+		DividerTimer.SetCpu(&Processor);
+		Memory.SetTimer(&DividerTimer);
+		Processor.SetClockedHardware(&Hardware);
 
-		Cpu.Registers().PC = 0;
-		Cpu.Registers().SP = StackTop;
-		Cpu.InterruptsEnabled() = false;
-		Cpu.EnabledInterrupts() = InterruptFlags::TimerInt;
-		Cpu.WaitingInterrupts() = 0;
+		Processor.GetRegisters().PC = 0;
+		Processor.GetRegisters().SP = StackTop;
+		Processor.InterruptsEnabled() = false;
+		Processor.EnabledInterrupts() = InterruptFlags::TimerInt;
+		Processor.WaitingInterrupts() = 0;
 
 		// Divider at 0, so TIMA next increments (and overflows) at the end of the 4th machine cycle
-		MemoryMap.WriteByte(MemoryMap::DividerPort, 0);
-		MemoryMap.WriteByte(TmaAddress, 0xf0);
-		MemoryMap.WriteByte(TimaAddress, 0xff);
-		MemoryMap.WriteByte(TacAddress, TacMode1);
+		Memory.WriteByte(MemoryMap::DividerPort, 0);
+		Memory.WriteByte(TmaAddress, 0xf0);
+		Memory.WriteByte(TimaAddress, 0xff);
+		Memory.WriteByte(TacAddress, TacMode1);
 	}
 
-	unsigned char Tima() { return MemoryMap.ReadByte(TimaAddress); }
-	bool TimerInterruptRequested() { return (Cpu.WaitingInterrupts() & InterruptFlags::TimerInt) != 0; }
+	unsigned char Tima() { return Memory.ReadByte(TimaAddress); }
+	bool TimerInterruptRequested() { return (Processor.WaitingInterrupts() & InterruptFlags::TimerInt) != 0; }
 };
 
 TEST_F(CpuTimerTests, InterruptRequestedDuringOpcodeFetchIsDispatchedInsteadOfTheInstruction)
 {
 	// Disabling the timer in the third cycle of LDH, with divider bit 3 set (divider 12), overflows TIMA. The
 	// interrupt is requested a cycle later, during the next opcode fetch, which still sees it
-	MemoryMap.SetBytes(MemoryMap::RomFixed, { 0xe0, 0x07, 0x3c });	// LDH (TAC),A; INC A
-	Cpu.Registers().A = 0x01;
-	Cpu.InterruptsEnabled() = true;
+	Memory.SetBytes(MemoryMap::RomFixed, { 0xe0, 0x07, 0x3c });	// LDH (TAC),A; INC A
+	Processor.GetRegisters().A = 0x01;
+	Processor.InterruptsEnabled() = true;
 
 	Step(1);
 	EXPECT_EQ(0, Tima());
 	EXPECT_FALSE(TimerInterruptRequested());
 
 	Step(1);
-	EXPECT_EQ(0x50, Cpu.Registers().PC);
-	EXPECT_EQ(0x01, Cpu.Registers().A);
-	EXPECT_EQ(0x02, MemoryMap.ReadByte(StackTop - 2));
+	EXPECT_EQ(0x50, Processor.GetRegisters().PC);
+	EXPECT_EQ(0x01, Processor.GetRegisters().A);
+	EXPECT_EQ(0x02, Memory.ReadByte(StackTop - 2));
 	EXPECT_EQ(0xf0, Tima());
 }
 
@@ -73,8 +71,8 @@ TEST_F(CpuTimerTests, InterruptRequestedDuringOpcodeFetchIsDispatchedInsteadOfTh
 
 TEST_F(CpuTimerTests, TimaWriteInCycleACancelsReloadAndInterrupt)
 {
-	MemoryMap.SetBytes(MemoryMap::RomFixed, { 0x00, 0xe0, 0x05, 0x00 });	// NOP; LDH (TIMA),A; NOP
-	Cpu.Registers().A = 0x42;
+	Memory.SetBytes(MemoryMap::RomFixed, { 0x00, 0xe0, 0x05, 0x00 });	// NOP; LDH (TIMA),A; NOP
+	Processor.GetRegisters().A = 0x42;
 
 	Step(3);
 	EXPECT_EQ(0x42, Tima());
@@ -83,8 +81,8 @@ TEST_F(CpuTimerTests, TimaWriteInCycleACancelsReloadAndInterrupt)
 
 TEST_F(CpuTimerTests, TmaWriteInCycleAIsReloaded)
 {
-	MemoryMap.SetBytes(MemoryMap::RomFixed, { 0x00, 0xe0, 0x06, 0x00 });	// NOP; LDH (TMA),A; NOP
-	Cpu.Registers().A = 0x37;
+	Memory.SetBytes(MemoryMap::RomFixed, { 0x00, 0xe0, 0x06, 0x00 });	// NOP; LDH (TMA),A; NOP
+	Processor.GetRegisters().A = 0x37;
 
 	Step(3);
 	EXPECT_EQ(0x37, Tima());
@@ -93,8 +91,8 @@ TEST_F(CpuTimerTests, TmaWriteInCycleAIsReloaded)
 
 TEST_F(CpuTimerTests, TimaWriteInCycleBIsIgnored)
 {
-	MemoryMap.SetBytes(MemoryMap::RomFixed, { 0x00, 0x00, 0xe0, 0x05 });	// NOP; NOP; LDH (TIMA),A
-	Cpu.Registers().A = 0x42;
+	Memory.SetBytes(MemoryMap::RomFixed, { 0x00, 0x00, 0xe0, 0x05 });	// NOP; NOP; LDH (TIMA),A
+	Processor.GetRegisters().A = 0x42;
 
 	Step(3);
 	EXPECT_EQ(0xf0, Tima());
@@ -103,8 +101,8 @@ TEST_F(CpuTimerTests, TimaWriteInCycleBIsIgnored)
 
 TEST_F(CpuTimerTests, TmaWriteInCycleBAlsoLoadsTima)
 {
-	MemoryMap.SetBytes(MemoryMap::RomFixed, { 0x00, 0x00, 0xe0, 0x06 });	// NOP; NOP; LDH (TMA),A
-	Cpu.Registers().A = 0x37;
+	Memory.SetBytes(MemoryMap::RomFixed, { 0x00, 0x00, 0xe0, 0x06 });	// NOP; NOP; LDH (TMA),A
+	Processor.GetRegisters().A = 0x37;
 
 	Step(3);
 	EXPECT_EQ(0x37, Tima());
@@ -113,8 +111,8 @@ TEST_F(CpuTimerTests, TmaWriteInCycleBAlsoLoadsTima)
 TEST_F(CpuTimerTests, DisablingTimerInCycleADoesNotStopReload)
 {
 	// Divider bit 3 is clear at 16, so disabling causes no extra increment
-	MemoryMap.SetBytes(MemoryMap::RomFixed, { 0x00, 0xe0, 0x07, 0x00 });	// NOP; LDH (TAC),A; NOP
-	Cpu.Registers().A = 0x01;
+	Memory.SetBytes(MemoryMap::RomFixed, { 0x00, 0xe0, 0x07, 0x00 });	// NOP; LDH (TAC),A; NOP
+	Processor.GetRegisters().A = 0x01;
 
 	Step(3);
 	EXPECT_EQ(0xf0, Tima());
@@ -124,7 +122,7 @@ TEST_F(CpuTimerTests, DisablingTimerInCycleADoesNotStopReload)
 TEST_F(CpuTimerTests, DivWriteInCycleBKeepsReloadAndRestartsPeriod)
 {
 	// Divider 20 has bit 3 clear, so the reset causes no extra increment. The next comes 16 cycles later
-	MemoryMap.SetBytes(MemoryMap::RomFixed, { 0x00, 0x00, 0xe0, 0x04, 0x00, 0x00, 0x00, 0x00 });
+	Memory.SetBytes(MemoryMap::RomFixed, { 0x00, 0x00, 0xe0, 0x04, 0x00, 0x00, 0x00, 0x00 });
 
 	Step(3);
 	EXPECT_EQ(0xf0, Tima());
@@ -141,9 +139,9 @@ TEST_F(CpuTimerTests, EarliestTimaWriteAfterWriteTriggeredOverflowFollowsTheRelo
 {
 	// LDH (TAC),A overflows TIMA in its last cycle (divider 12, bit 3 set); the reload happens during the next opcode fetch and its
 	// cycle ends with the operand read, so LD (HL),d8 writes after both
-	MemoryMap.SetBytes(MemoryMap::RomFixed, { 0xe0, 0x07, 0x36, 0x42 });	// LDH (TAC),A; LD (HL),$42
-	Cpu.Registers().A = 0x01;
-	Cpu.Registers().HL = TimaAddress;
+	Memory.SetBytes(MemoryMap::RomFixed, { 0xe0, 0x07, 0x36, 0x42 });	// LDH (TAC),A; LD (HL),$42
+	Processor.GetRegisters().A = 0x01;
+	Processor.GetRegisters().HL = TimaAddress;
 
 	Step(2);
 	EXPECT_EQ(0x42, Tima());
@@ -152,11 +150,11 @@ TEST_F(CpuTimerTests, EarliestTimaWriteAfterWriteTriggeredOverflowFollowsTheRelo
 
 TEST_F(CpuTimerTests, EarliestTmaWriteAfterWriteTriggeredOverflowDoesNotLoadTima)
 {
-	MemoryMap.SetBytes(MemoryMap::RomFixed, { 0xe0, 0x07, 0x36, 0x42 });	// LDH (TAC),A; LD (HL),$42
-	Cpu.Registers().A = 0x01;
-	Cpu.Registers().HL = TmaAddress;
+	Memory.SetBytes(MemoryMap::RomFixed, { 0xe0, 0x07, 0x36, 0x42 });	// LDH (TAC),A; LD (HL),$42
+	Processor.GetRegisters().A = 0x01;
+	Processor.GetRegisters().HL = TmaAddress;
 
 	Step(2);
 	EXPECT_EQ(0xf0, Tima());
-	EXPECT_EQ(0x42, MemoryMap.ReadByte(TmaAddress));
+	EXPECT_EQ(0x42, Memory.ReadByte(TmaAddress));
 }

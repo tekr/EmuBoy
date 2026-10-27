@@ -36,17 +36,17 @@ namespace
 	{
 	public:
 		std::shared_ptr<Cartridge> Rom{ CartridgeFactory::LoadFromFile("roms/rtc3test/rtc3test.gb") };
-		std::unique_ptr<Emulator> Emu;
+		std::unique_ptr<Emulator> GameBoy;
 
 		void SetUp() override
 		{
 			ASSERT_NE(nullptr, Rom) << "ROM not found; run the tests from src/tests";
-			Emu.reset(new Emulator{ Rom });
+			GameBoy.reset(new Emulator{ Rom });
 		}
 
 		std::vector<std::vector<unsigned char>> Tiles() const
 		{
-			return ScreenText::ReadTiles(Emu->GetMemoryMap(), ScreenText::TileMap1);
+			return ScreenText::ReadTiles(GameBoy->GetMemoryMap(), ScreenText::TileMap1);
 		}
 
 		std::string Text() const
@@ -56,11 +56,11 @@ namespace
 
 		void Press(JoypadKey key)
 		{
-			Emu->GetJoypad().SetKeysDown(key);
-			for (auto frame = 0; frame < 10; frame++) Emu->GetFrame();
+			GameBoy->GetJoypad().SetKeysDown(key);
+			for (auto frame = 0; frame < 10; frame++) GameBoy->GetFrame();
 
-			Emu->GetJoypad().SetKeysDown(JoypadKey::NoKey);
-			for (auto frame = 0; frame < 10; frame++) Emu->GetFrame();
+			GameBoy->GetJoypad().SetKeysDown(JoypadKey::NoKey);
+			for (auto frame = 0; frame < 10; frame++) GameBoy->GetFrame();
 		}
 
 		// Runs frames until the screen shows the text
@@ -69,7 +69,7 @@ namespace
 			for (auto frame = 0; frame < maxFrames; frame++)
 			{
 				if (Text().find(text) != std::string::npos) return true;
-				Emu->GetFrame();
+				GameBoy->GetFrame();
 			}
 
 			return false;

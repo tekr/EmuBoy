@@ -10,21 +10,19 @@ class InputJoypad;
 class GraphicsTestFixture : public testing::Test
 {
 public:
-	// Members named after their types qualify the type with :: so the name's meaning doesn't change within the
-	// class, which GCC rejects
 	InputJoypad Joypad;
-	TestMemoryMap MemoryMap { Joypad };
-	TestCpu Cpu{ MemoryMap };
-	::SpriteManager SpriteManager{};
-	TestGraphics Graphics{ Cpu, MemoryMap, SpriteManager };
+	TestMemoryMap Memory { Joypad };
+	TestCpu Processor{ Memory };
+	SpriteManager Sprites{};
+	TestGraphics Ppu{ Processor, Memory, Sprites };
 
 	static const unsigned char DisplayOn = 0x80;
 
 	GraphicsTestFixture() {}
 	~GraphicsTestFixture();
 
-	unsigned char ReadRegister(unsigned short reg) { return MemoryMap.ReadByte(MemoryMap::VramRegisters + reg); }
-	void WriteRegister(unsigned short reg, unsigned char value) { MemoryMap.WriteByte(MemoryMap::VramRegisters + reg, value); }
+	unsigned char ReadRegister(unsigned short reg) { return Memory.ReadByte(MemoryMap::VramRegisters + reg); }
+	void WriteRegister(unsigned short reg, unsigned char value) { Memory.WriteByte(MemoryMap::VramRegisters + reg, value); }
 
 	// Runs the PPU a machine cycle at a time, as the emulator does
 	void Run(int clocks);

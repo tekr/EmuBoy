@@ -125,6 +125,13 @@ SFML 2.5 or 2.6 is needed; SFML 3 (the version packaged from Ubuntu 26.04) isn't
 tests as on macOS.
 
 
+## Writing tests
+Don't name a member after its type (`Timer Timer;`) or a type its type derives from (`TestCpu Cpu;`), or a member
+function after the type it returns (`Registers& Registers();`). GCC rejects a class in which a name changes meaning,
+so the Linux build fails, though Clang and MSVC accept it. The fixtures use names such as `Memory`, `Processor`,
+`Ppu`, `DividerTimer` and `GameBoy` instead.
+
+
 ## Current status
 As of now Emu Boy is still in its early stages and is very much a work in progress. It currently supports the following:
 

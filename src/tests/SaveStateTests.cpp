@@ -68,15 +68,15 @@ namespace
 	{
 	protected:
 		std::shared_ptr<Cartridge> Rom{ LoadRom() };
-		std::unique_ptr<Emulator> Emu;
+		std::unique_ptr<Emulator> GameBoy;
 		Bytes State;
 
 		void SetUp() override
 		{
 			ASSERT_NE(nullptr, Rom) << "ROM not found; run the tests from src/tests";
-			Emu = std::make_unique<Emulator>(Rom);
-			RunFrames(*Emu, 30);
-			State = SaveState::Create(*Emu);
+			GameBoy = std::make_unique<Emulator>(Rom);
+			RunFrames(*GameBoy, 30);
+			State = SaveState::Create(*GameBoy);
 		}
 
 		// Expects restoring the state to fail with a message containing the text, leaving the emulator as it was
@@ -137,7 +137,7 @@ TEST_F(SaveStateTest, HoldsASectionForEachComponentInOrder)
 
 TEST_F(SaveStateTest, SavingTwiceGivesTheSameState)
 {
-	EXPECT_TRUE(State == SaveState::Create(*Emu));
+	EXPECT_TRUE(State == SaveState::Create(*GameBoy));
 }
 
 TEST_F(SaveStateTest, RestoresIntoANewEmulator)
@@ -146,8 +146,8 @@ TEST_F(SaveStateTest, RestoresIntoANewEmulator)
 
 	ASSERT_EQ("", SaveState::Restore(restored, State));
 
-	EXPECT_TRUE(Emu->GetCpu().GetRegisters() == restored.GetCpu().GetRegisters());
-	EXPECT_EQ(Emu->GetCpuClocks(), restored.GetCpuClocks());
+	EXPECT_TRUE(GameBoy->GetCpu().GetRegisters() == restored.GetCpu().GetRegisters());
+	EXPECT_EQ(GameBoy->GetCpuClocks(), restored.GetCpuClocks());
 	EXPECT_TRUE(State == SaveState::Create(restored));
 }
 
@@ -159,7 +159,7 @@ TEST_F(SaveStateTest, SavesAndLoadsWithoutAnyLongDelay)
 	Emulator restored{ LoadRom() };
 
 	auto start = std::chrono::steady_clock::now();
-	auto state = SaveState::Create(*Emu);
+	auto state = SaveState::Create(*GameBoy);
 	auto saved = std::chrono::steady_clock::now();
 	auto error = SaveState::Restore(restored, state);
 	auto loaded = std::chrono::steady_clock::now();

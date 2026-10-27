@@ -13,11 +13,11 @@ TEST_F(GraphicsTestFixture, WindowXRegisterKeepsWrittenValue)
 {
 	const unsigned char windowX = 0x57;
 
-	MemoryMap.WriteByte(MemoryMap::VramRegisters + TestGraphics::RegWindowX, windowX);
+	Memory.WriteByte(MemoryMap::VramRegisters + TestGraphics::RegWindowX, windowX);
 	DrawFirstLine(0);
 	for (auto i = 0; i < 3; i++) DrawNextLine();
 
-	EXPECT_EQ(windowX, MemoryMap.ReadByte(MemoryMap::VramRegisters + TestGraphics::RegWindowX));
+	EXPECT_EQ(windowX, Memory.ReadByte(MemoryMap::VramRegisters + TestGraphics::RegWindowX));
 }
 
 TEST_F(GraphicsTestFixture, WindowDrawnFromWindowXPosition)
@@ -36,33 +36,33 @@ TEST_F(GraphicsTestFixture, WindowDrawnFromWindowXPosition)
 
 	for (unsigned short i = 0; i < tileBytes; i++)
 	{
-		MemoryMap.WriteByte(MemoryMap::RamVideo + backgroundTile * tileBytes + i, allPixelsColour0);
-		MemoryMap.WriteByte(MemoryMap::RamVideo + windowTile * tileBytes + i, allPixelsColour3);
+		Memory.WriteByte(MemoryMap::RamVideo + backgroundTile * tileBytes + i, allPixelsColour0);
+		Memory.WriteByte(MemoryMap::RamVideo + windowTile * tileBytes + i, allPixelsColour3);
 	}
 
 	for (unsigned short i = 0; i < tileMapBytes; i++)
 	{
-		MemoryMap.WriteByte(backgroundTileMap + i, backgroundTile);
-		MemoryMap.WriteByte(windowTileMap + i, windowTile);
+		Memory.WriteByte(backgroundTileMap + i, backgroundTile);
+		Memory.WriteByte(windowTileMap + i, windowTile);
 	}
 
-	MemoryMap.WriteByte(MemoryMap::VramRegisters + TestGraphics::RegBgScrollY, 0);
-	MemoryMap.WriteByte(MemoryMap::VramRegisters + TestGraphics::RegBgScrollX, 0);
-	MemoryMap.WriteByte(MemoryMap::VramRegisters + TestGraphics::RegBgWinPalette, identityPalette);
-	MemoryMap.WriteByte(MemoryMap::VramRegisters + TestGraphics::RegWindowY, 0);
-	MemoryMap.WriteByte(MemoryMap::VramRegisters + TestGraphics::RegWindowX, windowLeftEdge + windowXOffset);
+	Memory.WriteByte(MemoryMap::VramRegisters + TestGraphics::RegBgScrollY, 0);
+	Memory.WriteByte(MemoryMap::VramRegisters + TestGraphics::RegBgScrollX, 0);
+	Memory.WriteByte(MemoryMap::VramRegisters + TestGraphics::RegBgWinPalette, identityPalette);
+	Memory.WriteByte(MemoryMap::VramRegisters + TestGraphics::RegWindowY, 0);
+	Memory.WriteByte(MemoryMap::VramRegisters + TestGraphics::RegWindowX, windowLeftEdge + windowXOffset);
 
 	// Display, window (map at windowTileMap), tile data at RamVideo, background (map at backgroundTileMap)
 	DrawFirstLine(0x40 | 0x20 | 0x10 | 0x01);
 
-	auto background = Graphics.Bitmap[0];
-	auto window = Graphics.Bitmap[Graphics::HozPixels - 1];
+	auto background = Ppu.Bitmap[0];
+	auto window = Ppu.Bitmap[Graphics::HozPixels - 1];
 
 	ASSERT_NE(background, window);
 
 	for (auto x = 0; x < Graphics::HozPixels; x++)
 	{
-		EXPECT_EQ(x < windowLeftEdge ? background : window, Graphics.Bitmap[x]) << "at x = " << x;
+		EXPECT_EQ(x < windowLeftEdge ? background : window, Ppu.Bitmap[x]) << "at x = " << x;
 	}
 }
 
@@ -75,40 +75,40 @@ namespace
 TEST_F(GraphicsTestFixture, LineCountIsLineBeingDrawn)
 {
 	TurnOn();
-	EXPECT_EQ(0, MemoryMap.ReadByte(LineCountAddress));
+	EXPECT_EQ(0, Memory.ReadByte(LineCountAddress));
 
 	for (unsigned int line = 1; line < Graphics::FrameLines; line++)
 	{
 		RunTo(line, 0);
-		EXPECT_EQ(line, MemoryMap.ReadByte(LineCountAddress));
+		EXPECT_EQ(line, Memory.ReadByte(LineCountAddress));
 	}
 
 	// The last line of the frame is followed by line 0 of the next
 	RunTo(Graphics::FrameLines, 0);
-	EXPECT_EQ(0, MemoryMap.ReadByte(LineCountAddress));
+	EXPECT_EQ(0, Memory.ReadByte(LineCountAddress));
 }
 
 TEST_F(GraphicsTestFixture, LineCountStaysZeroWhileDisplayOff)
 {
 	Run(3 * Graphics::ScanlineClocks);
 
-	EXPECT_EQ(0, MemoryMap.ReadByte(LineCountAddress));
+	EXPECT_EQ(0, Memory.ReadByte(LineCountAddress));
 }
 
 TEST_F(GraphicsTestFixture, BackgroundDisableAlsoBlanksWindow)
 {
 	// Tile 0 is colour 3, and both tile maps use it
-	for (unsigned short i = 0; i < 16; i++) MemoryMap.WriteByte(MemoryMap::RamVideo + i, 0xff);
-	for (unsigned short i = 0; i < 2 * 32 * 32; i++) MemoryMap.WriteByte(MemoryMap::RamVideo + TestGraphics::TileMapBase1 + i, 0);
+	for (unsigned short i = 0; i < 16; i++) Memory.WriteByte(MemoryMap::RamVideo + i, 0xff);
+	for (unsigned short i = 0; i < 2 * 32 * 32; i++) Memory.WriteByte(MemoryMap::RamVideo + TestGraphics::TileMapBase1 + i, 0);
 
-	MemoryMap.WriteByte(MemoryMap::VramRegisters + TestGraphics::RegBgWinPalette, 0xe4);
-	MemoryMap.WriteByte(MemoryMap::VramRegisters + TestGraphics::RegWindowY, 0);
-	MemoryMap.WriteByte(MemoryMap::VramRegisters + TestGraphics::RegWindowX, 7);
+	Memory.WriteByte(MemoryMap::VramRegisters + TestGraphics::RegBgWinPalette, 0xe4);
+	Memory.WriteByte(MemoryMap::VramRegisters + TestGraphics::RegWindowY, 0);
+	Memory.WriteByte(MemoryMap::VramRegisters + TestGraphics::RegWindowX, 7);
 
 	// Display, window and tile data at 0x8000 on, background off
 	DrawFirstLine(0x30);
 
-	EXPECT_EQ(Graphics::ShadeColour(0), Graphics.Bitmap[0]);
+	EXPECT_EQ(Graphics::ShadeColour(0), Ppu.Bitmap[0]);
 }
 
 TEST_F(GraphicsTestFixture, WindowLineCounterAdvancesWhileBackgroundDisabled)
@@ -116,31 +116,31 @@ TEST_F(GraphicsTestFixture, WindowLineCounterAdvancesWhileBackgroundDisabled)
 	// Window rows alternate between colour 3 (even) and colour 0 (odd), so the row drawn shows the counter
 	for (unsigned short row = 0; row < 8; row++)
 	{
-		MemoryMap.WriteByte(MemoryMap::RamVideo + row * 2, row % 2 ? 0 : 0xff);
-		MemoryMap.WriteByte(MemoryMap::RamVideo + row * 2 + 1, row % 2 ? 0 : 0xff);
+		Memory.WriteByte(MemoryMap::RamVideo + row * 2, row % 2 ? 0 : 0xff);
+		Memory.WriteByte(MemoryMap::RamVideo + row * 2 + 1, row % 2 ? 0 : 0xff);
 	}
-	for (unsigned short i = 0; i < 2 * 32 * 32; i++) MemoryMap.WriteByte(MemoryMap::RamVideo + TestGraphics::TileMapBase1 + i, 0);
+	for (unsigned short i = 0; i < 2 * 32 * 32; i++) Memory.WriteByte(MemoryMap::RamVideo + TestGraphics::TileMapBase1 + i, 0);
 
-	MemoryMap.WriteByte(MemoryMap::VramRegisters + TestGraphics::RegBgWinPalette, 0xe4);
-	MemoryMap.WriteByte(MemoryMap::VramRegisters + TestGraphics::RegWindowY, 0);
-	MemoryMap.WriteByte(MemoryMap::VramRegisters + TestGraphics::RegWindowX, 7);
+	Memory.WriteByte(MemoryMap::VramRegisters + TestGraphics::RegBgWinPalette, 0xe4);
+	Memory.WriteByte(MemoryMap::VramRegisters + TestGraphics::RegWindowY, 0);
+	Memory.WriteByte(MemoryMap::VramRegisters + TestGraphics::RegWindowX, 7);
 
 	// Line 0 with the background (and so the window) blanked, then line 1 with it on again
 	DrawFirstLine(0x30);
 
-	MemoryMap.WriteByte(LcdControlAddress, 0xb1);
+	Memory.WriteByte(LcdControlAddress, 0xb1);
 	DrawNextLine();
 
 	// Window row 1 (colour 0) is drawn on line 1, not row 0 again
-	EXPECT_EQ(Graphics::ShadeColour(0), Graphics.Bitmap[Graphics::HozPixels]);
+	EXPECT_EQ(Graphics::ShadeColour(0), Ppu.Bitmap[Graphics::HozPixels]);
 }
 
 TEST_F(GraphicsTestFixture, RegistersHaveDefinedPowerOnValues)
 {
 	// Construct over non-zero memory, so uninitialised registers would show
-	alignas(::Graphics) unsigned char storage[sizeof(::Graphics)];
+	alignas(Graphics) unsigned char storage[sizeof(Graphics)];
 	memset(storage, 0xaa, sizeof(storage));
-	auto graphics = new (storage) ::Graphics(Cpu, MemoryMap, SpriteManager);
+	auto graphics = new (storage) Graphics(Processor, Memory, Sprites);
 
 	// The boot ROM runs from power-on, with the display off. The palettes start as all colour 3, and STAT bit 7
 	// always reads as 1
@@ -154,7 +154,7 @@ TEST_F(GraphicsTestFixture, RegistersHaveDefinedPowerOnValues)
 	}
 
 	graphics->~Graphics();
-	MemoryMap.SetGraphics(&Graphics);
+	Memory.SetGraphics(&Ppu);
 }
 
 TEST_F(GraphicsTestFixture, WritesToLineCountAreIgnored)
@@ -162,7 +162,7 @@ TEST_F(GraphicsTestFixture, WritesToLineCountAreIgnored)
 	TurnOn();
 	RunTo(3, 0);
 
-	MemoryMap.WriteByte(LineCountAddress, 0x55);
+	Memory.WriteByte(LineCountAddress, 0x55);
 
-	EXPECT_EQ(3, MemoryMap.ReadByte(LineCountAddress));
+	EXPECT_EQ(3, Memory.ReadByte(LineCountAddress));
 }
