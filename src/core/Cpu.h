@@ -393,7 +393,8 @@ public:
 	// Executing instructions: not halted, stopped or locked
 	bool IsRunning() const { return _state == CpuState::Running; }
 
-	// STOP has stopped the system clock, so the timer, PPU, APU and serial port don't run
+	// STOP has stopped the system clock, so the timer, PPU, serial port and APU channels don't run (the APU's sample
+	// output keeps going)
 	bool IsStopped() const { return _state == CpuState::Stopped; }
 
 	// Gets the total number of elapsed emulated CPU cycles, including while halted or stopped

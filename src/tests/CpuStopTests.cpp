@@ -325,10 +325,12 @@ public:
 
 	unsigned char ReadByte(unsigned short address) { return Emulator.GetMemoryMap().ReadByte(address); }
 
-	static bool IsBlank(const int* frame)
+	static bool IsAll(const int* frame, int colour)
 	{
-		return std::all_of(frame, frame + Graphics::HozPixels * Graphics::VertPixels, [](int pixel) { return pixel == -1; });
+		return std::all_of(frame, frame + Graphics::HozPixels * Graphics::VertPixels, [=](int pixel) { return pixel == colour; });
 	}
+
+	static bool IsBlank(const int* frame) { return IsAll(frame, Graphics::BlankColour); }
 };
 
 TEST_F(EmulatorStopTests, EachFrameLastsAFrameOfClocksWhileStopped)
@@ -344,10 +346,56 @@ TEST_F(EmulatorStopTests, EachFrameLastsAFrameOfClocksWhileStopped)
 	}
 }
 
-TEST_F(EmulatorStopTests, ScreenIsBlankWhileStopped)
+TEST_F(EmulatorStopTests, ScreenShowsLightestShadeWhileStoppedWithLcdOn)
 {
-	Emulator.GetFrame();
-	EXPECT_TRUE(IsBlank(Emulator.GetFrame()));
+	// A frame is shown in full before STOP, which runs on line 50. As in SameBoy (GB_display_vblank in display.c), a
+	// stopped DMG's screen then shows the lightest shade (its background_palettes_rgb[0]), whatever BGP holds, rather
+	// than the LCD-off colour or the lines drawn before stopping
+	Rom->SetBytes(0, {
+		0x3e, SelectDirections,	// LD A,$20
+		0xe0, 0x00,				// LDH (JOYP),A
+		0x3e, 0xff,				// LD A,$FF
+		0xe0, 0x47,				// LDH (BGP),A
+		0x3e, 0x91,				// LD A,$91
+		0xe0, 0x40,				// LDH (LCDC),A		LCD and background on
+		0xf0, 0x44,				// LDH A,(LY)		Wait for the first V-Blank (line 144)
+		0xfe, 144,				// CP 144
+		0x20, 0xfa,				// JR NZ,-6
+		0xf0, 0x44,				// LDH A,(LY)		Then line 0
+		0xfe, 0,				// CP 0
+		0x20, 0xfa,				// JR NZ,-6
+		0xf0, 0x44,				// LDH A,(LY)		Then the second V-Blank, whose frame is shown
+		0xfe, 144,				// CP 144
+		0x20, 0xfa,				// JR NZ,-6
+		0xf0, 0x44,				// LDH A,(LY)		Then line 50 of the next frame
+		0xfe, 50,				// CP 50
+		0x20, 0xfa,				// JR NZ,-6
+		0x10, 0x00,				// STOP
+		0x18, 0xfe				// JR -2
+	});
+
+	// The first frame after turning the LCD on is blank
+	ASSERT_TRUE(IsBlank(Emulator.GetFrame()));
+	ASSERT_TRUE(IsAll(Emulator.GetFrame(), Graphics::ShadeColour(3)));
+
+	for (auto i = 0; i < 3; i++)
+	{
+		EXPECT_TRUE(IsAll(Emulator.GetFrame(), Graphics::ShadeColour(0))) << "stopped frame " << i;
+		EXPECT_TRUE(Emulator.GetCpu().IsStopped());
+	}
+}
+
+TEST_F(EmulatorStopTests, ScreenShowsLcdOffColourWhileStoppedWithLcdOff)
+{
+	Rom->SetBytes(0, {
+		0x3e, SelectDirections,	// LD A,$20
+		0xe0, 0x00,				// LDH (JOYP),A
+		0x10, 0x00,				// STOP				With the LCD off, as at power-on
+		0x18, 0xfe				// JR -2
+	});
+
+	for (auto i = 0; i < 2; i++) EXPECT_TRUE(IsBlank(Emulator.GetFrame()));
+	EXPECT_TRUE(Emulator.GetCpu().IsStopped());
 }
 
 TEST_F(EmulatorStopTests, ScreenComesBackAfterWaking)
@@ -358,7 +406,7 @@ TEST_F(EmulatorStopTests, ScreenComesBackAfterWaking)
 	Emulator.GetJoypad().SetKeysDown(JoypadKey::Right);
 
 	EXPECT_TRUE(IsBlank(Emulator.GetFrame()));
-	EXPECT_FALSE(IsBlank(Emulator.GetFrame()));
+	EXPECT_TRUE(IsAll(Emulator.GetFrame(), Graphics::ShadeColour(3)));
 }
 
 TEST_F(EmulatorStopTests, PpuDoesntRunWhileStopped)
