@@ -47,15 +47,16 @@ if anything changed (always, for real-time clock cartridges, to record the time)
 the window, Ctrl+C and closing the terminal, and save errors and warnings are shown in the terminal. On Windows,
 saves are written when the window is closed; Emu Boy has no console there, so messages aren't shown. If a save is the
 wrong size for the cartridge, what fits is loaded, and the original is copied to `<name>.sav.bak` before it is first
-replaced.
+replaced (as it is for another emulator's save that loads fully but is written back at a different size).
 
 The format is the raw RAM dump most emulators use, with the BGB/VBA-M real-time clock footer for MBC3 clock
 cartridges, so saves can be moved to and from BGB, VBA-M, mGBA and SameBoy. A clock save from mGBA can run ahead by
 the time between the game last reading the clock and mGBA saving. MBC2 saves are written as 512 bytes, as SameBoy and
 VBA-M do; mGBA's 256-byte MBC2 saves can be loaded too. Cartridges with 2 KB of RAM save 2 KB, as BGB, SameBoy and
-VBA-M do; mGBA's 8 KB saves for them load too. The clock catches up with the time that passed while Emu Boy wasn't
-running. Battery-backed cartridges whose mapper isn't emulated (MMM01, Pocket Camera, HuC1 and HuC3) still have their
-RAM saved, though the HuC3's clock isn't, and the MBC7's EEPROM isn't saved at all.
+VBA-M do; mGBA's 8 KB saves for them load too, with a warning if the 6 KB beyond the cartridge's RAM holds data. The
+clock catches up with the time that passed while Emu Boy wasn't running. Battery-backed cartridges whose mapper
+isn't emulated (MMM01, Pocket Camera, HuC1 and HuC3) still have their RAM saved, though the HuC3's clock isn't, and
+the MBC7's EEPROM isn't saved at all.
 
 
 ## Current status

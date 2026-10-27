@@ -437,6 +437,42 @@ TEST_F(BatteryStoreTest, WrongSizeSaveIsBackedUpBeforeBeingReplaced)
 	EXPECT_EQ(Ram8KSize, ReadAll(SavePath).size());
 }
 
+TEST_F(BatteryStoreTest, MgbaEightKbSaveWithDataBeyond2KbWarnsAndIsBackedUp)
+{
+	std::vector<unsigned char> original(Ram8KSize, 0x11);
+	std::fill(original.begin() + Ram2KSize, original.end(), 0x77);
+	WriteAll(SavePath, original);
+	auto cartridge = CartridgeFactory::Create(Rom(Mbc1RamBattery, Ram2K));
+	auto store = Store(cartridge);
+	auto load = store.Load();
+
+	EXPECT_TRUE(store.Save().Succeeded);
+
+	EXPECT_TRUE(load.Succeeded);
+	EXPECT_NE(std::string::npos, load.Message.find("6 KB"));
+	EXPECT_EQ(original, ReadAll(SavePath + ".bak"));
+	EXPECT_EQ(Ram2KSize, ReadAll(SavePath).size());
+}
+
+TEST_F(BatteryStoreTest, SaveOfAnotherSizeIsBackedUpEvenWithoutAWarning)
+{
+	// mGBA's blank-topped 8 KB save for 2 KB RAM loads cleanly, but is rewritten as 2 KB
+	std::vector<unsigned char> original(Ram8KSize, 0xff);
+	std::fill(original.begin(), original.begin() + Ram2KSize, 0x11);
+	WriteAll(SavePath, original);
+	auto cartridge = CartridgeFactory::Create(Rom(Mbc1RamBattery, Ram2K));
+	auto store = Store(cartridge);
+	auto load = store.Load();
+
+	EXPECT_TRUE(store.Save().Succeeded);
+
+	EXPECT_TRUE(load.Succeeded);
+	EXPECT_NE(std::string::npos, load.Message.find(".bak"));
+	EXPECT_EQ(std::vector<unsigned char>(Ram2KSize, 0x11), cartridge->GetRam());
+	EXPECT_EQ(original, ReadAll(SavePath + ".bak"));
+	EXPECT_EQ(Ram2KSize, ReadAll(SavePath).size());
+}
+
 TEST_F(BatteryStoreTest, WrongSizeSaveIsBackedUpOnlyOnce)
 {
 	WriteAll(SavePath, std::vector<unsigned char>(100, 0x33));

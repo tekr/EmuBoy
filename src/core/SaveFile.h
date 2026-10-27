@@ -23,7 +23,8 @@
 // 256-byte MBC2 save is unpacked on loading.
 //
 // RAM size code 1 is 2 KB, saved as 2 KB as BGB, SameBoy and VBA-M do. mGBA gives it a whole 8 KB bank and saves that,
-// so an 8 KB save for 2 KB RAM loads its first 2 KB without a warning.
+// so an 8 KB save for 2 KB RAM loads its first 2 KB, with a warning only if the rest holds data (being neither blank
+// nor a copy of the first 2 KB).
 class SaveFile
 {
 public:

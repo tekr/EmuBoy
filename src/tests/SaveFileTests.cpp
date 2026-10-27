@@ -394,6 +394,30 @@ TEST(SaveFileTest, TwoKbRamLoadsMgbaEightKbSaveWithoutWarning)
 	EXPECT_EQ(std::vector<unsigned char>(save.begin(), save.begin() + Ram2KSize), cartridge->GetRam());
 }
 
+TEST(SaveFileTest, TwoKbRamLoadsMgbaEightKbSaveMirroringItsFirst2KbWithoutWarning)
+{
+	// Writes through the mirrors at $A800-$BFFF, as mGBA has no mirroring, leave copies of the first 2 KB
+	auto cartridge = CartridgeFactory::Create(Rom(Mbc1RamBattery, Ram2K));
+	std::vector<unsigned char> save(Ram8KSize);
+	for (size_t i = 0; i < Ram8KSize; i++) save[i] = static_cast<unsigned char>(i % Ram2KSize * 5);
+
+	EXPECT_EQ("", SaveFile::Deserialise(*cartridge, save, SaveTime));
+	EXPECT_EQ(std::vector<unsigned char>(save.begin(), save.begin() + Ram2KSize), cartridge->GetRam());
+}
+
+TEST(SaveFileTest, TwoKbRamWarnsWhenMgbaEightKbSaveHoldsMoreData)
+{
+	// A homebrew ROM that declares 2 KB but uses more has real data above 2 KB in mGBA, which can't be loaded
+	auto cartridge = CartridgeFactory::Create(Rom(Mbc1RamBattery, Ram2K));
+	std::vector<unsigned char> save(Ram8KSize, 0x11);
+	std::fill(save.begin() + Ram2KSize, save.end(), 0x77);
+
+	auto warning = SaveFile::Deserialise(*cartridge, save, SaveTime);
+
+	EXPECT_NE("", warning);
+	EXPECT_EQ(std::vector<unsigned char>(Ram2KSize, 0x11), cartridge->GetRam());
+}
+
 TEST(SaveFileTest, TwoKbClockCartridgeLoadsMgbaEightKbSaveWithFooter)
 {
 	auto cartridge = CartridgeFactory::Create(Rom(Mbc3TimerRamBattery, Ram2K));
