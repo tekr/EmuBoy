@@ -747,7 +747,7 @@ void Cpu::RunStopped()
 	if (_hardware != nullptr) _hardware->RunStoppedCycles(OneCycle);
 
 	// STOP mode ends when a selected button pulls its input line low, whether or not the joypad interrupt is enabled.
-	// Simplification: waking takes no time here, where SameBoy spends 2 machine cycles, which it notes as unverified
+	// Simplification: waking takes no time here, where SameBoy spends 2 machine cycles
 	if (SelectedButtonHeld()) _state = CpuState::Running;
 }
 

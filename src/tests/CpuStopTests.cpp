@@ -22,7 +22,6 @@
 namespace
 {
 	const unsigned short JoypAddress = MemoryMap::JoypadPort;
-	const unsigned short DivAddress = MemoryMap::DividerPort;
 	const unsigned short TimaAddress = 0xff05;
 	const unsigned short TacAddress = 0xff07;
 	const unsigned short LyAddress = 0xff44;
@@ -42,7 +41,7 @@ class CpuStopTests : public CpuTestFixture
 {
 public:
 	::Timer Timer;
-	TimerHardware Hardware{ Timer };
+	TimerTestHardware Hardware{ Timer };
 
 	CpuStopTests()
 	{
@@ -77,7 +76,7 @@ public:
 		Step(2);
 	}
 
-	unsigned char Div() { return MemoryMap.ReadByte(DivAddress); }
+	unsigned char Div() { return MemoryMap.ReadByte(MemoryMap::DividerPort); }
 };
 
 TEST_F(CpuStopTests, WithNoButtonOrInterruptEntersStopModeAndResetsDiv)
@@ -270,7 +269,7 @@ TEST_F(CpuStopTests, DivResetIncrementsTimaLikeADivWrite)
 {
 	// Per https://gbdev.io/pandocs/Timer_Obscure_Behaviour.html, resetting DIV while the divider bit that TAC selects
 	// is set is a falling edge, which increments TIMA
-	MemoryMap.WriteByte(DivAddress, 0);
+	MemoryMap.WriteByte(MemoryMap::DividerPort, 0);
 	MemoryMap.WriteByte(TacAddress, 0x05);	// Enabled, divider bit 3
 	MemoryMap.WriteByte(TimaAddress, 0x80);
 	Timer.RunCycles(8);						// STOP's opcode fetch takes the divider to 12: bit 3 still set
@@ -364,7 +363,7 @@ TEST_F(EmulatorStopTests, DivDoesntRunWhileStopped)
 	for (auto i = 0; i < 3; i++)
 	{
 		Emulator.GetFrame();
-		EXPECT_EQ(0, ReadByte(DivAddress));
+		EXPECT_EQ(0, ReadByte(MemoryMap::DividerPort));
 	}
 }
 
@@ -390,17 +389,40 @@ TEST_F(EmulatorStopTests, DivRunsAgainAfterWaking)
 	Emulator.GetJoypad().SetKeysDown(JoypadKey::Right);
 	Emulator.GetFrame();
 
-	EXPECT_NE(0, ReadByte(DivAddress));
+	EXPECT_NE(0, ReadByte(MemoryMap::DividerPort));
 }
 
-TEST_F(EmulatorStopTests, PpuRestartsWithTheFrameOnWaking)
+TEST_F(EmulatorStopTests, PpuRestartsAtTheFrameLoopsPositionOnWaking)
 {
-	// A documented simplification: rather than resuming from where it stopped (mode 2 of line 0 here), the PPU picks
-	// up at the frame loop's position. The front end changes keys between frames, so the woken frame is a whole one
-	// and ends in VBlank (mode 1)
+	// A documented simplification. The program stops on line 50 and wakes at the start of a later frame. The first
+	// instruction still reads LY and STAT as they were when the CPU stopped, and once the frame loop finishes its
+	// first line LY reads 1, where a PPU resuming from where it stopped would read 51
+	Rom->SetBytes(0, {
+		0x3e, SelectDirections,	// LD A,$20
+		0xe0, 0x00,				// LDH (JOYP),A
+		0x3e, 0x91,				// LD A,$91
+		0xe0, 0x40,				// LDH (LCDC),A		LCD and background on
+		0xf0, 0x44,				// LDH A,(LY)		Wait for line 50
+		0xfe, 50,				// CP 50
+		0x20, 0xfa,				// JR NZ,-6
+		0x10, 0x00,				// STOP
+		0xf0, 0x44,				// LDH A,(LY)
+		0xe0, 0x80,				// LDH ($80),A
+		0xf0, 0x41,				// LDH A,(STAT)
+		0xe0, 0x81,				// LDH ($81),A
+		0xf0, 0x44,				// LDH A,(LY)		Wait for LY to change
+		0xfe, 50,				// CP 50
+		0x28, 0xfa,				// JR Z,-6
+		0xe0, 0x82,				// LDH ($82),A
+		0x18, 0xfe				// JR -2
+	});
+
+	Emulator.GetFrame();
 	Emulator.GetFrame();
 	Emulator.GetJoypad().SetKeysDown(JoypadKey::Right);
 	Emulator.GetFrame();
 
-	EXPECT_EQ(1, ReadByte(StatAddress) & 3);
+	EXPECT_EQ(50, ReadByte(0xff80));
+	EXPECT_EQ(2, ReadByte(0xff81) & 3);
+	EXPECT_EQ(1, ReadByte(0xff82));
 }

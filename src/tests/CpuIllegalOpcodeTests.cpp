@@ -10,8 +10,6 @@
 
 namespace
 {
-	const unsigned short DivAddress = MemoryMap::DividerPort;
-
 	const unsigned char IllegalOpcodes[] = { 0xd3, 0xdb, 0xdd, 0xe3, 0xe4, 0xeb, 0xec, 0xed, 0xf4, 0xfc, 0xfd };
 }
 
@@ -19,7 +17,7 @@ class CpuIllegalOpcodeTests : public CpuTestFixture, public testing::WithParamIn
 {
 public:
 	::Timer Timer;
-	TimerHardware Hardware{ Timer };
+	TimerTestHardware Hardware{ Timer };
 
 	CpuIllegalOpcodeTests()
 	{
@@ -73,14 +71,14 @@ TEST_P(CpuIllegalOpcodeTests, InterruptsDontWakeIt)
 TEST_P(CpuIllegalOpcodeTests, OtherHardwareKeepsRunning)
 {
 	Step(1);
-	MemoryMap.WriteByte(DivAddress, 0);
+	MemoryMap.WriteByte(MemoryMap::DividerPort, 0);
 
 	// DIV increments every 64 machine cycles
 	auto cycles = 0;
 	for (auto i = 0; i < 64; i++) cycles += Cpu.DoNextInstruction();
 
 	EXPECT_EQ(64 * MachineCycle, cycles);
-	EXPECT_EQ(1, MemoryMap.ReadByte(DivAddress));
+	EXPECT_EQ(1, MemoryMap.ReadByte(MemoryMap::DividerPort));
 }
 
 INSTANTIATE_TEST_CASE_P(UnusedOpcodes, CpuIllegalOpcodeTests, ::testing::ValuesIn(IllegalOpcodes));
@@ -101,7 +99,7 @@ TEST(EmulatorIllegalOpcodeTests, KeepsProducingFramesAndSoundAfterLockingUp)
 	}
 
 	// DIV is still counting
-	auto div = emulator.GetMemoryMap().ReadByte(DivAddress);
+	auto div = emulator.GetMemoryMap().ReadByte(MemoryMap::DividerPort);
 	emulator.GetFrame();
-	EXPECT_NE(div, emulator.GetMemoryMap().ReadByte(DivAddress));
+	EXPECT_NE(div, emulator.GetMemoryMap().ReadByte(MemoryMap::DividerPort));
 }

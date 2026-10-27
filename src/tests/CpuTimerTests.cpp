@@ -10,7 +10,6 @@
 
 namespace
 {
-	const unsigned short DivAddress = 0xff04;
 	const unsigned short TimaAddress = 0xff05;
 	const unsigned short TmaAddress = 0xff06;
 	const unsigned short TacAddress = 0xff07;
@@ -25,7 +24,7 @@ public:
 	// Members named after their types qualify the type with :: so the name's meaning doesn't change within the
 	// class, which GCC rejects
 	::Timer Timer;
-	TimerHardware Hardware{ Timer };
+	TimerTestHardware Hardware{ Timer };
 
 	CpuTimerTests()
 	{
@@ -40,7 +39,7 @@ public:
 		Cpu.WaitingInterrupts() = 0;
 
 		// Divider at 0, so TIMA next increments (and overflows) at the end of the 4th machine cycle
-		MemoryMap.WriteByte(DivAddress, 0);
+		MemoryMap.WriteByte(MemoryMap::DividerPort, 0);
 		MemoryMap.WriteByte(TmaAddress, 0xf0);
 		MemoryMap.WriteByte(TimaAddress, 0xff);
 		MemoryMap.WriteByte(TacAddress, TacMode1);
