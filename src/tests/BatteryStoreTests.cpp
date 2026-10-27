@@ -163,6 +163,39 @@ TEST_F(BatteryStoreTest, SavedRamLoadsIntoTheNextRun)
 	EXPECT_EQ(original->GetRam(), ReadAll(SavePath));
 }
 
+TEST_F(BatteryStoreTest, TwoKbRamSaveIs2048Bytes)
+{
+	auto original = CartridgeFactory::Create(Rom(Mbc1RamBattery, Ram2K));
+	FillRam(*original, 5);
+	ASSERT_TRUE(Store(original).Save().Succeeded);
+
+	auto restored = CartridgeFactory::Create(Rom(Mbc1RamBattery, Ram2K));
+	auto result = Store(restored).Load();
+
+	EXPECT_EQ(Ram2KSize, ReadAll(SavePath).size());
+	EXPECT_EQ("", result.Message);
+	EXPECT_EQ(original->GetRam(), restored->GetRam());
+}
+
+TEST_F(BatteryStoreTest, BatteryCartridgesWhoseMapperIsNotEmulatedKeepTheirSaves)
+{
+	// MMM01+RAM+BATTERY, Pocket Camera, HuC3 and HuC1+RAM+BATTERY run as MBC1, but their RAM is still saved
+	for (auto type : { Mmm01RamBattery, PocketCamera, HuC3, HuC1RamBattery })
+	{
+		SCOPED_TRACE(static_cast<int>(type));
+		std::remove(SavePath.c_str());
+
+		auto original = CartridgeFactory::Create(Rom(type, Ram32K));
+		FillRam(*original, type);
+		ASSERT_TRUE(Store(original).IsNeeded());
+		ASSERT_TRUE(Store(original).Save().Succeeded);
+
+		auto restored = CartridgeFactory::Create(Rom(type, Ram32K));
+		EXPECT_EQ("", Store(restored).Load().Message);
+		EXPECT_EQ(original->GetRam(), restored->GetRam());
+	}
+}
+
 TEST_F(BatteryStoreTest, SaveLeavesNoTemporaryFile)
 {
 	auto cartridge = CartridgeFactory::Create(Rom(Mbc1RamBattery, Ram8K));
