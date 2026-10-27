@@ -171,6 +171,7 @@
     <ClCompile Include="OamCorruptionTests.cpp" />
     <ClCompile Include="MooneyeAcceptanceTests.cpp" />
     <ClCompile Include="GbMicrotestTests.cpp" />
+    <ClCompile Include="MemoryMapTests.cpp" />
     <ClCompile Include="BlarggOamBugTests.cpp" />
     <ClCompile Include="IoPortTests.cpp" />
     <ClCompile Include="SaveFileTests.cpp" />

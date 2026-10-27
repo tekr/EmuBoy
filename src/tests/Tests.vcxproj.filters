@@ -42,6 +42,9 @@
     <ClCompile Include="GbMicrotestTests.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="MemoryMapTests.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="BlarggOamBugTests.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
