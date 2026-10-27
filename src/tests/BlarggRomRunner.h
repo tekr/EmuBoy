@@ -1,6 +1,7 @@
 #pragma once
 #include <functional>
 #include <string>
+#include "../core/GameBoyModel.h"
 
 class MemoryMap;
 
@@ -22,7 +23,11 @@ struct BlarggRomResult
 	std::string Output;
 };
 
-BlarggRomResult RunBlarggRom(const std::string& path, int maxFrames, const BetweenFramesHook& betweenFrames = nullptr);
+// Most of blargg's DMG ROMs mark themselves as working on the CGB too ($80 at $0143), which would run them in CGB
+// mode, so the model is chosen here rather than by the header: the DMG unless a test asks for the CGB
+BlarggRomResult RunBlarggRom(const std::string& path, int maxFrames, const BetweenFramesHook& betweenFrames = nullptr,
+	GameBoyModel model = GameBoyModel::Dmg);
 
 // Google Test assertion that the ROM reports success within maxFrames, showing its output if not
-void ExpectBlarggRomPasses(const std::string& path, int maxFrames, const BetweenFramesHook& betweenFrames = nullptr);
+void ExpectBlarggRomPasses(const std::string& path, int maxFrames, const BetweenFramesHook& betweenFrames = nullptr,
+	GameBoyModel model = GameBoyModel::Dmg);

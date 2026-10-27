@@ -33,7 +33,7 @@ namespace
 	}
 }
 
-BlarggRomResult RunBlarggRom(const std::string& path, int maxFrames, const BetweenFramesHook& betweenFrames)
+BlarggRomResult RunBlarggRom(const std::string& path, int maxFrames, const BetweenFramesHook& betweenFrames, GameBoyModel model)
 {
 	BlarggRomResult result;
 
@@ -41,7 +41,7 @@ BlarggRomResult RunBlarggRom(const std::string& path, int maxFrames, const Betwe
 	if (cartridge == nullptr) return result;
 	result.RomFound = true;
 
-	Emulator emulator{ cartridge };
+	Emulator emulator{ cartridge, model };
 	auto& memory = emulator.GetMemoryMap();
 
 	std::string serialText;
@@ -78,10 +78,10 @@ BlarggRomResult RunBlarggRom(const std::string& path, int maxFrames, const Betwe
 	return result;
 }
 
-void ExpectBlarggRomPasses(const std::string& path, int maxFrames, const BetweenFramesHook& betweenFrames)
+void ExpectBlarggRomPasses(const std::string& path, int maxFrames, const BetweenFramesHook& betweenFrames, GameBoyModel model)
 {
 	SCOPED_TRACE(path);
-	auto result = RunBlarggRom(path, maxFrames, betweenFrames);
+	auto result = RunBlarggRom(path, maxFrames, betweenFrames, model);
 
 	ASSERT_TRUE(result.RomFound) << "ROM not found; run the tests from src/tests";
 	ASSERT_TRUE(result.Finished) << "No result after " << maxFrames << " frames. Output so far:\n" << result.Output;

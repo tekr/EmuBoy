@@ -455,6 +455,12 @@ void Graphics::WriteRegister(unsigned short address, unsigned char value)
 	}
 }
 
+void Graphics::ApplyCgbPostBootState()
+{
+	_registers[RegBgWinPalette] = 0xfc;
+	WriteRegister(RegLcdControl, 0x91);
+}
+
 int Graphics::DrawLine()
 {
 	// A rather inefficient rendering implementation.

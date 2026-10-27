@@ -85,7 +85,7 @@ void App::Run(const volatile std::sig_atomic_t& quitRequested)
 {
 	// Paced to the emulated clock rather than by frames, as the frame in which the LCD is turned on lasts up to
 	// nearly two frames. Scheduled from here, as opening the window takes time
-	_pacer.Restart(Now(), _emulator->GetCpuClocks());
+	_pacer.Restart(Now(), _emulator->GetSystemClocks());
 
 	while (_window.isOpen())
 	{
@@ -107,12 +107,12 @@ void App::Run(const volatile std::sig_atomic_t& quitRequested)
 		{
 			// Still drawn, so the window repaints after being resized or switched to fullscreen
 			Present();
-			wait = _pacer.Paused(Now(), _emulator->GetCpuClocks());
+			wait = _pacer.Paused(Now(), _emulator->GetSystemClocks());
 		}
 		else
 		{
 			RunFrame(speed);
-			wait = _pacer.FrameDone(Now(), _emulator->GetCpuClocks(), speed);
+			wait = _pacer.FrameDone(Now(), _emulator->GetSystemClocks(), speed);
 		}
 
 		if (wait > 0) sf::sleep(sf::microseconds(wait));
@@ -220,7 +220,7 @@ void App::Reset()
 	_emulator = std::make_unique<Emulator>(_cartridge);
 
 	// The new emulator's clocks start again from 0
-	_pacer.Restart(Now(), _emulator->GetCpuClocks());
+	_pacer.Restart(Now(), _emulator->GetSystemClocks());
 
 	// The old game's last frames shouldn't fade out over the new one's first
 	_screen.clear();
@@ -255,7 +255,7 @@ void App::LoadFromSlot()
 
 	// The clocks carry on from the state's, so pacing starts again from them, and sound from before is dropped
 	_audio.Clear();
-	_pacer.Restart(Now(), _emulator->GetCpuClocks());
+	_pacer.Restart(Now(), _emulator->GetSystemClocks());
 
 	// The state's screen shows straight away, even while paused, without the old one fading out under it. Frames
 	// are drawn partly transparent to build up like the slow LCD, so a few draws bring it to full brightness

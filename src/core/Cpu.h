@@ -78,6 +78,7 @@ public:
 	virtual void RunStoppedCycles(int cycles) {}
 };
 
+
 // Gameboy LR35902 CPU
 class Cpu
 {
@@ -393,6 +394,10 @@ public:
 
 	void SetClockedHardware(ClockedHardware* hardware) { _hardware = hardware; }
 
+	// The registers and interrupt flags as the CGB boot ROM leaves them for a CGB game, per
+	// https://gbdev.io/pandocs/Power_Up_Sequence.html#cpu-registers and #hardware-registers (IF = $E1)
+	void ApplyCgbPostBootState();
+
 	// Executing instructions: not halted, stopped or locked
 	bool IsRunning() const { return _state == CpuState::Running; }
 
@@ -400,8 +405,8 @@ public:
 	// output keeps going)
 	bool IsStopped() const { return _state == CpuState::Stopped; }
 
-	// Gets the total number of elapsed emulated CPU cycles, including while halted or stopped
-	uint64_t GetTotalCycles() const { return _totalCycles; }
+	// Clocks of the 4 MHz system clock since power-on, including while halted or stopped
+	uint64_t GetTotalSystemClocks() const { return _totalCycles; }
 
 	const Registers& GetRegisters() const { return _registers; }
 
@@ -413,7 +418,7 @@ public:
 
 	// Executes the next emulated CPU instruction, dispatches an interrupt, or runs a machine cycle while halted,
 	// stopped or locked.
-	// Runs the clocked hardware alongside. Returns emulated CPU cycles elapsed
+	// Runs the clocked hardware alongside. Returns the system clocks elapsed
 	int DoNextInstruction();
 
 	// Save states, which are taken between instructions

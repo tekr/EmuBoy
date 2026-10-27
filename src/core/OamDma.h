@@ -34,6 +34,9 @@ class OamDma
 public:
 	OamDma(MemoryMap& memoryMap, Graphics& graphics) : _memoryMap(memoryMap), _graphics(graphics) {}
 
+	// The CGB boot ROM leaves DMA reading $00 (https://gbdev.io/pandocs/Power_Up_Sequence.html#hardware-registers)
+	void ApplyCgbPostBootState() { _register = 0; }
+
 	unsigned char ReadRegister() const { return _register; }
 	void WriteRegister(unsigned char value);
 

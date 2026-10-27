@@ -51,12 +51,12 @@ namespace
 	// instruction of a frame runs past its end
 	void ExpectFramesFrameClocksApart(Emulator& emulator, uint64_t frames)
 	{
-		auto start = emulator.GetCpuClocks();
+		auto start = emulator.GetSystemClocks();
 
 		for (uint64_t frame = 1; frame <= frames; frame++)
 		{
 			emulator.GetFrame();
-			auto elapsed = emulator.GetCpuClocks() - start;
+			auto elapsed = emulator.GetSystemClocks() - start;
 
 			ASSERT_GE(elapsed + MaxOvershootClocks, frame * Graphics::FrameClocks) << "after " << frame << " frames";
 			ASSERT_LE(elapsed, frame * Graphics::FrameClocks + MaxOvershootClocks) << "after " << frame << " frames";
@@ -95,8 +95,8 @@ TEST(EmulatorTimingTest, FramesWhileLcdIsOffAreFrameClocksApart)
 	{
 		emulator.GetFrame();
 
-		ASSERT_GE(emulator.GetCpuClocks(), frames * Graphics::FrameClocks) << "after " << frames << " frames";
-		ASSERT_LE(emulator.GetCpuClocks() - frames * Graphics::FrameClocks, MaxOvershootClocks) << "after " << frames << " frames";
+		ASSERT_GE(emulator.GetSystemClocks(), frames * Graphics::FrameClocks) << "after " << frames << " frames";
+		ASSERT_LE(emulator.GetSystemClocks() - frames * Graphics::FrameClocks, MaxOvershootClocks) << "after " << frames << " frames";
 	}
 }
 

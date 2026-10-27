@@ -30,12 +30,15 @@ namespace
 
 		// RAM in bytes for ROMs that use RAM without declaring it in their header, as blargg's do, or RamFromHeader
 		std::optional<size_t> RamSize;
+
+		// The Game Boy to run on, whatever the header asks for
+		GameBoyModel Model = GameBoyModel::Dmg;
 	};
 
 	std::unique_ptr<Emulator> PowerOn(const Rom& rom)
 	{
 		auto cartridge = rom.RamSize ? CartridgeFactory::LoadFromFileWithRamSize(rom.Path, *rom.RamSize) : CartridgeFactory::LoadFromFile(rom.Path);
-		return cartridge == nullptr ? nullptr : std::make_unique<Emulator>(cartridge);
+		return cartridge == nullptr ? nullptr : std::make_unique<Emulator>(cartridge, rom.Model);
 	}
 
 	// What the emulator puts out over some frames
@@ -432,3 +435,4 @@ TEST(SaveStateRoundTripTest, MooneyeOamDmaBeforeTheTransferStarts)
 	ExpectRoundTrips({ "roms/mooneye-test-suite/acceptance/oam_dma_restart.gb", RamFromHeader }, { DuringOamDmaStartDelay });
 	ExpectRoundTrips({ "roms/mooneye-test-suite/acceptance/oam_dma/basic.gb", RamFromHeader }, { DuringOamDmaStartDelay });
 }
+

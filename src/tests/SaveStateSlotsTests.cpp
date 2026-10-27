@@ -16,7 +16,7 @@ namespace
 	std::unique_ptr<Emulator> PowerOn(const std::string& romPath = RomPath)
 	{
 		auto cartridge = CartridgeFactory::LoadFromFileWithRamSize(romPath, Cartridge::RamBankSize);
-		return cartridge == nullptr ? nullptr : std::make_unique<Emulator>(cartridge);
+		return cartridge == nullptr ? nullptr : std::make_unique<Emulator>(cartridge, GameBoyModel::Dmg);
 	}
 
 	void RunFrames(Emulator& emulator, int frames)

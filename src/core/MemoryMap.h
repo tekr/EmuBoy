@@ -68,6 +68,9 @@ public:
 	void SetSerial(Serial* serial) { _serial = serial; }
 	void SetOamDma(OamDma* oamDma) { _oamDma = oamDma; }
 
+	// The CGB boot ROM has handed over, so is no longer mapped
+	void ApplyCgbPostBootState() { _internalRomEnabled = false; }
+
 	// The boot ROM overlays the cartridge until it hands over by writing to $FF50
 	bool InternalRomEnabled() const { return _internalRomEnabled; }
 

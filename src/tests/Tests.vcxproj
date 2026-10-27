@@ -149,6 +149,7 @@
     <ClInclude Include="BlarggRomRunner.h" />
     <ClInclude Include="SaveFileTestHelpers.h" />
     <ClInclude Include="TestFiles.h" />
+    <ClInclude Include="CgbTestProgram.h" />
     <ClInclude Include="ApuTestHelpers.h" />
     <ClInclude Include="CartridgeTestHelpers.h" />
     <ClInclude Include="CpuTestFixture.h" />
@@ -209,6 +210,8 @@
     <ClCompile Include="StateStreamTests.cpp" />
     <ClCompile Include="SaveStateTests.cpp" />
     <ClCompile Include="SaveStateRoundTripTests.cpp" />
+    <ClCompile Include="CgbModelTests.cpp" />
+    <ClCompile Include="CgbSaveStateTests.cpp" />
     <ClCompile Include="SaveStateHiddenStateTests.cpp" />
     <ClCompile Include="ComponentStateTests.cpp" />
     <ClCompile Include="Rtc3Tests.cpp" />

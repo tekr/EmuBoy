@@ -295,7 +295,7 @@ namespace
 				break;
 			}
 
-			if (original.GetCpuClocks() != restored.GetCpuClocks())
+			if (original.GetSystemClocks() != restored.GetSystemClocks())
 			{
 				result = testing::AssertionFailure() << "The CPU clock counts differ " << when;
 				break;
@@ -506,8 +506,8 @@ TEST(SaveStateHiddenStateTest, MidSerialTransfer)
 
 	// Half-way through the transfer, with four 1s shifted into SB, and half-way through the next bit
 	ASSERT_TRUE(RunUntil(*emulator, [](Emulator& e) { return e.GetMemoryMap().ReadByte(0xff01) == 0xaf; }));
-	auto clocks = emulator->GetCpuClocks();
-	ASSERT_TRUE(RunUntil(*emulator, [clocks](Emulator& e) { return e.GetCpuClocks() >= clocks + Serial::CyclesPerBit / 2; }));
+	auto clocks = emulator->GetSystemClocks();
+	ASSERT_TRUE(RunUntil(*emulator, [clocks](Emulator& e) { return e.GetSystemClocks() >= clocks + Serial::CyclesPerBit / 2; }));
 	EXPECT_EQ(4u, Read(*emulator, HiddenValues::SerialBitsLeft));
 
 	ExpectRestoredCarriesOnAlike(*emulator, rom, 2);
@@ -610,7 +610,7 @@ TEST(SaveStateHiddenStateTest, PartWayThroughSoundLengthsAndEnvelopes)
 		ASSERT_TRUE(RunUntil(*emulator, [afterWrite](Emulator& e)
 		{
 			// The frame sequencer steps as DIV's bit 4 falls
-			return e.GetCpuClocks() >= 150000 && (e.GetMemoryMap().ReadByte(0xff04) & 0x1f) == 0 && CpuRegisters(e).PC == afterWrite;
+			return e.GetSystemClocks() >= 150000 && (e.GetMemoryMap().ReadByte(0xff04) & 0x1f) == 0 && CpuRegisters(e).PC == afterWrite;
 		}));
 		for (auto instruction = 0; instruction < instructionsAfterStep; instruction++) emulator->RunInstruction();
 
@@ -670,8 +670,8 @@ TEST(SaveStateHiddenStateTest, WhileStopped)
 		SCOPED_TRACE(std::to_string(stoppedClocks) + " clocks into STOP");
 		auto emulator = PowerOnWithoutBootRom(rom);
 		ASSERT_TRUE(RunUntil(*emulator, [](Emulator& e) { return e.GetCpu().IsStopped(); }));
-		auto stoppedAt = emulator->GetCpuClocks();
-		ASSERT_TRUE(RunUntil(*emulator, [stoppedAt, stoppedClocks](Emulator& e) { return e.GetCpuClocks() >= stoppedAt + stoppedClocks; }));
+		auto stoppedAt = emulator->GetSystemClocks();
+		ASSERT_TRUE(RunUntil(*emulator, [stoppedAt, stoppedClocks](Emulator& e) { return e.GetSystemClocks() >= stoppedAt + stoppedClocks; }));
 		ASSERT_TRUE(emulator->GetCpu().IsStopped());
 		EXPECT_EQ(0, emulator->GetMemoryMap().ReadByte(0xff04)) << "STOP didn't reset DIV";
 

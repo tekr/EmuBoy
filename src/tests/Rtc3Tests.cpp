@@ -41,7 +41,7 @@ namespace
 		void SetUp() override
 		{
 			ASSERT_NE(nullptr, Rom) << "ROM not found; run the tests from src/tests";
-			GameBoy.reset(new Emulator{ Rom });
+			GameBoy.reset(new Emulator{ Rom, GameBoyModel::Dmg });
 		}
 
 		std::vector<std::vector<unsigned char>> Tiles() const

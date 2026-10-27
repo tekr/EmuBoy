@@ -19,6 +19,9 @@ at $A000.
 | `halt_bug/`     | The HALT bug                                             | `BlarggCpuTests.cpp`    |
 | `oam_bug/`      | OAM corruption by 16-bit increments and decrements       | `BlarggOamBugTests.cpp` |
 
+Most of the DMG ROMs mark themselves as working on the Game Boy Color too ($80 at $0143), so the DMG tests choose the
+DMG rather than leaving the header to choose.
+
 `oam_bug/7-timing_effect.gb` logs an OAM dump for each of the 20 timings in its range that corrupt OAM, over 8 KB of
 text, more than the cartridge RAM it logs to holds, so the log would run on into the test's own code in work RAM,
 which starts at $C000 straight after cartridge RAM, and crash it. Its test moves the log pointer back to the start of

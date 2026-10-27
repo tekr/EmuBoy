@@ -21,7 +21,11 @@ void Emulator::RunStoppedCycles(int cycles)
 	EmuGraphics.RunStoppedCycles(cycles);
 }
 
-Emulator::Emulator(std::shared_ptr<Cartridge> cartridge) : EmuCartridge{ cartridge }
+Emulator::Emulator(std::shared_ptr<Cartridge> cartridge) : Emulator(cartridge, ModelForRom(cartridge->GetRom()))
+{
+}
+
+Emulator::Emulator(std::shared_ptr<Cartridge> cartridge, GameBoyModel model) : EmuCartridge{ cartridge }
 {
 	EmuCpu.SetClockedHardware(this);
 	EmuTimer.SetCpu(&EmuCpu);
@@ -33,6 +37,26 @@ Emulator::Emulator(std::shared_ptr<Cartridge> cartridge) : EmuCartridge{ cartrid
 	EmuSerial.SetCpu(&EmuCpu);
 	EmuMemoryMap.SetCartridge(cartridge);
 	EmuJoypad.SetCpu(&EmuCpu);
+
+	SetModel(model);
+	if (model == GameBoyModel::Cgb) ApplyCgbPostBootState();
+}
+
+void Emulator::SetModel(GameBoyModel model)
+{
+	EmuModel = model;
+}
+
+void Emulator::ApplyCgbPostBootState()
+{
+	// Simplifications: the boot ROM's logo is left out of VRAM, DIV starts as on the DMG at power-on rather than
+	// with the count the boot ROM would leave (which depends on the header), and the LCD has just been turned on
+	EmuCpu.ApplyCgbPostBootState();
+	EmuMemoryMap.ApplyCgbPostBootState();
+	EmuGraphics.ApplyCgbPostBootState();
+	EmuOamDma.ApplyCgbPostBootState();
+	EmuApu.ApplyCgbPostBootState();
+	EmuSerial.ApplyCgbPostBootState();
 }
 
 int* Emulator::GetFrame()
@@ -58,6 +82,10 @@ bool Emulator::RunInstruction()
 
 void Emulator::WriteState(StateWriter& writer) const
 {
+	writer.BeginSection("MODL");
+	writer.WriteInt(static_cast<int>(EmuModel));
+	writer.EndSection();
+
 	EmuCpu.WriteState(writer);
 	EmuMemoryMap.WriteState(writer);
 	EmuGraphics.WriteState(writer);
@@ -71,6 +99,17 @@ void Emulator::WriteState(StateWriter& writer) const
 
 void Emulator::ReadState(StateReader& reader)
 {
+	auto model = GameBoyModel::Dmg;
+	if (reader.FormatVersion() >= 3)
+	{
+		reader.BeginSection("MODL");
+		model = reader.ReadEnum(GameBoyModel::Cgb);
+		reader.EndSection();
+	}
+
+	// The components read their state in the model's mode
+	SetModel(model);
+
 	EmuCpu.ReadState(reader);
 	EmuMemoryMap.ReadState(reader);
 	EmuGraphics.ReadState(reader);

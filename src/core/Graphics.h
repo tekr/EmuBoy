@@ -254,6 +254,10 @@ public:
 
 	void SetOamDma(const OamDma* oamDma) { _oamDma = oamDma; }
 
+	// As the CGB boot ROM leaves the PPU for a CGB game: LCDC $91 (on) and BGP $FC
+	// (https://gbdev.io/pandocs/Power_Up_Sequence.html#hardware-registers)
+	void ApplyCgbPostBootState();
+
 	// The Bitmap colour for a DMG shade, 0 (lightest) to 3 (darkest)
 	static int ShadeColour(unsigned char shade)
 	{

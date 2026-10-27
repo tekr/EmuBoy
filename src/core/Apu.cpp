@@ -24,6 +24,12 @@ const unsigned char Apu::InitialWaveRam[16] =
 	0x84, 0x40, 0x43, 0xaa, 0x2d, 0x78, 0x92, 0x3c, 0x60, 0x59, 0x59, 0xb0, 0x34, 0xb8, 0x2e, 0xda
 };
 
+// The CGB boot ROM fills wave RAM with alternate $00 and $FF bytes (the gbdev wiki's "Gameboy sound hardware")
+const unsigned char Apu::CgbPostBootWaveRam[16] =
+{
+	0x00, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff
+};
+
 // CH3 output level (NR32 bits 5-6): mute, 100%, 50%, 25%
 const int Apu::WaveVolumeShifts[4] = { 4, 0, 1, 2 };
 
@@ -532,6 +538,28 @@ int Apu::ChannelOutput(int channel) const
 	default:
 		return _noise.Active && (_noise.Lfsr & 1) ? _noise.Env.Volume : 0;
 	}
+}
+
+void Apu::ApplyCgbPostBootState()
+{
+	std::copy(std::begin(CgbPostBootWaveRam), std::end(CgbPostBootWaveRam), _registers + WaveRam);
+
+	_powered = true;
+	_registers[Nr10] = 0x00;
+	_registers[Nr11] = 0x80;
+	_registers[Nr12] = 0xf3;
+	_registers[Nr50] = 0x77;
+	_registers[Nr51] = 0xf3;
+
+	// Simplification: CH1's frequency and duty position are left at 0, as the boot sound's are inaudible at volume 0
+	_square[Ch1].Active = true;
+	_square[Ch1].Env.Volume = 0;
+	_square[Ch1].Env.Period = 3;
+	_square[Ch1].Env.Running = false;
+	_square[Ch1].Timer = _square[Ch1].Period();
+
+	UpdateMix();
+	_cyclesToEvent = CyclesToNextEvent();
 }
 
 void Apu::UpdateMix()

@@ -51,6 +51,9 @@ public:
 
 	void SetCpu(Cpu* cpu) { _cpu = cpu; }
 
+	// The CGB boot ROM leaves SC reading $7F: the internal clock selected, with no transfer
+	void ApplyCgbPostBootState() { _control = InternalClock; }
+
 	// Called with each byte the Game Boy sends, once its transfer completes
 	void SetByteSentHandler(std::function<void(unsigned char)> handler) { _onByteSent = std::move(handler); }
 

@@ -6,6 +6,10 @@
 #include <utility>
 #include <vector>
 
+// The save state format's current version (see SaveState). Version 2 lacks the Game Boy Color's state; version 3
+// adds it at the end of each component's section, and a section saying which model the state is for
+const uint32_t StateFormatVersion = 3;
+
 // Thrown when a save state can't be read: it is truncated or corrupt, or doesn't match the emulator
 class StateError : public std::runtime_error
 {
@@ -60,6 +64,7 @@ class StateReader
 	};
 
 	std::vector<Section> _openSections;
+	uint32_t _formatVersion{ StateFormatVersion };
 
 	// The end of the innermost open section, or of the data
 	size_t Limit() const { return _openSections.empty() ? _size : _openSections.back().End; }
@@ -68,6 +73,10 @@ class StateReader
 public:
 	StateReader(const unsigned char* data, size_t size) : _data(data), _size(size) {}
 	explicit StateReader(const std::vector<unsigned char>& data) : StateReader(data.data(), data.size()) {}
+
+	// The version of the format being read, so components can read older states
+	uint32_t FormatVersion() const { return _formatVersion; }
+	void SetFormatVersion(uint32_t version) { _formatVersion = version; }
 
 	// Reads a section's header, which must have this tag
 	void BeginSection(const char* tag);

@@ -806,6 +806,18 @@ int Cpu::DoNextInstruction()
 	return _instructionCycles;
 }
 
+void Cpu::ApplyCgbPostBootState()
+{
+	_registers.AF = 0x1180;
+	_registers.BC = 0x0000;
+	_registers.DE = 0xff56;
+	_registers.HL = 0x000d;
+	_registers.SP = 0xfffe;
+	_registers.PC = 0x0100;
+	_waitingInterrupts = InterruptFlags::VBlankInt;
+	_enabledInterrupts = InterruptFlags::NoInt;
+}
+
 void Cpu::WriteState(StateWriter& writer) const
 {
 	writer.BeginSection("CPU ");

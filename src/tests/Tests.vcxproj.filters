@@ -93,6 +93,12 @@
     <ClCompile Include="SaveStateRoundTripTests.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="CgbModelTests.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="CgbSaveStateTests.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="SaveStateHiddenStateTests.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -231,6 +237,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="TestFiles.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="CgbTestProgram.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="ScreenText.h">

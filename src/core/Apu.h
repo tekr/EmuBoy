@@ -102,6 +102,7 @@ private:
 	static const unsigned char ReadMasks[RegisterCount];
 	static const unsigned char DutyPatterns[4];
 	static const unsigned char InitialWaveRam[16];
+	static const unsigned char CgbPostBootWaveRam[16];
 	static const int WaveVolumeShifts[4];
 
 	int _sampleRate;
@@ -181,6 +182,10 @@ private:
 
 public:
 	explicit Apu(int sampleRate = 44100);
+
+	// As the CGB boot ROM leaves the APU for a CGB game (https://gbdev.io/pandocs/Power_Up_Sequence.html#hardware-registers):
+	// powered, NR50 $77, NR51 $F3, and CH1 still on from the boot sound, its envelope having faded it to silence
+	void ApplyCgbPostBootState();
 
 	// address is the full CPU address, 0xff10-0xff3f (includes unused addresses in that range)
 	unsigned char ReadRegister(unsigned short address) const;
