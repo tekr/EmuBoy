@@ -42,18 +42,18 @@ namespace
 class CpuStopTests : public CpuTestFixture
 {
 public:
-	Timer TimerUnit;
-	TimerTestHardware Hardware{ TimerUnit };
+	Timer DividerTimer;
+	TimerTestHardware Hardware{ DividerTimer };
 
 	CpuStopTests()
 	{
-		TimerUnit.SetCpu(&Processor);
-		Memory.SetTimer(&TimerUnit);
+		DividerTimer.SetCpu(&Processor);
+		Memory.SetTimer(&DividerTimer);
 		Processor.SetClockedHardware(&Hardware);
 		Joypad.SetCpu(&Processor);
 
-		Processor.RegisterFile().PC = 0;
-		Processor.RegisterFile().SP = StackTop;
+		Processor.GetRegisters().PC = 0;
+		Processor.GetRegisters().SP = StackTop;
 		Processor.InterruptsEnabled() = false;
 		Processor.EnabledInterrupts() = 0;
 		Processor.WaitingInterrupts() = 0;
@@ -62,7 +62,7 @@ public:
 		Memory.WriteByte(JoypAddress, SelectDirections);
 
 		// Leave DIV non-zero, to show whether STOP resets it
-		TimerUnit.RunCycles(0x1234);
+		DividerTimer.RunCycles(0x1234);
 	}
 
 	void MakeInterruptPending()
@@ -94,8 +94,8 @@ TEST_F(CpuStopTests, WithNoButtonOrInterruptIsATwoByteOpcode)
 	Step(1);
 	WakeAndRunNextInstruction();
 
-	EXPECT_EQ(0, Processor.RegisterFile().B);
-	EXPECT_EQ(1, Processor.RegisterFile().A);
+	EXPECT_EQ(0, Processor.GetRegisters().B);
+	EXPECT_EQ(1, Processor.GetRegisters().A);
 }
 
 TEST_F(CpuStopTests, WithAnInterruptPendingEntersStopModeAndResetsDiv)
@@ -114,8 +114,8 @@ TEST_F(CpuStopTests, WithAnInterruptPendingIsAOneByteOpcode)
 	Step(1);
 	WakeAndRunNextInstruction();
 
-	EXPECT_EQ(1, Processor.RegisterFile().B);
-	EXPECT_EQ(0, Processor.RegisterFile().A);
+	EXPECT_EQ(1, Processor.GetRegisters().B);
+	EXPECT_EQ(0, Processor.GetRegisters().A);
 }
 
 TEST_F(CpuStopTests, WithASelectedButtonHeldEntersHaltModeAsATwoByteOpcode)
@@ -126,15 +126,15 @@ TEST_F(CpuStopTests, WithASelectedButtonHeldEntersHaltModeAsATwoByteOpcode)
 	// Reading the skipped byte takes a machine cycle
 	EXPECT_EQ(2 * MachineCycle, Processor.DoNextInstruction());
 	EXPECT_EQ(CpuState::Halted, Processor.State());
-	EXPECT_EQ(2, Processor.RegisterFile().PC);
+	EXPECT_EQ(2, Processor.GetRegisters().PC);
 	EXPECT_EQ(div, Div());
 
 	// An interrupt ends the halt as usual, and execution carries on after the skipped byte
 	MakeInterruptPending();
 	Step(1);
 	EXPECT_EQ(CpuState::Running, Processor.State());
-	EXPECT_EQ(0, Processor.RegisterFile().B);
-	EXPECT_EQ(1, Processor.RegisterFile().A);
+	EXPECT_EQ(0, Processor.GetRegisters().B);
+	EXPECT_EQ(1, Processor.GetRegisters().A);
 }
 
 TEST_F(CpuStopTests, WithASelectedButtonHeldAndAnInterruptPendingDoesNothingAsAOneByteOpcode)
@@ -148,7 +148,7 @@ TEST_F(CpuStopTests, WithASelectedButtonHeldAndAnInterruptPendingDoesNothingAsAO
 	EXPECT_EQ(div, Div());
 
 	Step(1);
-	EXPECT_EQ(1, Processor.RegisterFile().B);
+	EXPECT_EQ(1, Processor.GetRegisters().B);
 }
 
 TEST_F(CpuStopTests, AHeldButtonThatJoypDoesntSelectDoesntCount)
@@ -202,11 +202,11 @@ TEST_F(CpuStopTests, InterruptsDontEndStopMode)
 	Processor.EnabledInterrupts() = InterruptFlags::AllInt;
 	Processor.RequestInterrupt(InterruptFlags::VBlankInt);
 	Processor.RequestInterrupt(InterruptFlags::JoypadInt);
-	auto registers = Processor.RegisterFile();
+	auto registers = Processor.GetRegisters();
 
 	Step(100);
 	EXPECT_EQ(CpuState::Stopped, Processor.State());
-	EXPECT_EQ(registers, Processor.RegisterFile());
+	EXPECT_EQ(registers, Processor.GetRegisters());
 }
 
 TEST_F(CpuStopTests, PressingAButtonJoypDoesntSelectDoesntEndStopMode)
@@ -246,7 +246,7 @@ TEST_F(CpuStopTests, JoypadInterruptIsDispatchedAfterWakingWhenEnabled)
 
 	Joypad.SetKeysDown(JoypadKey::Right);
 	Step(2);
-	EXPECT_EQ(0x60, Processor.RegisterFile().PC);
+	EXPECT_EQ(0x60, Processor.GetRegisters().PC);
 }
 
 TEST_F(CpuStopTests, InterruptAfterWakingFromAOneByteStopReturnsToTheByteAfterStop)
@@ -261,8 +261,8 @@ TEST_F(CpuStopTests, InterruptAfterWakingFromAOneByteStopReturnsToTheByteAfterSt
 
 	Joypad.SetKeysDown(JoypadKey::Right);
 	Step(2);
-	EXPECT_EQ(0x50, Processor.RegisterFile().PC);
-	EXPECT_EQ(StackTop - 2, Processor.RegisterFile().SP);
+	EXPECT_EQ(0x50, Processor.GetRegisters().PC);
+	EXPECT_EQ(StackTop - 2, Processor.GetRegisters().SP);
 	EXPECT_EQ(0x02, Memory.ReadByte(StackTop - 2));
 	EXPECT_EQ(0x00, Memory.ReadByte(StackTop - 1));
 }
@@ -274,7 +274,7 @@ TEST_F(CpuStopTests, DivResetIncrementsTimaLikeADivWrite)
 	Memory.WriteByte(MemoryMap::DividerPort, 0);
 	Memory.WriteByte(TacAddress, 0x05);	// Enabled, divider bit 3
 	Memory.WriteByte(TimaAddress, 0x80);
-	TimerUnit.RunCycles(8);						// STOP's opcode fetch takes the divider to 12: bit 3 still set
+	DividerTimer.RunCycles(8);						// STOP's opcode fetch takes the divider to 12: bit 3 still set
 
 	Step(1);
 	EXPECT_EQ(0x81, Memory.ReadByte(TimaAddress));

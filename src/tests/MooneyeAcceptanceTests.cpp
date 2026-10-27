@@ -34,7 +34,7 @@ INSTANTIATE_TEST_CASE_P(Bits, MooneyeAcceptanceTest, testing::Values(
 INSTANTIATE_TEST_CASE_P(Boot, MooneyeAcceptanceTest, testing::Values(
 	"boot_div-dmgABCmgb", "boot_hwio-dmgABCmgb", "boot_regs-dmgABC", "serial/boot_sclk_align-dmgABCmgb"));
 
-INSTANTIATE_TEST_CASE_P(DmaController, MooneyeAcceptanceTest, testing::Values(
+INSTANTIATE_TEST_CASE_P(OamDmaController, MooneyeAcceptanceTest, testing::Values(
 	"oam_dma_restart", "oam_dma_start", "oam_dma_timing", "oam_dma/basic", "oam_dma/reg_read",
 	"oam_dma/sources-GS"));
 
@@ -44,7 +44,7 @@ INSTANTIATE_TEST_CASE_P(Ppu, MooneyeAcceptanceTest, testing::Values(
 	"ppu/intr_2_oam_ok_timing", "ppu/lcdon_timing-GS", "ppu/lcdon_write_timing-GS", "ppu/stat_irq_blocking",
 	"ppu/stat_lyc_onoff", "ppu/vblank_stat_intr-GS"));
 
-INSTANTIATE_TEST_CASE_P(TimerUnit, MooneyeAcceptanceTest, testing::Values(
+INSTANTIATE_TEST_CASE_P(DividerTimer, MooneyeAcceptanceTest, testing::Values(
 	"timer/div_write", "timer/rapid_toggle", "timer/tim00_div_trigger", "timer/tim00", "timer/tim01_div_trigger",
 	"timer/tim01", "timer/tim10_div_trigger", "timer/tim10", "timer/tim11_div_trigger", "timer/tim11",
 	"timer/tima_reload", "timer/tima_write_reloading", "timer/tma_write_reloading"));

@@ -30,25 +30,25 @@ namespace
 	protected:
 		TestDirectory Directory{ "SaveStateSlotsTest" };
 		SaveStateSlots Slots{ Directory.File("game.gb") };
-		std::unique_ptr<Emulator> Emu{ PowerOn() };
+		std::unique_ptr<Emulator> GameBoy{ PowerOn() };
 
 		void SetUp() override
 		{
-			ASSERT_NE(nullptr, Emu) << "ROM not found; run the tests from src/tests";
+			ASSERT_NE(nullptr, GameBoy) << "ROM not found; run the tests from src/tests";
 			for (auto slot = 1; slot <= SaveStateSlots::SlotCount; slot++) Directory.File("game.ss" + std::to_string(slot));
-			RunFrames(*Emu, 20);
+			RunFrames(*GameBoy, 20);
 		}
 
 		// Expects loading to fail with the message, leaving the emulator as it was
 		void ExpectLoadFails(const std::string& message)
 		{
-			auto before = SaveState::Create(*Emu);
+			auto before = SaveState::Create(*GameBoy);
 
-			auto result = Slots.Load(*Emu);
+			auto result = Slots.Load(*GameBoy);
 
 			EXPECT_FALSE(result.Succeeded);
 			EXPECT_EQ(0u, result.Message.find(message)) << result.Message;
-			EXPECT_TRUE(before == SaveState::Create(*Emu)) << "The emulator changed";
+			EXPECT_TRUE(before == SaveState::Create(*GameBoy)) << "The emulator changed";
 		}
 	};
 }
@@ -86,49 +86,49 @@ TEST_F(SaveStateSlotsTest, SavesTheStateInTheSelectedSlotsFile)
 {
 	Slots.NextSlot();
 
-	auto result = Slots.Save(*Emu);
+	auto result = Slots.Save(*GameBoy);
 
 	EXPECT_TRUE(result.Succeeded);
 	EXPECT_EQ("Saved state 2", result.Message);
-	EXPECT_TRUE(SaveState::Create(*Emu) == ReadAll(Slots.PathForSlot(2)));
+	EXPECT_TRUE(SaveState::Create(*GameBoy) == ReadAll(Slots.PathForSlot(2)));
 	EXPECT_FALSE(Exists(Slots.PathForSlot(1)));
 	EXPECT_FALSE(Exists(Slots.PathForSlot(2) + ".tmp"));
 }
 
 TEST_F(SaveStateSlotsTest, LoadsTheStateFromTheSelectedSlot)
 {
-	auto saved = SaveState::Create(*Emu);
-	ASSERT_TRUE(Slots.Save(*Emu).Succeeded);
-	RunFrames(*Emu, 10);
+	auto saved = SaveState::Create(*GameBoy);
+	ASSERT_TRUE(Slots.Save(*GameBoy).Succeeded);
+	RunFrames(*GameBoy, 10);
 
-	auto result = Slots.Load(*Emu);
+	auto result = Slots.Load(*GameBoy);
 
 	EXPECT_TRUE(result.Succeeded);
 	EXPECT_EQ("Loaded state 1", result.Message);
-	EXPECT_TRUE(saved == SaveState::Create(*Emu));
+	EXPECT_TRUE(saved == SaveState::Create(*GameBoy));
 }
 
 TEST_F(SaveStateSlotsTest, SlotsAreKeptApart)
 {
-	ASSERT_TRUE(Slots.Save(*Emu).Succeeded);
-	auto first = SaveState::Create(*Emu);
-	RunFrames(*Emu, 10);
+	ASSERT_TRUE(Slots.Save(*GameBoy).Succeeded);
+	auto first = SaveState::Create(*GameBoy);
+	RunFrames(*GameBoy, 10);
 	Slots.NextSlot();
-	ASSERT_TRUE(Slots.Save(*Emu).Succeeded);
+	ASSERT_TRUE(Slots.Save(*GameBoy).Succeeded);
 
 	Slots.PreviousSlot();
-	ASSERT_TRUE(Slots.Load(*Emu).Succeeded);
+	ASSERT_TRUE(Slots.Load(*GameBoy).Succeeded);
 
-	EXPECT_TRUE(first == SaveState::Create(*Emu));
+	EXPECT_TRUE(first == SaveState::Create(*GameBoy));
 }
 
 TEST_F(SaveStateSlotsTest, SavingAgainReplacesTheSlotsState)
 {
-	ASSERT_TRUE(Slots.Save(*Emu).Succeeded);
-	RunFrames(*Emu, 10);
-	ASSERT_TRUE(Slots.Save(*Emu).Succeeded);
+	ASSERT_TRUE(Slots.Save(*GameBoy).Succeeded);
+	RunFrames(*GameBoy, 10);
+	ASSERT_TRUE(Slots.Save(*GameBoy).Succeeded);
 
-	EXPECT_TRUE(SaveState::Create(*Emu) == ReadAll(Slots.PathForSlot(1)));
+	EXPECT_TRUE(SaveState::Create(*GameBoy) == ReadAll(Slots.PathForSlot(1)));
 }
 
 TEST_F(SaveStateSlotsTest, LoadingAnEmptySlotSaysSo)
@@ -140,11 +140,11 @@ TEST_F(SaveStateSlotsTest, LoadingAnEmptySlotSaysSo)
 
 TEST_F(SaveStateSlotsTest, LoadingACorruptStateSaysWhy)
 {
-	ASSERT_TRUE(Slots.Save(*Emu).Succeeded);
+	ASSERT_TRUE(Slots.Save(*GameBoy).Succeeded);
 	auto state = ReadAll(Slots.PathForSlot(1));
 	state[state.size() / 2] ^= 1;
 	WriteAll(Slots.PathForSlot(1), state);
-	RunFrames(*Emu, 5);
+	RunFrames(*GameBoy, 5);
 
 	ExpectLoadFails("Couldn't load state 1 from " + Slots.PathForSlot(1) + ". The save state is corrupt");
 }

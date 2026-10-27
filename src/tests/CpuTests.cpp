@@ -72,20 +72,20 @@ TEST_F(CpuTestFixture, Nop)
 {
 	Memory.SetBytes(MemoryMap::RomFixed, { 0, 0 });
 
-	auto oldReg(Processor.RegisterFile());
+	auto oldReg(Processor.GetRegisters());
 
 	EXPECT_EQ(OneCycle, Processor.DoNextInstruction());
 	EXPECT_EQ(OneCycle, Processor.DoNextInstruction());
 
 	oldReg.PC += 2;
-	EXPECT_EQ(oldReg, Processor.RegisterFile());
+	EXPECT_EQ(oldReg, Processor.GetRegisters());
 }
 
 TEST_F(CpuTestFixture, Ld16RegImm)
 {
 	for (auto test : Reg16TestCases1)
 	{
-		auto& reg = Processor.RegisterFile();
+		auto& reg = Processor.GetRegisters();
 		reg.PC = 0;
 		reg.F = 0;
 		test.Selector(reg) = 0;
@@ -112,7 +112,7 @@ TEST_F(CpuTestFixture, St8MemAcc)
 	{
 		auto& test = Reg16TestCases2[i];
 
-		auto& reg = Processor.RegisterFile();
+		auto& reg = Processor.GetRegisters();
 		reg.PC = 0;
 		reg.F = 0;
 		reg.A = 0x33;
@@ -146,7 +146,7 @@ TEST_F(CpuTestFixture, Ld8AccMem)
 	{
 		auto& test = Reg16TestCases2[i];
 
-		auto& reg = Processor.RegisterFile();
+		auto& reg = Processor.GetRegisters();
 		reg.PC = 0;
 		reg.F = 0;
 		reg.A = 0;
@@ -193,7 +193,7 @@ TEST_F(CpuTestFixture, IncDec16Reg)
 {
 	for (auto test : Reg16TestCases1)
 	{
-		auto& reg = Processor.RegisterFile();
+		auto& reg = Processor.GetRegisters();
 		reg.PC = 0;
 		reg.F = 0;
 		test.Selector(reg) = 0xffff;
@@ -241,9 +241,9 @@ TEST_F(CpuTestFixture, IncDec8RegOrMem)
 {
 	for (auto test : Reg8TestCases)
 	{
-		Processor.RegisterFile().HL = MemoryMap::RamFixed;
+		Processor.GetRegisters().HL = MemoryMap::RamFixed;
 
-		auto& reg = Processor.RegisterFile();
+		auto& reg = Processor.GetRegisters();
 		reg.PC = 0;
 		test.Selector(reg, Memory) = 0x3F;
 
@@ -325,7 +325,7 @@ TEST_F(CpuTestFixture, Ld8RegOrMemImm)
 {
 	for (auto test : Reg8TestCases)
 	{
-		auto& reg = Processor.RegisterFile();
+		auto& reg = Processor.GetRegisters();
 	
 		// HL points to start of fixed RAM
 		reg.HL = MemoryMap::RamFixed;
@@ -372,7 +372,7 @@ TEST_F(CpuTestFixture, Rlca)
 	};
 
 	Memory.SetBytes(MemoryMap::RomFixed, { 0x7 });
-	auto& reg = Processor.RegisterFile();
+	auto& reg = Processor.GetRegisters();
 
 	for (auto& test : tests)
 	{
@@ -404,7 +404,7 @@ TEST_F(CpuTestFixture, Rla)
 	};
 
 	Memory.SetBytes(MemoryMap::RomFixed, { 0x17 });
-	auto& reg = Processor.RegisterFile();
+	auto& reg = Processor.GetRegisters();
 
 	for (auto& test : tests)
 	{
@@ -436,7 +436,7 @@ TEST_F(CpuTestFixture, Rrca)
 	};
 
 	Memory.SetBytes(MemoryMap::RomFixed, { 0xf });
-	auto& reg = Processor.RegisterFile();
+	auto& reg = Processor.GetRegisters();
 
 	for (auto& test : tests)
 	{
@@ -468,7 +468,7 @@ TEST_F(CpuTestFixture, Rra)
 	};
 
 	Memory.SetBytes(MemoryMap::RomFixed, { 0x1f });
-	auto& reg = Processor.RegisterFile();
+	auto& reg = Processor.GetRegisters();
 
 	for (auto& test : tests)
 	{
@@ -493,7 +493,7 @@ TEST_F(CpuTestFixture, St16MemSp)
 	Memory.SetBytes(MemoryMap::RomFixed, { 0x8, MemoryMap::RamFixed & 0xff, MemoryMap::RamFixed >> 8,
 										0x8, (MemoryMap::RamFixed & 0xff) + 4, MemoryMap::RamFixed >> 8 });
 
-	auto& reg = Processor.RegisterFile();
+	auto& reg = Processor.GetRegisters();
 	reg.F = 0x0;
 	reg.SP = 0x3344;
 
@@ -525,7 +525,7 @@ TEST_F(CpuTestFixture, Add16RegHl)
 {
 	for (auto test : Reg16TestCases1)
 	{
-		auto& reg = Processor.RegisterFile();
+		auto& reg = Processor.GetRegisters();
 		reg.PC = 0;
 		reg.F = AllFlags;
 		reg.HL = 0x8fff;
@@ -573,7 +573,7 @@ TEST_F(CpuTestFixture, Daa)
 	};
 
 	Memory.SetBytes(MemoryMap::RomFixed, { 0x27 });
-	auto& reg = Processor.RegisterFile();
+	auto& reg = Processor.GetRegisters();
 
 	for (auto& test : tests)
 	{
@@ -609,7 +609,7 @@ TEST_F(CpuTestFixture, Cpl)
 	};
 
 	Memory.SetBytes(MemoryMap::RomFixed, { 0x2f });
-	auto& reg = Processor.RegisterFile();
+	auto& reg = Processor.GetRegisters();
 
 	for (auto& test : tests)
 	{
@@ -642,7 +642,7 @@ TEST_F(CpuTestFixture, Scf)
 	};
 
 	Memory.SetBytes(MemoryMap::RomFixed, { 0x37 });
-	auto& reg = Processor.RegisterFile();
+	auto& reg = Processor.GetRegisters();
 
 	for (auto& test : tests)
 	{
@@ -674,7 +674,7 @@ TEST_F(CpuTestFixture, Ccf)
 	};
 
 	Memory.SetBytes(MemoryMap::RomFixed, { 0x3f });
-	auto& reg = Processor.RegisterFile();
+	auto& reg = Processor.GetRegisters();
 
 	for (auto& test : tests)
 	{
@@ -723,7 +723,7 @@ TEST_F(CpuTestFixture, Ld8RegOrMemRegOrMem)
 		
 		for (unsigned char testVal : { 0xaa, 0x33 })
 		{
-			auto& reg = Processor.RegisterFile();
+			auto& reg = Processor.GetRegisters();
 
 			reg.PC = 0;
 			reg.HL = MemoryMap::RamFixed;
@@ -838,7 +838,7 @@ TEST_F(CpuTestFixture, AluOp8AccRegOrMem)
 			{
 				Memory.SetBytes(MemoryMap::RomFixed, { static_cast<unsigned char>(test[0] | i) });
 
-				auto& reg = Processor.RegisterFile();
+				auto& reg = Processor.GetRegisters();
 
 				reg.PC = 0;
 				reg.HL = MemoryMap::RamFixed;
@@ -937,7 +937,7 @@ TEST_F(CpuTestFixture, AluOp8AccImm)
 	{
 		Memory.SetBytes(MemoryMap::RomFixed, { test[0], test[2] });
 
-		auto& reg = Processor.RegisterFile();
+		auto& reg = Processor.GetRegisters();
 
 		reg.PC = 0;
 		reg.A = test[1];
@@ -1005,7 +1005,7 @@ TEST_F(CpuTestFixture, Ret)
 		// Return address stored on stack
 		Memory.SetBytes(MemoryMap::RamFixed, { 0x34, 0x12 });
 
-		auto& reg = Processor.RegisterFile();
+		auto& reg = Processor.GetRegisters();
 
 		reg.PC = 0;
 		reg.SP = MemoryMap::RamFixed;
@@ -1053,7 +1053,7 @@ TEST_F(CpuTestFixture, Pop)
 			Memory.SetBytes(MemoryMap::RamFixed, { static_cast<unsigned char>(testVal & 0xff),
 												static_cast<unsigned char>(testVal >> 8) });
 
-			auto& registers = Processor.RegisterFile();
+			auto& registers = Processor.GetRegisters();
 			auto& destRegFn = std::get<1>(scenario);
 
 			registers.PC = 0;
@@ -1095,7 +1095,7 @@ TEST_F(CpuTestFixture, Push)
 			EXPECT_EQ(0, Memory.ReadByte(MemoryMap::RamFixed));
 			EXPECT_EQ(0, Memory.ReadByte(MemoryMap::RamFixed + 1));
 
-			auto& registers = Processor.RegisterFile();
+			auto& registers = Processor.GetRegisters();
 			auto& destRegFn = std::get<1>(scenario);
 
 			registers.PC = 0;
@@ -1194,7 +1194,7 @@ TEST_F(CpuTestFixture, JpCall)
 		// Clear stack
 		Memory.SetBytes(stackStart, { 0, 0 });
 
-		auto& reg = Processor.RegisterFile();
+		auto& reg = Processor.GetRegisters();
 
 		reg.PC = MemoryMap::RamFixed;
 		reg.SP = stackStart + 2;
@@ -1255,7 +1255,7 @@ TEST_F(CpuTestFixture, Rst)
 		// Clear stack
 		Memory.SetBytes(stackStart, { 0, 0 });
 
-		auto& reg = Processor.RegisterFile();
+		auto& reg = Processor.GetRegisters();
 
 		reg.PC = MemoryMap::RamFixed;
 		reg.SP = stackStart + 2;
@@ -1428,7 +1428,7 @@ TEST_F(CpuTestFixture, CbPrefixOpcodes)
 
 			Memory.SetBytes(MemoryMap::RomFixed, { 0xcb, opcode });
 
-			auto& reg = Processor.RegisterFile();
+			auto& reg = Processor.GetRegisters();
 
 			reg.PC = 0;
 			reg.HL = MemoryMap::RamFixed;
@@ -1457,20 +1457,20 @@ TEST_F(CpuTestFixture, InterruptsDisabledAtPowerOn)
 
 	EXPECT_FALSE(Processor.InterruptsEnabled());
 	Processor.DoNextInstruction();
-	EXPECT_EQ(1, Processor.RegisterFile().PC);
+	EXPECT_EQ(1, Processor.GetRegisters().PC);
 }
 
 TEST_F(CpuTestFixture, InterruptEnableKeepsUpperBits)
 {
 	// Mooneye-test-suite's unused_hwio-GS: IE's upper three bits read back as written
 	Memory.SetBytes(MemoryMap::RomFixed, { 0xe0, 0xff, 0xf0, 0xff });		// LDH ($FF),A; LDH A,($FF)
-	Processor.RegisterFile().A = 0xe0;
+	Processor.GetRegisters().A = 0xe0;
 
 	Processor.DoNextInstruction();
-	Processor.RegisterFile().A = 0;
+	Processor.GetRegisters().A = 0;
 	Processor.DoNextInstruction();
 
-	EXPECT_EQ(0xe0, Processor.RegisterFile().A);
+	EXPECT_EQ(0xe0, Processor.GetRegisters().A);
 }
 
 TEST_F(CpuTestFixture, VBlankInterrupt)
@@ -1503,7 +1503,7 @@ TEST_F(CpuTestFixture, VBlankInterrupt)
 	Processor.EnabledInterrupts() = 0xff;
 	Processor.InterruptsEnabled() = true;
 
-	auto& reg = Processor.RegisterFile();
+	auto& reg = Processor.GetRegisters();
 
 	reg.PC = 0;
 	reg.HL = 0x5678;
@@ -1600,7 +1600,7 @@ TEST_F(CpuTestFixture, VBlankInterruptDisabled)
 
 	Processor.EnabledInterrupts() = ~InterruptFlags::VBlankInt;
 
-	auto& reg = Processor.RegisterFile();
+	auto& reg = Processor.GetRegisters();
 
 	reg.PC = 0;
 	reg.HL = 0x5678;

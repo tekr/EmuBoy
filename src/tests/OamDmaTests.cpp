@@ -19,12 +19,12 @@ namespace
 class OamDmaTests : public GraphicsTestFixture
 {
 public:
-	OamDma DmaController{ Memory, Ppu };
+	OamDma OamDmaController{ Memory, Ppu };
 
 	OamDmaTests()
 	{
-		Memory.SetOamDma(&DmaController);
-		Ppu.SetOamDma(&DmaController);
+		Memory.SetOamDma(&OamDmaController);
+		Ppu.SetOamDma(&OamDmaController);
 
 		for (unsigned short i = 0; i < Graphics::OamSize; i++)
 		{
@@ -38,7 +38,7 @@ public:
 	{
 		for (auto i = 0; i < cycles; i++)
 		{
-			DmaController.RunCycle();
+			OamDmaController.RunCycle();
 			Run(4);
 		}
 	}
@@ -61,11 +61,11 @@ TEST_F(OamDmaTests, TransferStartsTwoMachineCyclesAfterTheWrite)
 	Start(WorkRam >> 8);
 
 	RunCycles(1);
-	EXPECT_FALSE(DmaController.IsTransferring());
+	EXPECT_FALSE(OamDmaController.IsTransferring());
 	EXPECT_EQ(0, Memory.ReadByte(OamAddress));
 
 	RunCycles(1);
-	EXPECT_TRUE(DmaController.IsTransferring());
+	EXPECT_TRUE(OamDmaController.IsTransferring());
 	EXPECT_EQ(0xff, Memory.ReadByte(OamAddress));
 }
 
@@ -74,10 +74,10 @@ TEST_F(OamDmaTests, TransferTakes160MachineCycles)
 	Start(WorkRam >> 8);
 
 	RunCycles(1 + TransferCycles);
-	EXPECT_TRUE(DmaController.IsTransferring());
+	EXPECT_TRUE(OamDmaController.IsTransferring());
 
 	RunCycles(1);
-	EXPECT_FALSE(DmaController.IsTransferring());
+	EXPECT_FALSE(OamDmaController.IsTransferring());
 	EXPECT_TRUE(OamMatches(WorkRam));
 }
 
@@ -149,13 +149,13 @@ TEST_F(OamDmaTests, RestartKeepsCurrentTransferGoingUntilTheNewOneStarts)
 
 	Start((WorkRam + 0x100) >> 8);
 	RunCycles(1);
-	EXPECT_TRUE(DmaController.IsTransferring());
+	EXPECT_TRUE(OamDmaController.IsTransferring());
 
 	RunCycles(TransferCycles);
-	EXPECT_TRUE(DmaController.IsTransferring());
+	EXPECT_TRUE(OamDmaController.IsTransferring());
 
 	RunCycles(1);
-	EXPECT_FALSE(DmaController.IsTransferring());
+	EXPECT_FALSE(OamDmaController.IsTransferring());
 	EXPECT_TRUE(OamMatches(WorkRam + 0x100));
 }
 
@@ -192,11 +192,11 @@ TEST_F(OamDmaTests, TransferDuringOamScanHidesSprites)
 	Start(WorkRam >> 8);
 	RunCycles((Graphics::ScanlineClocks - 300 + TestGraphics::DrawStart) / 4);
 
-	EXPECT_TRUE(DmaController.IsTransferring());
+	EXPECT_TRUE(OamDmaController.IsTransferring());
 	EXPECT_EQ(Graphics::ShadeColour(0), Ppu.Bitmap[lineWidth]);
 
 	RunCycles(TransferCycles);
-	EXPECT_FALSE(DmaController.IsTransferring());
+	EXPECT_FALSE(OamDmaController.IsTransferring());
 	RunTo(3, TestGraphics::DrawStart);
 	EXPECT_EQ(Graphics::ShadeColour(3), Ppu.Bitmap[3 * lineWidth]);
 }

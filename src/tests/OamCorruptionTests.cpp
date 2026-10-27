@@ -191,7 +191,7 @@ public:
 	CpuOamCorruptionTests()
 	{
 		Processor.SetClockedHardware(&_clock);
-		Processor.RegisterFile().PC = 0;
+		Processor.GetRegisters().PC = 0;
 		TurnOn();
 	}
 
@@ -211,11 +211,11 @@ TEST_F(CpuOamCorruptionTests, IncrementOfRegisterPairHoldingOamAddressIsAWrite)
 	auto expected = CurrentOam();
 	WriteCorruption(expected, 7);
 
-	Processor.RegisterFile().DE = 0xfe00;
+	Processor.GetRegisters().DE = 0xfe00;
 	RunInstruction({ 0x13 }, 2, 7);
 
 	EXPECT_EQ(expected, CurrentOam());
-	EXPECT_EQ(0xfe01, Processor.RegisterFile().DE);
+	EXPECT_EQ(0xfe01, Processor.GetRegisters().DE);
 }
 
 TEST_F(CpuOamCorruptionTests, DecrementOfAnyAddressFromFE00ToFEFFIsAWrite)
@@ -224,7 +224,7 @@ TEST_F(CpuOamCorruptionTests, DecrementOfAnyAddressFromFE00ToFEFFIsAWrite)
 	auto expected = CurrentOam();
 	WriteCorruption(expected, 7);
 
-	Processor.RegisterFile().SP = 0xfeff;
+	Processor.GetRegisters().SP = 0xfeff;
 	RunInstruction({ 0x3b }, 2, 7);
 
 	EXPECT_EQ(expected, CurrentOam());
@@ -234,7 +234,7 @@ TEST_F(CpuOamCorruptionTests, IncrementOutsideOamDoesNothing)
 {
 	auto original = CurrentOam();
 
-	Processor.RegisterFile().DE = 0xfd00;
+	Processor.GetRegisters().DE = 0xfd00;
 	RunInstruction({ 0x13 }, 2, 7);
 
 	EXPECT_EQ(original, CurrentOam());
@@ -245,8 +245,8 @@ TEST_F(CpuOamCorruptionTests, SixteenBitAddDoesNothing)
 	// Blargg's 3-non_causes: ADD HL,DE
 	auto original = CurrentOam();
 
-	Processor.RegisterFile().HL = 0xfe00;
-	Processor.RegisterFile().DE = 0x0001;
+	Processor.GetRegisters().HL = 0xfe00;
+	Processor.GetRegisters().DE = 0x0001;
 	RunInstruction({ 0x19 }, 2, 7);
 
 	EXPECT_EQ(original, CurrentOam());
@@ -258,11 +258,11 @@ TEST_F(CpuOamCorruptionTests, LoadWithIncrementIsAReadDuringIncDec)
 	auto expected = CurrentOam();
 	ReadDuringIncDecCorruption(expected, 8);
 
-	Processor.RegisterFile().HL = 0xfe40;
+	Processor.GetRegisters().HL = 0xfe40;
 	RunInstruction({ 0x2a }, 2, 8);
 
 	EXPECT_EQ(expected, CurrentOam());
-	EXPECT_EQ(0xff, Processor.RegisterFile().A);
+	EXPECT_EQ(0xff, Processor.GetRegisters().A);
 }
 
 TEST_F(CpuOamCorruptionTests, PopIsAReadDuringIncDecThenARead)
@@ -272,7 +272,7 @@ TEST_F(CpuOamCorruptionTests, PopIsAReadDuringIncDecThenARead)
 	ReadDuringIncDecCorruption(expected, 8);
 	ReadCorruption(expected, 9);
 
-	Processor.RegisterFile().SP = 0xfef0;
+	Processor.GetRegisters().SP = 0xfef0;
 	RunInstruction({ 0xc1 }, 2, 8);
 
 	EXPECT_EQ(expected, CurrentOam());
@@ -286,7 +286,7 @@ TEST_F(CpuOamCorruptionTests, PushIsThreeWrites)
 	WriteCorruption(expected, 9);
 	WriteCorruption(expected, 10);
 
-	Processor.RegisterFile().SP = 0xfef0;
+	Processor.GetRegisters().SP = 0xfef0;
 	RunInstruction({ 0xc5 }, 2, 8);
 
 	EXPECT_EQ(expected, CurrentOam());

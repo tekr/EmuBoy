@@ -16,17 +16,17 @@ namespace
 class CpuIllegalOpcodeTests : public CpuTestFixture, public testing::WithParamInterface<unsigned char>
 {
 public:
-	Timer TimerUnit;
-	TimerTestHardware Hardware{ TimerUnit };
+	Timer DividerTimer;
+	TimerTestHardware Hardware{ DividerTimer };
 
 	CpuIllegalOpcodeTests()
 	{
-		TimerUnit.SetCpu(&Processor);
-		Memory.SetTimer(&TimerUnit);
+		DividerTimer.SetCpu(&Processor);
+		Memory.SetTimer(&DividerTimer);
 		Processor.SetClockedHardware(&Hardware);
 
-		Processor.RegisterFile().PC = 0;
-		Processor.RegisterFile().SP = StackTop;
+		Processor.GetRegisters().PC = 0;
+		Processor.GetRegisters().SP = StackTop;
 		Processor.InterruptsEnabled() = false;
 		Processor.EnabledInterrupts() = 0;
 		Processor.WaitingInterrupts() = 0;
@@ -45,17 +45,17 @@ TEST_P(CpuIllegalOpcodeTests, LocksTheCpuWithoutThrowing)
 TEST_P(CpuIllegalOpcodeTests, ExecutesNothingMore)
 {
 	Step(1);
-	auto registers = Processor.RegisterFile();
+	auto registers = Processor.GetRegisters();
 
 	Step(100);
-	EXPECT_EQ(registers, Processor.RegisterFile());
+	EXPECT_EQ(registers, Processor.GetRegisters());
 	EXPECT_EQ(CpuState::Locked, Processor.State());
 }
 
 TEST_P(CpuIllegalOpcodeTests, InterruptsDontWakeIt)
 {
 	Step(1);
-	auto registers = Processor.RegisterFile();
+	auto registers = Processor.GetRegisters();
 
 	Processor.InterruptsEnabled() = true;
 	Processor.EnabledInterrupts() = InterruptFlags::AllInt;
@@ -63,7 +63,7 @@ TEST_P(CpuIllegalOpcodeTests, InterruptsDontWakeIt)
 	Processor.RequestInterrupt(InterruptFlags::JoypadInt);
 
 	Step(100);
-	EXPECT_EQ(registers, Processor.RegisterFile());
+	EXPECT_EQ(registers, Processor.GetRegisters());
 	EXPECT_EQ(InterruptFlags::VBlankInt | InterruptFlags::JoypadInt, Processor.WaitingInterrupts());
 	EXPECT_EQ(CpuState::Locked, Processor.State());
 }

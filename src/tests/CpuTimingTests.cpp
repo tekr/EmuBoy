@@ -34,8 +34,8 @@ public:
 	CpuTimingTests()
 	{
 		Processor.SetClockedHardware(&Hardware);
-		Processor.RegisterFile().PC = 0;
-		Processor.RegisterFile().SP = StackTop;
+		Processor.GetRegisters().PC = 0;
+		Processor.GetRegisters().SP = StackTop;
 		Processor.InterruptsEnabled() = false;
 		Processor.EnabledInterrupts() = 0;
 		Processor.WaitingInterrupts() = 0;
@@ -44,7 +44,7 @@ public:
 	void RunProgram(std::vector<unsigned char>&& program, unsigned short address = MemoryMap::RomFixed)
 	{
 		Memory.SetBytes(address, std::move(program));
-		Processor.RegisterFile().PC = address;
+		Processor.GetRegisters().PC = address;
 		Memory.WriteByte(CounterAddress, 0);
 		Cycles = Processor.DoNextInstruction();
 	}
@@ -68,14 +68,14 @@ TEST_F(CpuTimingTests, ReadsAreMadeInTheLastMachineCycle)
 	for (auto& read : reads)
 	{
 		SCOPED_TRACE(static_cast<int>(read.first[0]));
-		Processor.RegisterFile().HL = CounterAddress;
-		Processor.RegisterFile().C = CounterAddress & 0xff;
-		Processor.RegisterFile().PC = 0;
+		Processor.GetRegisters().HL = CounterAddress;
+		Processor.GetRegisters().C = CounterAddress & 0xff;
+		Processor.GetRegisters().PC = 0;
 
 		auto program = read.first;
 		RunProgram(std::move(program));
 
-		EXPECT_EQ(read.second, Processor.RegisterFile().A);
+		EXPECT_EQ(read.second, Processor.GetRegisters().A);
 		EXPECT_EQ(read.second * MachineCycle, Cycles);
 	}
 }
@@ -95,10 +95,10 @@ TEST_F(CpuTimingTests, WritesAreMadeInTheLastMachineCycle)
 	for (auto& write : writes)
 	{
 		SCOPED_TRACE(static_cast<int>(write.first[0]));
-		Processor.RegisterFile().HL = CounterAddress;
-		Processor.RegisterFile().C = CounterAddress & 0xff;
-		Processor.RegisterFile().A = 0x40;
-		Processor.RegisterFile().PC = 0;
+		Processor.GetRegisters().HL = CounterAddress;
+		Processor.GetRegisters().C = CounterAddress & 0xff;
+		Processor.GetRegisters().A = 0x40;
+		Processor.GetRegisters().PC = 0;
 
 		auto program = write.first;
 		RunProgram(std::move(program));
@@ -112,13 +112,13 @@ TEST_F(CpuTimingTests, WritesAreMadeInTheLastMachineCycle)
 TEST_F(CpuTimingTests, ReadModifyWriteReadsInTheNextToLastCycleAndWritesInTheLast)
 {
 	// DEC (HL): reads 2 in cycle 2, writes 1 in cycle 3
-	Processor.RegisterFile().HL = CounterAddress;
+	Processor.GetRegisters().HL = CounterAddress;
 	RunProgram({ 0x35 });
 	EXPECT_EQ(1, Counter());
 	EXPECT_EQ(3 * MachineCycle, Cycles);
 
 	// SWAP (HL): reads 3 in cycle 3, writes 0x30 in cycle 4
-	Processor.RegisterFile().PC = 0;
+	Processor.GetRegisters().PC = 0;
 	RunProgram({ 0xcb, 0x36 });
 	EXPECT_EQ(0x30, Counter());
 	EXPECT_EQ(4 * MachineCycle, Cycles);
@@ -127,9 +127,9 @@ TEST_F(CpuTimingTests, ReadModifyWriteReadsInTheNextToLastCycleAndWritesInTheLas
 TEST_F(CpuTimingTests, BitTestOfMemoryReadsInTheLastCycle)
 {
 	// BIT 0,(HL) and BIT 1,(HL) read 3 (binary 11) in cycle 3; in cycle 2 bit 0 would be clear
-	Processor.RegisterFile().HL = CounterAddress;
+	Processor.GetRegisters().HL = CounterAddress;
 	RunProgram({ 0xcb, 0x46 });
-	EXPECT_EQ(0, Processor.RegisterFile().F & ZeroFlag);
+	EXPECT_EQ(0, Processor.GetRegisters().F & ZeroFlag);
 	EXPECT_EQ(3 * MachineCycle, Cycles);
 }
 
@@ -137,15 +137,15 @@ TEST_F(CpuTimingTests, BitTestOfMemoryReadsInTheLastCycle)
 
 TEST_F(CpuTimingTests, PushWritesHighByteInCycleThreeAndLowByteInCycleFour)
 {
-	Processor.RegisterFile().BC = 0x1234;
+	Processor.GetRegisters().BC = 0x1234;
 
 	// The high byte lands on the counter with one cycle still to run
-	Processor.RegisterFile().SP = CounterAddress + 1;
+	Processor.GetRegisters().SP = CounterAddress + 1;
 	RunProgram({ 0xc5 });
 	EXPECT_EQ(0x13, Counter());
 	EXPECT_EQ(4 * MachineCycle, Cycles);
 
-	Processor.RegisterFile().SP = CounterAddress + 2;
+	Processor.GetRegisters().SP = CounterAddress + 2;
 	RunProgram({ 0xc5 });
 	EXPECT_EQ(0x34, Counter());
 }
@@ -153,13 +153,13 @@ TEST_F(CpuTimingTests, PushWritesHighByteInCycleThreeAndLowByteInCycleFour)
 TEST_F(CpuTimingTests, RstPushesInCyclesThreeAndFour)
 {
 	// Returns to 0x0231
-	Processor.RegisterFile().SP = CounterAddress + 1;
+	Processor.GetRegisters().SP = CounterAddress + 1;
 	RunProgram({ 0xcf }, 0x0230);
 	EXPECT_EQ(0x03, Counter());
 	EXPECT_EQ(4 * MachineCycle, Cycles);
-	EXPECT_EQ(0x08, Processor.RegisterFile().PC);
+	EXPECT_EQ(0x08, Processor.GetRegisters().PC);
 
-	Processor.RegisterFile().SP = CounterAddress + 2;
+	Processor.GetRegisters().SP = CounterAddress + 2;
 	RunProgram({ 0xcf }, 0x0230);
 	EXPECT_EQ(0x31, Counter());
 }
@@ -170,25 +170,25 @@ TEST_F(CpuTimingTests, CallPushesInCyclesFiveAndSix)
 	for (unsigned char opcode : { 0xcd, 0xc4 })
 	{
 		SCOPED_TRACE(static_cast<int>(opcode));
-		Processor.RegisterFile().F = NoFlags;
+		Processor.GetRegisters().F = NoFlags;
 
-		Processor.RegisterFile().SP = CounterAddress + 1;
+		Processor.GetRegisters().SP = CounterAddress + 1;
 		RunProgram({ opcode, 0x00, 0x10 }, 0x0230);
 		EXPECT_EQ(0x03, Counter());
 		EXPECT_EQ(6 * MachineCycle, Cycles);
-		EXPECT_EQ(0x1000, Processor.RegisterFile().PC);
+		EXPECT_EQ(0x1000, Processor.GetRegisters().PC);
 
-		Processor.RegisterFile().SP = CounterAddress + 2;
+		Processor.GetRegisters().SP = CounterAddress + 2;
 		RunProgram({ opcode, 0x00, 0x10 }, 0x0230);
 		EXPECT_EQ(0x33, Counter());
 	}
 
 	// CALL NZ not taken
-	Processor.RegisterFile().F = ZeroFlag;
-	Processor.RegisterFile().SP = CounterAddress + 2;
+	Processor.GetRegisters().F = ZeroFlag;
+	Processor.GetRegisters().SP = CounterAddress + 2;
 	RunProgram({ 0xc4, 0x00, 0x10 }, 0x0230);
 	EXPECT_EQ(3 * MachineCycle, Cycles);
-	EXPECT_EQ(0x0233, Processor.RegisterFile().PC);
+	EXPECT_EQ(0x0233, Processor.GetRegisters().PC);
 }
 
 TEST_F(CpuTimingTests, ReturnPopsLowByteAfterAnyConditionCheck)
@@ -196,39 +196,39 @@ TEST_F(CpuTimingTests, ReturnPopsLowByteAfterAnyConditionCheck)
 	Memory.WriteByte(CounterAddress + 1, 0x12);
 
 	// RET: low byte popped in cycle 2
-	Processor.RegisterFile().SP = CounterAddress;
+	Processor.GetRegisters().SP = CounterAddress;
 	RunProgram({ 0xc9 });
-	EXPECT_EQ(0x1202, Processor.RegisterFile().PC);
+	EXPECT_EQ(0x1202, Processor.GetRegisters().PC);
 	EXPECT_EQ(4 * MachineCycle, Cycles);
 
 	// RET NZ taken: a cycle to check the condition first
-	Processor.RegisterFile().F = NoFlags;
-	Processor.RegisterFile().SP = CounterAddress;
+	Processor.GetRegisters().F = NoFlags;
+	Processor.GetRegisters().SP = CounterAddress;
 	RunProgram({ 0xc0 });
-	EXPECT_EQ(0x1203, Processor.RegisterFile().PC);
+	EXPECT_EQ(0x1203, Processor.GetRegisters().PC);
 	EXPECT_EQ(5 * MachineCycle, Cycles);
 
 	// RET NZ not taken
-	Processor.RegisterFile().F = ZeroFlag;
-	Processor.RegisterFile().SP = CounterAddress;
+	Processor.GetRegisters().F = ZeroFlag;
+	Processor.GetRegisters().SP = CounterAddress;
 	RunProgram({ 0xc0 });
-	EXPECT_EQ(1, Processor.RegisterFile().PC);
+	EXPECT_EQ(1, Processor.GetRegisters().PC);
 	EXPECT_EQ(2 * MachineCycle, Cycles);
 }
 
 TEST_F(CpuTimingTests, PopReadsLowByteInCycleTwo)
 {
 	Memory.WriteByte(CounterAddress + 1, 0x12);
-	Processor.RegisterFile().SP = CounterAddress;
+	Processor.GetRegisters().SP = CounterAddress;
 	RunProgram({ 0xc1 });
 
-	EXPECT_EQ(0x1202, Processor.RegisterFile().BC);
+	EXPECT_EQ(0x1202, Processor.GetRegisters().BC);
 	EXPECT_EQ(3 * MachineCycle, Cycles);
 }
 
 TEST_F(CpuTimingTests, StoreSpWritesLowByteInCycleFourAndHighByteInCycleFive)
 {
-	Processor.RegisterFile().SP = 0xabcd;
+	Processor.GetRegisters().SP = 0xabcd;
 	RunProgram({ 0x08, 0x80, 0xff });
 	EXPECT_EQ(0xce, Counter());
 	EXPECT_EQ(5 * MachineCycle, Cycles);
@@ -242,11 +242,11 @@ TEST_F(CpuTimingTests, StackPointerArithmeticEndsWithInternalCycles)
 	// ADD SP,e: fetch, operand, two internal cycles. LD HL,SP+e: fetch, operand, one internal cycle
 	RunProgram({ 0xe8, 0x01 });
 	EXPECT_EQ(4 * MachineCycle, Cycles);
-	EXPECT_EQ(StackTop + 1, Processor.RegisterFile().SP);
+	EXPECT_EQ(StackTop + 1, Processor.GetRegisters().SP);
 
 	RunProgram({ 0xf8, 0x01 });
 	EXPECT_EQ(3 * MachineCycle, Cycles);
-	EXPECT_EQ(StackTop + 2, Processor.RegisterFile().HL);
+	EXPECT_EQ(StackTop + 2, Processor.GetRegisters().HL);
 }
 
 TEST_F(CpuTimingTests, InterruptDispatchTakesFiveMachineCycles)
@@ -254,10 +254,10 @@ TEST_F(CpuTimingTests, InterruptDispatchTakesFiveMachineCycles)
 	Processor.InterruptsEnabled() = true;
 	Processor.EnabledInterrupts() = InterruptFlags::TimerInt;
 	Processor.RequestInterrupt(InterruptFlags::TimerInt);
-	Processor.RegisterFile().PC = 0x1234;
+	Processor.GetRegisters().PC = 0x1234;
 
 	EXPECT_EQ(5 * MachineCycle, Processor.DoNextInstruction());
-	EXPECT_EQ(0x50, Processor.RegisterFile().PC);
+	EXPECT_EQ(0x50, Processor.GetRegisters().PC);
 	EXPECT_EQ(0, Processor.WaitingInterrupts());
 	EXPECT_FALSE(Processor.InterruptsEnabled());
 	EXPECT_EQ(0x34, Memory.ReadByte(StackTop - 2));
@@ -271,7 +271,7 @@ TEST_F(CpuTimingTests, HighestPriorityInterruptIsDispatchedFirst)
 	Processor.RequestInterrupt(static_cast<InterruptFlags>(InterruptFlags::SerialInt | InterruptFlags::LcdStatInt));
 
 	Processor.DoNextInstruction();
-	EXPECT_EQ(0x48, Processor.RegisterFile().PC);
+	EXPECT_EQ(0x48, Processor.GetRegisters().PC);
 	EXPECT_EQ(InterruptFlags::SerialInt, Processor.WaitingInterrupts());
 }
 
@@ -279,23 +279,23 @@ TEST_F(CpuTimingTests, InterruptIsChosenAfterPushingHighByteOfPC)
 {
 	// With SP at 0, the high byte of PC is pushed to IE at 0xffff
 	Processor.InterruptsEnabled() = true;
-	Processor.RegisterFile().SP = 0;
+	Processor.GetRegisters().SP = 0;
 
 	// The push leaves only the timer interrupt enabled
-	Processor.RegisterFile().PC = InterruptFlags::TimerInt << 8;
+	Processor.GetRegisters().PC = InterruptFlags::TimerInt << 8;
 	Processor.EnabledInterrupts() = InterruptFlags::VBlankInt;
 	Processor.RequestInterrupt(static_cast<InterruptFlags>(InterruptFlags::VBlankInt | InterruptFlags::TimerInt));
 	Processor.DoNextInstruction();
-	EXPECT_EQ(0x50, Processor.RegisterFile().PC);
+	EXPECT_EQ(0x50, Processor.GetRegisters().PC);
 
 	// The push disables the only pending interrupt, so the CPU jumps to 0 and the interrupt stays pending
 	Processor.InterruptsEnabled() = true;
-	Processor.RegisterFile().SP = 0;
-	Processor.RegisterFile().PC = 0x0200;
+	Processor.GetRegisters().SP = 0;
+	Processor.GetRegisters().PC = 0x0200;
 	Processor.EnabledInterrupts() = InterruptFlags::VBlankInt;
 	Processor.WaitingInterrupts() = InterruptFlags::VBlankInt;
 	Processor.DoNextInstruction();
-	EXPECT_EQ(0, Processor.RegisterFile().PC);
+	EXPECT_EQ(0, Processor.GetRegisters().PC);
 	EXPECT_EQ(InterruptFlags::VBlankInt, Processor.WaitingInterrupts());
 }
 
@@ -317,11 +317,11 @@ TEST_F(CpuInterruptEnableTests, EiTakesEffectAfterTheNextInstruction)
 	EXPECT_FALSE(Processor.InterruptsEnabled());
 
 	Processor.DoNextInstruction();
-	EXPECT_EQ(2, Processor.RegisterFile().PC);
+	EXPECT_EQ(2, Processor.GetRegisters().PC);
 	EXPECT_TRUE(Processor.InterruptsEnabled());
 
 	Processor.DoNextInstruction();
-	EXPECT_EQ(0x40, Processor.RegisterFile().PC);
+	EXPECT_EQ(0x40, Processor.GetRegisters().PC);
 	EXPECT_EQ(2, Memory.ReadByte(StackTop - 2));
 }
 
@@ -332,7 +332,7 @@ TEST_F(CpuInterruptEnableTests, DiStraightAfterEiKeepsInterruptsDisabled)
 	for (auto i = 0; i < 3; i++) Processor.DoNextInstruction();
 
 	EXPECT_FALSE(Processor.InterruptsEnabled());
-	EXPECT_EQ(3, Processor.RegisterFile().PC);
+	EXPECT_EQ(3, Processor.GetRegisters().PC);
 }
 
 TEST_F(CpuInterruptEnableTests, RetiEnablesInterruptsStraightAway)
@@ -344,7 +344,7 @@ TEST_F(CpuInterruptEnableTests, RetiEnablesInterruptsStraightAway)
 	EXPECT_TRUE(Processor.InterruptsEnabled());
 
 	Processor.DoNextInstruction();
-	EXPECT_EQ(0x40, Processor.RegisterFile().PC);
+	EXPECT_EQ(0x40, Processor.GetRegisters().PC);
 	EXPECT_EQ(0x00, Memory.ReadByte(StackTop));
 	EXPECT_EQ(0x10, Memory.ReadByte(StackTop + 1));
 }
@@ -360,7 +360,7 @@ TEST_F(CpuInterruptEnableTests, EiWithInterruptsAlreadyEnabledDoesNotReenableThe
 	Processor.RequestInterrupt(InterruptFlags::VBlankInt);
 
 	Processor.DoNextInstruction();
-	EXPECT_EQ(0x40, Processor.RegisterFile().PC);
+	EXPECT_EQ(0x40, Processor.GetRegisters().PC);
 
 	for (auto i = 0; i < 2; i++)
 	{
@@ -382,7 +382,7 @@ TEST_F(CpuInterruptEnableTests, EiTwiceEnablesInterruptsAfterTheSecondAndNotAgai
 	EXPECT_TRUE(Processor.InterruptsEnabled());
 
 	Processor.DoNextInstruction();
-	EXPECT_EQ(0x40, Processor.RegisterFile().PC);
+	EXPECT_EQ(0x40, Processor.GetRegisters().PC);
 	EXPECT_EQ(2, Memory.ReadByte(StackTop - 2));
 
 	for (auto i = 0; i < 2; i++)
@@ -410,10 +410,10 @@ TEST_F(CpuHaltTests, HaltedCpuRunsOneMachineCycleAtATime)
 	for (auto i = 0; i < 10; i++)
 	{
 		EXPECT_EQ(MachineCycle, Processor.DoNextInstruction());
-		EXPECT_EQ(1, Processor.RegisterFile().PC);
+		EXPECT_EQ(1, Processor.GetRegisters().PC);
 	}
 
-	EXPECT_EQ(0, Processor.RegisterFile().A);
+	EXPECT_EQ(0, Processor.GetRegisters().A);
 }
 
 // Per mooneye-test-suite's halt_ime0_nointr_timing and halt_ime1_timing2-GS, the CPU leaves HALT with the same timing
@@ -426,8 +426,8 @@ TEST_F(CpuHaltTests, InterruptWakesCpuWithoutDispatchWhenImeIsClear)
 
 	// The halted cycle fetches INC A, which then completes
 	EXPECT_EQ(MachineCycle, Processor.DoNextInstruction());
-	EXPECT_EQ(2, Processor.RegisterFile().PC);
-	EXPECT_EQ(1, Processor.RegisterFile().A);
+	EXPECT_EQ(2, Processor.GetRegisters().PC);
+	EXPECT_EQ(1, Processor.GetRegisters().A);
 	EXPECT_EQ(InterruptFlags::TimerInt, Processor.WaitingInterrupts());
 }
 
@@ -439,7 +439,7 @@ TEST_F(CpuHaltTests, InterruptWakesCpuAndIsDispatchedWhenImeIsSet)
 
 	// The halted cycle, then the dispatch's four other cycles, as when an interrupt arrives during a NOP
 	EXPECT_EQ(5 * MachineCycle, Processor.DoNextInstruction());
-	EXPECT_EQ(0x50, Processor.RegisterFile().PC);
+	EXPECT_EQ(0x50, Processor.GetRegisters().PC);
 	EXPECT_EQ(1, Memory.ReadByte(StackTop - 2));
 }
 
@@ -449,16 +449,16 @@ TEST_F(CpuHaltTests, InterruptDuringHaltTakesSameTimeAsDuringNops)
 	Processor.DoNextInstruction();
 	Processor.RequestInterrupt(InterruptFlags::TimerInt);
 	auto haltedCycles = Processor.DoNextInstruction();
-	EXPECT_EQ(0x50, Processor.RegisterFile().PC);
+	EXPECT_EQ(0x50, Processor.GetRegisters().PC);
 
 	// The same interrupt arriving while the CPU runs NOPs
 	Memory.SetBytes(0x10, { 0x00, 0x00 });
-	Processor.RegisterFile().PC = 0x10;
+	Processor.GetRegisters().PC = 0x10;
 	Processor.InterruptsEnabled() = true;
 	Processor.DoNextInstruction();
 	Processor.RequestInterrupt(InterruptFlags::TimerInt);
 	auto nopCycles = Processor.DoNextInstruction();
-	EXPECT_EQ(0x50, Processor.RegisterFile().PC);
+	EXPECT_EQ(0x50, Processor.GetRegisters().PC);
 
 	EXPECT_EQ(nopCycles, haltedCycles);
 }
@@ -469,7 +469,7 @@ TEST_F(CpuHaltTests, InterruptsNotEnabledInIeDoNotWakeCpu)
 	Processor.RequestInterrupt(InterruptFlags::VBlankInt);
 
 	EXPECT_EQ(MachineCycle, Processor.DoNextInstruction());
-	EXPECT_EQ(1, Processor.RegisterFile().PC);
+	EXPECT_EQ(1, Processor.GetRegisters().PC);
 }
 
 TEST_F(CpuHaltTests, InterruptPendingWithImeSetIsDispatchedBeforeHaltRuns)
@@ -480,15 +480,15 @@ TEST_F(CpuHaltTests, InterruptPendingWithImeSetIsDispatchedBeforeHaltRuns)
 	Memory.SetBytes(0x50, { 0xd9 });									// RETI
 
 	EXPECT_EQ(5 * MachineCycle, Processor.DoNextInstruction());
-	EXPECT_EQ(0x50, Processor.RegisterFile().PC);
+	EXPECT_EQ(0x50, Processor.GetRegisters().PC);
 	EXPECT_EQ(0, Memory.ReadByte(StackTop - 2));
 
 	// After RETI the HALT runs and, with nothing pending, halts
 	Processor.DoNextInstruction();
 	Processor.DoNextInstruction();
-	EXPECT_EQ(1, Processor.RegisterFile().PC);
+	EXPECT_EQ(1, Processor.GetRegisters().PC);
 	EXPECT_EQ(MachineCycle, Processor.DoNextInstruction());
-	EXPECT_EQ(1, Processor.RegisterFile().PC);
+	EXPECT_EQ(1, Processor.GetRegisters().PC);
 }
 
 TEST_F(CpuHaltTests, HaltBugReadsByteAfterHaltTwice)
@@ -498,12 +498,12 @@ TEST_F(CpuHaltTests, HaltBugReadsByteAfterHaltTwice)
 
 	Processor.DoNextInstruction();
 	Processor.DoNextInstruction();
-	EXPECT_EQ(1, Processor.RegisterFile().PC);
-	EXPECT_EQ(1, Processor.RegisterFile().A);
+	EXPECT_EQ(1, Processor.GetRegisters().PC);
+	EXPECT_EQ(1, Processor.GetRegisters().A);
 
 	Processor.DoNextInstruction();
-	EXPECT_EQ(2, Processor.RegisterFile().PC);
-	EXPECT_EQ(2, Processor.RegisterFile().A);
+	EXPECT_EQ(2, Processor.GetRegisters().PC);
+	EXPECT_EQ(2, Processor.GetRegisters().A);
 }
 
 TEST_F(CpuHaltTests, HaltBugAfterEiReturnsFromInterruptToHalt)
@@ -517,7 +517,7 @@ TEST_F(CpuHaltTests, HaltBugAfterEiReturnsFromInterruptToHalt)
 	Processor.DoNextInstruction();
 	Processor.DoNextInstruction();
 
-	EXPECT_EQ(0x50, Processor.RegisterFile().PC);
+	EXPECT_EQ(0x50, Processor.GetRegisters().PC);
 	EXPECT_EQ(1, Memory.ReadByte(StackTop - 2));
 	EXPECT_EQ(0, Memory.ReadByte(StackTop - 1));
 }

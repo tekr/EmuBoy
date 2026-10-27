@@ -38,10 +38,6 @@ cmake --build build
 Run the unit tests with `ctest --test-dir build` (or run `../../build/Tests` from `src/tests`). Google Test is optional;
 without it, only the emulator is built.
 
-When adding tests, don't name a member after its type (`Timer Timer;`) or after a type it builds on (`TestCpu Cpu;`).
-GCC rejects a class in which a name changes meaning, so the Linux build fails, though Clang and MSVC accept it. The
-fixtures use names such as `Memory`, `Processor`, `Ppu` and `TimerUnit` instead.
-
 `EmuBoy [rom] [record-file] [scale]`: `scale` sets the window size as a multiple of the Game Boy's 160x144 screen
 (default 4). If `record-file` is given, every frame is appended to it as raw 160x144 RGBA, which is useful for making
 screen captures.
@@ -127,6 +123,13 @@ cmake --build build
 
 SFML 2.5 or 2.6 is needed; SFML 3 (the version packaged from Ubuntu 26.04) isn't supported yet. Run the unit
 tests as on macOS.
+
+
+## Writing tests
+Don't name a member after its type (`Timer Timer;`) or a type its type derives from (`TestCpu Cpu;`), or a member
+function after the type it returns (`Registers& Registers();`). GCC rejects a class in which a name changes meaning,
+so the Linux build fails, though Clang and MSVC accept it. The fixtures use names such as `Memory`, `Processor`,
+`Ppu`, `DividerTimer` and `GameBoy` instead.
 
 
 ## Current status

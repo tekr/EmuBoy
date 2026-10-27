@@ -54,8 +54,8 @@ TEST(CpuStateTest, RestoredJustAfterTheHaltBugStillReadsTheNextByteTwice)
 	restored.Processor.DoNextInstruction();
 	restored.Processor.DoNextInstruction();
 
-	EXPECT_EQ(2, restored.Processor.RegisterFile().A);
-	EXPECT_EQ(2, restored.Processor.RegisterFile().PC);
+	EXPECT_EQ(2, restored.Processor.GetRegisters().A);
+	EXPECT_EQ(2, restored.Processor.GetRegisters().PC);
 }
 
 namespace
@@ -70,15 +70,15 @@ namespace
 		InputJoypad Joypad;
 		TestMemoryMap Memory{ Joypad };
 		TestCpu Processor{ Memory };
-		Timer TimerUnit;
+		Timer DividerTimer;
 
 		TimerRig()
 		{
-			TimerUnit.SetCpu(&Processor);
+			DividerTimer.SetCpu(&Processor);
 			Processor.WaitingInterrupts() = 0;
 		}
 
-		unsigned char Counter() const { return TimerUnit.ReadRegister(CounterReg); }
+		unsigned char Counter() const { return DividerTimer.ReadRegister(CounterReg); }
 		bool TimerInterruptRequested() { return (Processor.WaitingInterrupts() & InterruptFlags::TimerInt) != 0; }
 	};
 
@@ -92,21 +92,21 @@ namespace
 		// (Pan Docs, Timer Obscure Behaviour)
 		TimerStateTest()
 		{
-			Saved.TimerUnit.WriteRegister(0, 0);
-			Saved.TimerUnit.WriteRegister(ModuloReg, 0xf0);
-			Saved.TimerUnit.WriteRegister(CounterReg, 0xff);
-			Saved.TimerUnit.WriteRegister(ControlReg, 4 | 1);
+			Saved.DividerTimer.WriteRegister(0, 0);
+			Saved.DividerTimer.WriteRegister(ModuloReg, 0xf0);
+			Saved.DividerTimer.WriteRegister(CounterReg, 0xff);
+			Saved.DividerTimer.WriteRegister(ControlReg, 4 | 1);
 		}
 	};
 }
 
 TEST_F(TimerStateTest, RestoredBetweenOverflowAndReloadStillReloads)
 {
-	Saved.TimerUnit.RunCycles(16);
+	Saved.DividerTimer.RunCycles(16);
 	ASSERT_EQ(0, Saved.Counter());
 
-	CopyState(Saved.TimerUnit, Restored.TimerUnit);
-	Restored.TimerUnit.RunCycles(4);
+	CopyState(Saved.DividerTimer, Restored.DividerTimer);
+	Restored.DividerTimer.RunCycles(4);
 
 	EXPECT_EQ(0xf0, Restored.Counter());
 	EXPECT_TRUE(Restored.TimerInterruptRequested());
@@ -114,23 +114,23 @@ TEST_F(TimerStateTest, RestoredBetweenOverflowAndReloadStillReloads)
 
 TEST_F(TimerStateTest, RestoredInTheReloadCycleStillIgnoresCounterWrites)
 {
-	Saved.TimerUnit.RunCycles(20);
+	Saved.DividerTimer.RunCycles(20);
 	ASSERT_EQ(0xf0, Saved.Counter());
 
-	CopyState(Saved.TimerUnit, Restored.TimerUnit);
-	Restored.TimerUnit.WriteRegister(CounterReg, 0x42);
+	CopyState(Saved.DividerTimer, Restored.DividerTimer);
+	Restored.DividerTimer.WriteRegister(CounterReg, 0x42);
 
 	EXPECT_EQ(0xf0, Restored.Counter());
 }
 
 TEST_F(TimerStateTest, RestoredMidPeriodCountsAtTheSameTime)
 {
-	Saved.TimerUnit.RunCycles(7);
+	Saved.DividerTimer.RunCycles(7);
 
-	CopyState(Saved.TimerUnit, Restored.TimerUnit);
-	Restored.TimerUnit.RunCycles(8);
+	CopyState(Saved.DividerTimer, Restored.DividerTimer);
+	Restored.DividerTimer.RunCycles(8);
 	EXPECT_EQ(0xff, Restored.Counter());
-	Restored.TimerUnit.RunCycles(1);
+	Restored.DividerTimer.RunCycles(1);
 	EXPECT_EQ(0, Restored.Counter());
 }
 
