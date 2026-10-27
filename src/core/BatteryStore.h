@@ -37,8 +37,9 @@ public:
 
 	// Writes the save to a temporary file and renames it over the old one, so an interrupted save can't corrupt it.
 	// A save that loaded with a warning (being the wrong size), or that is a different size from the one written (as
-	// another emulator's can be), is first copied to <save path>.bak, as it may hold data that didn't fit. An error the same as the last one is returned without its message, so the front end
-	// reports it once rather than on every attempt, until a save succeeds again
+	// another emulator's can be), is first copied to <save path>.bak, as it may hold data that didn't fit. An error
+	// the same as the last one is returned without its message, so the front end reports it once rather than on
+	// every attempt, until a save succeeds again
 	Result Save();
 
 	// Saves only if the RAM or clock registers changed since the last load or save

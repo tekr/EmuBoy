@@ -381,41 +381,18 @@ TEST(SaveFileTest, TwoKbRamRoundTrips)
 	EXPECT_EQ(original->GetRam(), restored->GetRam());
 }
 
-TEST(SaveFileTest, TwoKbRamLoadsMgbaEightKbSaveWithoutWarning)
+TEST(SaveFileTest, TwoKbRamLoadsFirst2KbOfMgbaEightKbSaveWithoutWarning)
 {
-	// mGBA saves RAM size code 1 as a whole 8 KB bank, whose first 2 KB the game uses
+	// mGBA saves RAM size code 1 as a whole 8 KB bank. Only its first 2 KB is the cartridge's RAM, so the rest is
+	// ignored, whatever it holds (BatteryStore keeps the original file)
 	auto cartridge = CartridgeFactory::Create(Rom(Mbc1RamBattery, Ram2K));
-	std::vector<unsigned char> save(Ram8KSize, 0xff);
+	std::vector<unsigned char> save(Ram8KSize, 0x77);
 	for (size_t i = 0; i < Ram2KSize; i++) save[i] = static_cast<unsigned char>(i * 3);
 
 	auto warning = SaveFile::Deserialise(*cartridge, save, SaveTime);
 
 	EXPECT_EQ("", warning);
 	EXPECT_EQ(std::vector<unsigned char>(save.begin(), save.begin() + Ram2KSize), cartridge->GetRam());
-}
-
-TEST(SaveFileTest, TwoKbRamLoadsMgbaEightKbSaveMirroringItsFirst2KbWithoutWarning)
-{
-	// Writes through the mirrors at $A800-$BFFF, as mGBA has no mirroring, leave copies of the first 2 KB
-	auto cartridge = CartridgeFactory::Create(Rom(Mbc1RamBattery, Ram2K));
-	std::vector<unsigned char> save(Ram8KSize);
-	for (size_t i = 0; i < Ram8KSize; i++) save[i] = static_cast<unsigned char>(i % Ram2KSize * 5);
-
-	EXPECT_EQ("", SaveFile::Deserialise(*cartridge, save, SaveTime));
-	EXPECT_EQ(std::vector<unsigned char>(save.begin(), save.begin() + Ram2KSize), cartridge->GetRam());
-}
-
-TEST(SaveFileTest, TwoKbRamWarnsWhenMgbaEightKbSaveHoldsMoreData)
-{
-	// A homebrew ROM that declares 2 KB but uses more has real data above 2 KB in mGBA, which can't be loaded
-	auto cartridge = CartridgeFactory::Create(Rom(Mbc1RamBattery, Ram2K));
-	std::vector<unsigned char> save(Ram8KSize, 0x11);
-	std::fill(save.begin() + Ram2KSize, save.end(), 0x77);
-
-	auto warning = SaveFile::Deserialise(*cartridge, save, SaveTime);
-
-	EXPECT_NE("", warning);
-	EXPECT_EQ(std::vector<unsigned char>(Ram2KSize, 0x11), cartridge->GetRam());
 }
 
 TEST(SaveFileTest, TwoKbClockCartridgeLoadsMgbaEightKbSaveWithFooter)
