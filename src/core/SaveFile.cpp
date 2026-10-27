@@ -38,7 +38,7 @@ namespace
 	}
 
 	// The clock footer's size if the save is ramSize bytes of RAM followed by a footer (either version), or 0
-	size_t FooterSizeAfter(size_t ramSize, size_t saveSize)
+	size_t ClockFooterSize(size_t ramSize, size_t saveSize)
 	{
 		if (saveSize == ramSize + SaveFile::RtcFooterSize) return SaveFile::RtcFooterSize;
 		if (saveSize == ramSize + SaveFile::LegacyRtcFooterSize) return SaveFile::LegacyRtcFooterSize;
@@ -46,29 +46,9 @@ namespace
 	}
 
 	// Whether a save is ramSize bytes of RAM, followed by a footer if the cartridge has a clock
-	bool IsSaveOfRamSize(size_t ramSize, size_t saveSize, bool hasClock)
+	bool SaveMatchesRamSize(size_t ramSize, size_t saveSize, bool hasClock)
 	{
-		return hasClock ? FooterSizeAfter(ramSize, saveSize) != 0 : saveSize == ramSize;
-	}
-
-	// Whether the part of an 8 KB save beyond 2 KB RAM is blank ($00 or $FF throughout) or repeats the first 2 KB, as
-	// a mirrored write would leave it, so ignoring it loses nothing
-	bool HoldsNothingBeyond2Kb(const std::vector<unsigned char>& data)
-	{
-		const auto ramSize = CartridgeFactory::RamSizeCode1Bytes;
-		auto begin = data.begin() + ramSize;
-		auto end = data.begin() + Cartridge::RamBankSize;
-
-		auto isBlank = std::all_of(begin, end, [](unsigned char b) { return b == 0x00; }) ||
-			std::all_of(begin, end, [](unsigned char b) { return b == 0xff; });
-		if (isBlank) return true;
-
-		for (auto i = ramSize; i < Cartridge::RamBankSize; i++)
-		{
-			if (data[i] != data[i % ramSize]) return false;
-		}
-
-		return true;
+		return hasClock ? ClockFooterSize(ramSize, saveSize) != 0 : saveSize == ramSize;
 	}
 
 	void AppendLittleEndian(std::vector<unsigned char>& out, uint64_t value, size_t bytes)
@@ -156,12 +136,12 @@ std::string SaveFile::Deserialise(Cartridge& cartridge, const std::vector<unsign
 	// mGBA saves RAM size code 1 as a whole 8 KB bank, whose first 2 KB is the cartridge's RAM
 	auto hasClock = clock != nullptr;
 	auto isMgbaTwoKbSave = ram.size() == CartridgeFactory::RamSizeCode1Bytes &&
-		IsSaveOfRamSize(Cartridge::RamBankSize, data.size(), hasClock);
+		SaveMatchesRamSize(Cartridge::RamBankSize, data.size(), hasClock);
 	auto savedRamSize = isMgbaTwoKbSave ? Cartridge::RamBankSize : ram.size();
 
 	// The footer is recognised by its size, as it has no signature
-	auto sizeMatches = IsSaveOfRamSize(savedRamSize, data.size(), hasClock);
-	auto footerSize = hasClock ? FooterSizeAfter(savedRamSize, data.size()) : 0;
+	auto footerSize = hasClock ? ClockFooterSize(savedRamSize, data.size()) : 0;
+	auto sizeMatches = hasClock ? footerSize != 0 : data.size() == savedRamSize;
 
 	auto ramData = data.size() - footerSize;
 	auto ramToLoad = std::min(ramData, ram.size());
@@ -181,10 +161,6 @@ std::string SaveFile::Deserialise(Cartridge& cartridge, const std::vector<unsign
 		if (ramData < ram.size()) warning << "; the rest of the RAM is left blank";
 		if (ramData > ram.size()) warning << "; the extra data is ignored";
 		if (hasClock && footerSize == 0) warning << "; it has no clock data, so the clock starts from zero";
-	}
-	else if (isMgbaTwoKbSave && !HoldsNothingBeyond2Kb(data))
-	{
-		warning << "The save has 8 KB of RAM, but the cartridge has 2 KB; data in the other 6 KB is ignored";
 	}
 
 	// What was loaded is what is on disk
