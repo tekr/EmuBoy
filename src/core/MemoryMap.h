@@ -11,6 +11,7 @@
 #include "InfraredPort.h"
 #include "UndocumentedRegisters.h"
 
+class VramDma;
 
 class StateWriter;
 class StateReader;
@@ -60,6 +61,7 @@ protected:
 	Apu* _apu;
 	Serial* _serial;
 	OamDma* _oamDma;
+	VramDma* _vramDma{ nullptr };
 	InputJoypad& _joypad;
 
 	// Zeroed for repeatability, though their contents at power-on are random on hardware. The DMG uses the first
@@ -98,6 +100,7 @@ public:
 	void SetApu(Apu* apu) { _apu = apu; }
 	void SetSerial(Serial* serial) { _serial = serial; }
 	void SetOamDma(OamDma* oamDma) { _oamDma = oamDma; }
+	void SetVramDma(VramDma* vramDma) { _vramDma = vramDma; }
 
 	// CGB mode adds work RAM banks and the CGB's registers
 	void SetCgbMode(bool cgbMode);

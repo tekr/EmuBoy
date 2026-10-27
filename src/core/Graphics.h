@@ -6,6 +6,7 @@ class MemoryMap;
 class Cpu;
 class SpriteManager;
 class OamDma;
+class VramDma;
 class StateWriter;
 class StateReader;
 
@@ -153,6 +154,7 @@ protected:
 	MemoryMap& _memoryMap;
 	SpriteManager& _spriteManager;
 	const OamDma* _oamDma{ nullptr };
+	VramDma* _vramDma{ nullptr };
 
 	// Zeroed for repeatability, though their contents at power-on are random on hardware. VRAM has two banks, of
 	// which the DMG has only the first
@@ -300,6 +302,7 @@ public:
 	Graphics(Cpu& cpu, MemoryMap& memoryMap, SpriteManager& spriteManager);
 
 	void SetOamDma(const OamDma* oamDma) { _oamDma = oamDma; }
+	void SetVramDma(VramDma* vramDma) { _vramDma = vramDma; }
 
 	// CGB mode draws in colour and drops the DMG's OAM corruption and STAT write bugs
 	void SetCgbMode(bool cgbMode);
@@ -369,6 +372,13 @@ public:
 	// VRAM (in the bank VBK selects) and OAM regardless of the PPU, for OAM DMA and tests
 	unsigned char& Vram(unsigned short address) { return _vram[_vramBankOffset + address]; }
 	void WriteOamDirect(unsigned short address, unsigned char value);
+
+	// The CGB's VRAM DMA writes to the selected bank even while the PPU is drawing (Pan Docs)
+	void WriteVramForDma(unsigned short address, unsigned char value) { _vram[_vramBankOffset + (address & (VramSize - 1))] = value; }
+
+	// Whether an H-Blank transfer of the CGB's VRAM DMA started now copies a block at once: in an H-Blank after a
+	// line is drawn, or with the LCD off
+	bool InHBlankForVramDma() const;
 
 	// Applies the DMG's OAM corruption bug for an access to $FE00-$FEFF, which corrupts OAM only while the PPU is
 	// scanning it

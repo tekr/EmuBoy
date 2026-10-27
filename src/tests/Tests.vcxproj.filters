@@ -111,6 +111,9 @@
     <ClCompile Include="MooneyeCgbTests.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="VramDmaTests.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="SaveStateHiddenStateTests.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>

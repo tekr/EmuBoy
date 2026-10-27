@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "MemoryMap.h"
 #include "StateStream.h"
+#include "VramDma.h"
 #include <algorithm>
 #include <iterator>
 
@@ -191,6 +192,7 @@ void MemoryMap::ApplyCgbPostBootState()
 
 unsigned char MemoryMap::ReadCgbRegister(unsigned short address) const
 {
+	if (address >= VramDma::FirstRegister && address <= VramDma::LastRegister) return _vramDma->ReadRegister(address);
 	if (address >= UndocumentedRegisters::FirstRegister && address <= UndocumentedRegisters::LastRegister)
 	{
 		return _undocumentedRegisters.Read(address);
@@ -222,6 +224,12 @@ unsigned char MemoryMap::ReadCgbRegister(unsigned short address) const
 
 void MemoryMap::WriteCgbRegister(unsigned short address, unsigned char value)
 {
+	if (address >= VramDma::FirstRegister && address <= VramDma::LastRegister)
+	{
+		_vramDma->WriteRegister(address, value);
+		return;
+	}
+
 	if (address >= UndocumentedRegisters::FirstRegister && address <= UndocumentedRegisters::LastRegister)
 	{
 		_undocumentedRegisters.Write(address, value);

@@ -30,6 +30,9 @@
     <ClCompile Include="GraphicsCgb.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="VramDma.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="Serial.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -123,6 +126,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="UndocumentedRegisters.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="VramDma.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Serial.h">

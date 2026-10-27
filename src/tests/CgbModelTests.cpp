@@ -123,6 +123,11 @@ TEST(CgbPostBootTest, HardwareRegistersHaveTheirDocumentedValues)
 	EXPECT_EQ(0x00, Read(*emulator, 0xff4a));	// WY
 	EXPECT_EQ(0x00, Read(*emulator, 0xff4b));	// WX
 	EXPECT_EQ(0xfe, Read(*emulator, 0xff4f));	// VBK
+	EXPECT_EQ(0xff, Read(*emulator, 0xff51));	// HDMA1-HDMA5
+	EXPECT_EQ(0xff, Read(*emulator, 0xff52));
+	EXPECT_EQ(0xff, Read(*emulator, 0xff53));
+	EXPECT_EQ(0xff, Read(*emulator, 0xff54));
+	EXPECT_EQ(0xff, Read(*emulator, 0xff55));
 	EXPECT_EQ(0x2e, Read(*emulator, 0xff56));	// RP: Pan Docs gives $3E, but bit 4 reads 0 on revision E (InfraredPort.h)
 	EXPECT_EQ(0xf8, Read(*emulator, 0xff70));	// SVBK
 }

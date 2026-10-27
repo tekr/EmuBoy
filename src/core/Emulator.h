@@ -7,6 +7,7 @@
 #include "Apu.h"
 #include "Serial.h"
 #include "OamDma.h"
+#include "VramDma.h"
 #include "GameBoyModel.h"
 #include <vector>
 
@@ -19,6 +20,7 @@ class Emulator : ClockedHardware
 	SpriteManager EmuSpriteManager;
 	Graphics EmuGraphics{ EmuCpu, EmuMemoryMap, EmuSpriteManager };
 	OamDma EmuOamDma{ EmuMemoryMap, EmuGraphics };
+	VramDma EmuVramDma{ EmuMemoryMap, EmuGraphics };
 	Timer EmuTimer;
 	Apu EmuApu;
 	Serial EmuSerial;

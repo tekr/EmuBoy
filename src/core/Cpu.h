@@ -78,6 +78,7 @@ public:
 	virtual void RunStoppedCycles(int cycles) {}
 };
 
+class VramDma;
 
 // Gameboy LR35902 CPU
 class Cpu
@@ -120,6 +121,11 @@ protected:
 	unsigned char _waitingInterrupts;
 
 	bool _softwareBreakpointHit;
+
+	// The CGB's VRAM DMA, which holds the CPU while it copies, and whether it's waiting to. Checked as a flag of the
+	// CPU's own on every instruction, so the DMG pays only for that
+	VramDma* _vramDma{ nullptr };
+	bool _vramDmaRequested{ false };
 
 	const std::vector<unsigned char(*)(unsigned char& dest, unsigned char src, bool carry)> _aluOps;
 	const std::vector<void(*)(unsigned char& dest, unsigned char& flags)> _prefixCbOps;
@@ -300,6 +306,7 @@ protected:
 	void DispatchInterrupt();
 	bool RunHalted();
 	void RunStopped();
+	void RunVramDma();
 
 	void Nop(unsigned char opcode);
 
@@ -393,10 +400,17 @@ public:
 	explicit Cpu(MemoryMap& memory);
 
 	void SetClockedHardware(ClockedHardware* hardware) { _hardware = hardware; }
+	void SetVramDma(VramDma* vramDma) { _vramDma = vramDma; }
+
+	// The CGB's VRAM DMA has bytes to copy, which it copies after the next opcode fetch
+	void RequestVramDma() { _vramDmaRequested = true; }
 
 	// The registers and interrupt flags as the CGB boot ROM leaves them for a CGB game, per
 	// https://gbdev.io/pandocs/Power_Up_Sequence.html#cpu-registers and #hardware-registers (IF = $E1)
 	void ApplyCgbPostBootState();
+
+	// Halted, which also holds back the H-Blank transfers of the CGB's VRAM DMA
+	bool IsHalted() const { return _state == CpuState::Halted; }
 
 	// Executing instructions: not halted, stopped or locked
 	bool IsRunning() const { return _state == CpuState::Running; }

@@ -47,6 +47,12 @@ void Emulator::SetModel(GameBoyModel model)
 	EmuModel = model;
 	auto cgb = model == GameBoyModel::Cgb;
 
+	// The CGB's VRAM DMA is connected only in CGB mode, so the DMG's instruction loop doesn't check it
+	EmuCpu.SetVramDma(cgb ? &EmuVramDma : nullptr);
+	EmuGraphics.SetVramDma(cgb ? &EmuVramDma : nullptr);
+	EmuMemoryMap.SetVramDma(&EmuVramDma);
+	EmuVramDma.SetCpu(&EmuCpu);
+
 	EmuMemoryMap.SetCgbMode(cgb);
 	EmuGraphics.SetCgbMode(cgb);
 	EmuOamDma.SetCgbMode(cgb);
@@ -61,6 +67,7 @@ void Emulator::ApplyCgbPostBootState()
 	EmuMemoryMap.ApplyCgbPostBootState();
 	EmuGraphics.ApplyCgbPostBootState();
 	EmuOamDma.ApplyCgbPostBootState();
+	EmuVramDma.ApplyCgbPostBootState();
 	EmuApu.ApplyCgbPostBootState();
 	EmuSerial.ApplyCgbPostBootState();
 }
@@ -101,6 +108,7 @@ void Emulator::WriteState(StateWriter& writer) const
 	EmuSerial.WriteState(writer);
 	EmuJoypad.WriteState(writer);
 	EmuCartridge->WriteState(writer);
+	if (EmuModel == GameBoyModel::Cgb) EmuVramDma.WriteState(writer);
 }
 
 void Emulator::ReadState(StateReader& reader)
@@ -125,4 +133,14 @@ void Emulator::ReadState(StateReader& reader)
 	EmuSerial.ReadState(reader);
 	EmuJoypad.ReadState(reader);
 	EmuCartridge->ReadState(reader);
+
+	if (model == GameBoyModel::Cgb)
+	{
+		EmuVramDma.ReadState(reader);
+		if (EmuVramDma.IsCopying()) EmuCpu.RequestVramDma();
+	}
+	else
+	{
+		EmuVramDma.Reset();
+	}
 }

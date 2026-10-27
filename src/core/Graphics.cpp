@@ -3,6 +3,7 @@
 #include "MemoryMap.h"
 #include "Cpu.h"
 #include "OamDma.h"
+#include "VramDma.h"
 #include "CgbColourCorrection.h"
 #include "SpriteManager.h"
 #include "StateStream.h"
@@ -207,6 +208,8 @@ void Graphics::StartHBlank()
 
 	UpdateStat();
 	Schedule(LineEvent::LineEnd, ScanlineClocks);
+
+	if (_vramDma != nullptr) _vramDma->HBlankStarted();
 }
 
 void Graphics::CompareInVBlank()
@@ -269,6 +272,10 @@ void Graphics::TurnOn()
 
 void Graphics::TurnOff()
 {
+	// Turning the LCD off outside H-Blank starts a block of an H-Blank VRAM DMA transfer, as the PPU enters mode 0
+	// (SameBoy's GB_lcd_off)
+	if (_vramDma != nullptr && _mode != LcdcStatus::HBlankMode) _vramDma->HBlankStarted();
+
 	// LY reads 0 and STAT mode 0, while the LY=LYC flag and the STAT interrupt line keep their values
 	// (mooneye-test-suite's stat_lyc_onoff)
 	_registers[RegLineCount] = 0;
@@ -491,6 +498,13 @@ void Graphics::ApplyCgbPostBootState()
 	_palettes.ApplyCgbPostBootState();
 	ShowLcdOff();
 	WriteRegister(RegLcdControl, 0x91);
+}
+
+bool Graphics::InHBlankForVramDma() const
+{
+	// Mode 0 at the start of a line or after turning the LCD on comes before the line is drawn, so isn't an H-Blank
+	if (!DisplayEnabled()) return true;
+	return _mode == LcdcStatus::HBlankMode && _nextEvent == LineEvent::LineEnd && _currentScanline < VertPixels;
 }
 
 unsigned char Graphics::ReadCgbRegister(unsigned short address) const

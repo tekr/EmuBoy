@@ -216,6 +216,7 @@
     <ClCompile Include="CgbModelTests.cpp" />
     <ClCompile Include="CgbSaveStateTests.cpp" />
     <ClCompile Include="MooneyeCgbTests.cpp" />
+    <ClCompile Include="VramDmaTests.cpp" />
     <ClCompile Include="SaveStateHiddenStateTests.cpp" />
     <ClCompile Include="ComponentStateTests.cpp" />
     <ClCompile Include="Rtc3Tests.cpp" />

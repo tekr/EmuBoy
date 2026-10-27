@@ -123,6 +123,59 @@ TEST(CgbSaveStateTest, LoadingAStateSwitchesTheEmulatorToItsModel)
 	EXPECT_TRUE(dmgState == SaveState::Create(*dmg));
 }
 
+TEST(CgbSaveStateTest, AnHBlankTransferCarriesOnAfterLoading)
+{
+	std::vector<unsigned char> data(0x80);
+	for (size_t i = 0; i < data.size(); i++) data[i] = static_cast<unsigned char>(0x80 + i);
+
+	CgbTestProgram program;
+	program.Data(0x4000, data);
+	program.WriteIo(0x51, 0x40).WriteIo(0x52, 0x00).WriteIo(0x53, 0x81).WriteIo(0x54, 0x00).WriteIo(0x55, 0x87).Loop();
+
+	auto emulator = program.PowerOn();
+	while (emulator->GetMemoryMap().ReadByte(0xff44) != 3) emulator->RunInstruction();
+	auto state = SaveState::Create(*emulator);
+
+	auto restored = program.PowerOn();
+	ASSERT_EQ("", SaveState::Restore(*restored, state));
+
+	for (auto i = 0; i < 3; i++)
+	{
+		emulator->GetFrame();
+		restored->GetFrame();
+	}
+
+	EXPECT_EQ(0xff, restored->GetMemoryMap().ReadByte(0xff55));
+	EXPECT_TRUE(SaveState::Create(*emulator) == SaveState::Create(*restored));
+
+	restored->GetMemoryMap().WriteByte(0xff40, 0x00);
+	for (size_t i = 0; i < data.size(); i++) EXPECT_EQ(data[i], restored->GetMemoryMap().ReadByte(static_cast<unsigned short>(0x8100 + i)));
+}
+
+TEST(CgbSaveStateTest, AVramDmaCopyWaitingForTheNextInstructionHappensAfterLoading)
+{
+	// Saved straight after HDMA5 starts a general-purpose transfer, which runs after the next opcode fetch
+	std::vector<unsigned char> data(0x10, 0x5a);
+	CgbTestProgram program;
+	program.Data(0x4000, data);
+	program.WriteIo(0x40, 0x00).WriteIo(0x51, 0x40).WriteIo(0x52, 0x00).WriteIo(0x53, 0x80).WriteIo(0x54, 0x00).WriteIo(0x55, 0x00);
+	auto started = program.Here();
+	program.Nops(1).Loop();
+
+	auto emulator = program.PowerOn();
+	ASSERT_TRUE(RunToAddress(*emulator, started));
+	auto state = SaveState::Create(*emulator);
+
+	auto restored = program.PowerOn();
+	ASSERT_EQ("", SaveState::Restore(*restored, state));
+	auto before = restored->GetSystemClocks();
+	restored->RunInstruction();
+
+	// The NOP, a machine cycle to set up and 8 to copy the block
+	EXPECT_EQ(40u, restored->GetSystemClocks() - before);
+	EXPECT_EQ(0x5a, restored->GetMemoryMap().ReadByte(0x8000));
+}
+
 TEST(CgbSaveStateTest, TheCgbScreenComesBackFromAState)
 {
 	auto cartridge = CartridgeFactory::LoadFromFile("roms/cgb-acid2/cgb-acid2.gbc");

@@ -2,6 +2,7 @@
 #include "Cpu.h"
 #include "MemoryMap.h"
 #include "StateStream.h"
+#include "VramDma.h"
 #include <algorithm>
 
 #ifndef _MSC_VER
@@ -438,6 +439,21 @@ void Cpu::Stop(unsigned char opcode)
 	if (twoByteOpcode) _registers.PC++;
 }
 
+void Cpu::RunVramDma()
+{
+	// Per SameBoy (GB_hdma_run), the transfer takes the machine cycle after the opcode fetch to start, then copies 2
+	// bytes per machine cycle, 2 bytes per microsecond (https://gbdev.io/pandocs/CGB_Registers.html#transfer-timings):
+	// a 16-byte block holds the CPU for 9 machine cycles
+	_vramDmaRequested = false;
+	InternalCycle();
+
+	while (_vramDma->IsCopying())
+	{
+		InternalCycle();
+		_vramDma->Copy(2);
+	}
+}
+
 void Cpu::Jr(unsigned char opcode)
 {
 	auto condition = (opcode & 0x10) != 0 ? CarryFlag : ZeroFlag;
@@ -741,6 +757,7 @@ bool Cpu::RunHalted()
 
 	// A pending interrupt ends the halt, whether or not interrupts are enabled
 	_state = CpuState::Running;
+	if (_vramDma != nullptr) _vramDma->CpuWoke();
 	return true;
 }
 
@@ -782,6 +799,9 @@ int Cpu::DoNextInstruction()
 		{
 			if (!_skipNextPCIncrement) ++_registers.PC;
 			_skipNextPCIncrement = false;
+
+			// The CGB's VRAM DMA takes over between the opcode fetch and the instruction (SameBoy's GB_cpu_run)
+			if (_vramDmaRequested) RunVramDma();
 
 			// An EI before this instruction takes effect once it completes, unless this instruction is DI
 			_enableInterruptsAfterThis = _enableInterruptsAfterNext;
@@ -861,6 +881,9 @@ void Cpu::ReadState(StateReader& reader)
 	_enabledInterrupts = reader.ReadU8();
 	_waitingInterrupts = reader.ReadU8() & InterruptFlags::AllInt;
 	_softwareBreakpointHit = reader.ReadBool();
+
+	// The VRAM DMA restores its own request (see Emulator::ReadState)
+	_vramDmaRequested = false;
 
 	reader.EndSection();
 }
