@@ -1,8 +1,11 @@
 Test ROMs
 =========
 
-These are Shay Green's (blargg's) Game Boy hardware test ROMs, with his readmes. They come from
-https://github.com/retrio/gb-test-roms (originally http://blargg.8bitalley.com/parodius/gb-tests/).
+blargg
+------
+
+The directories in the table are Shay Green's (blargg's) Game Boy hardware test ROMs, with his readmes. They come
+from https://github.com/retrio/gb-test-roms (originally http://blargg.8bitalley.com/parodius/gb-tests/).
 `BlarggRomRunner.cpp` runs a ROM and reads the result it reports through the serial port or cartridge RAM
 at $A000.
 
@@ -21,3 +24,13 @@ the LCD is turned on, as well as the corruption itself.
 
 `interrupt_time` isn't included. It's a Game Boy Color test (its header marks it CGB-only and its source sets
 `REQUIRE_CGB`) that times interrupts at both CPU speeds, so it needs the CGB's double-speed mode.
+
+dmg-acid2
+---------
+
+`dmg-acid2/` holds Matt Currie's dmg-acid2 PPU test (MIT licence, in `LICENSE`), from
+https://github.com/mattcurrie/dmg-acid2. `dmg-acid2.gb` is the v1.0 release ROM.
+`reference-dmg.txt` is the repository's reference image, `img/reference-dmg.png` (160x144, 2-bit greyscale),
+converted to text so the tests need no image library: one line per screen row, one digit per pixel, giving
+the DMG shade from 0 (lightest, PNG value $FF) to 3 (darkest, $00), i.e. `3 - value / 85` for each 8-bit
+greyscale value. `DmgAcid2Tests.cpp` runs the ROM and compares the frame with it pixel for pixel.

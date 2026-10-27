@@ -38,8 +38,7 @@ int Graphics::MapColour(unsigned char colour, Palette palette)
 										? RegSprite0Palette
 										: RegSprite1Palette];
 
-	// 60% opacity to emulate the slow GB screen response time. Green tinge to look more like the original
-	return 0x99000000 | ((3 - (paletteData >> (colour << 1) & 0x3)) * 0x40504a);
+	return ShadeColour(paletteData >> (colour << 1) & 0x3);
 }
 
 void Graphics::CheckLineCompare()
@@ -51,6 +50,18 @@ void Graphics::CheckLineCompare()
 	{
 		_cpu.RequestInterrupt(InterruptFlags::LcdStatInt);
 	}
+}
+
+// LY changes, and is compared with LYC, at the start of each line. The line is drawn at the end of its OAM scan
+// (mode 2), so a register write made from the LY=LYC interrupt during mode 2 affects the line that triggered it
+void Graphics::StartLine(unsigned int line)
+{
+	_currentScanline = line;
+	if (line == 0) _currentWindowScanline = 0;
+
+	// LY stays at 0 while the display is off
+	_registers[RegLineCount] = DisplayEnabled() ? line : 0;
+	CheckLineCompare();
 }
 
 Graphics::Graphics(Cpu& cpu, MemoryMap& memoryMap, SpriteManager& spriteManager)
@@ -80,9 +91,10 @@ void Graphics::WriteOam(unsigned short address, unsigned char value)
 
 void Graphics::WriteRegister(unsigned short address, unsigned char value)
 {
-	// Writing to the line count register resets it
-	if (address == RegLineCount) value = 0;
-	else if (address == RegLcdControl)
+	// LY is read-only (Pan Docs)
+	if (address == RegLineCount) return;
+
+	if (address == RegLcdControl)
 	{
 		_spriteManager.SetUseTallSprites(value & 0x4);
 
@@ -118,16 +130,8 @@ void Graphics::WriteRegister(unsigned short address, unsigned char value)
 	_registers[address] = value;
 }
 
-int Graphics::RenderLine()
+void Graphics::DrawLine()
 {
-	// Reset line counter at start of frame
-	if (_currentScanline == 0)
-	{
-		_registers[RegLineCount] = 0;
-		_spriteManager.SetScanline(0);
-		_currentWindowScanline = 0;
-	}
-
 	if (_currentScanline < VertPixels)
 	{
 		if (DisplayEnabled())
@@ -138,7 +142,8 @@ int Graphics::RenderLine()
 			auto backgroundY = _currentScanline + _registers[RegBgScrollY];
 			auto windowVisibleThisLine = WindowEnabled() && _currentScanline >= _registers[RegWindowY] && _registers[RegWindowX] < 167;
 
-			auto visibleSprites = _spriteManager.GetVisibleSprites();
+			_spriteManager.SelectSprites(_currentScanline);
+			auto& visibleSprites = _spriteManager.GetVisibleSprites();
 			auto firstSpriteNotLeftOfX = visibleSprites.cbegin();
 			auto firstSpriteBelowY = visibleSprites.cend();
 
@@ -150,15 +155,19 @@ int Graphics::RenderLine()
 				unsigned char colour = 0;
 				auto windowX = x - _registers[RegWindowX] + 7;
 
-				if (windowVisibleThisLine && windowX >= 0)
+				// On the DMG, LCDC bit 0 blanks the window as well as the background
+				if (backgroundEnabled)
 				{
-					// Window is over background
-					colour = GetBgOrWinColour(windowX, _currentWindowScanline, TileType::Window);
-				}
-				else if (backgroundEnabled)
-				{
-					auto backgroundX = x + _registers[RegBgScrollX];
-					colour = GetBgOrWinColour(backgroundX, backgroundY, TileType::Background);
+					if (windowVisibleThisLine && windowX >= 0)
+					{
+						// Window is over background
+						colour = GetBgOrWinColour(windowX, _currentWindowScanline, TileType::Window);
+					}
+					else
+					{
+						auto backgroundX = x + _registers[RegBgScrollX];
+						colour = GetBgOrWinColour(backgroundX, backgroundY, TileType::Background);
+					}
 				}
 
 				auto spritePixelOnTop = false;
@@ -196,6 +205,8 @@ int Graphics::RenderLine()
 				}
 			}
 
+			// The window's line counter advances even while LCDC bit 0 blanks it, as in SameBoy, where that bit only
+			// affects the pixels output, not the window's fetching
 			if (windowVisibleThisLine)
 			{
 				++_currentWindowScanline;
@@ -207,11 +218,17 @@ int Graphics::RenderLine()
 		}
 	}
 
-	CheckLineCompare();
+}
 
-	++_registers[RegLineCount];
-	++_currentScanline;
-	_spriteManager.NextScanline();
+void Graphics::EndLine()
+{
+	StartLine(_currentScanline + 1 < FrameLines ? _currentScanline + 1 : 0);
+}
+
+int Graphics::RenderLine()
+{
+	DrawLine();
+	EndLine();
 
 	return ScanlineClocks;
 }

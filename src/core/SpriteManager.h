@@ -26,7 +26,6 @@ class SpriteManager
 		hashed_unique<const_mem_fun<SpriteData, uintptr_t, &SpriteData::OrderedSpriteId>>
 	>> _yOrderedSprites;
 
-	unsigned char _currentScanline;
 	unsigned char _spriteHeight;
 
 public:
@@ -50,9 +49,9 @@ public:
 
 	const VisibleSpriteContainer& GetVisibleSprites() const { return _visibleSprites; }
 
-	void SetScanline(unsigned char scanline);
-
-	void NextScanline()	{ SetScanline(_currentScanline + 1); }
+	// Selects the sprites drawn on a line. Called when the line is drawn, at the end of its OAM scan, so the selection
+	// reflects OAM and the sprite size as they are then, including any changes made in the previous line's H-Blank
+	void SelectSprites(unsigned char scanline);
 
 	void SpriteMoved(SpriteData& spriteData);
 

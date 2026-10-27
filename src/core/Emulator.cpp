@@ -29,6 +29,16 @@ void Emulator::SetPpuMode(LcdcStatus status)
 	if (!EmuCpu.IsStopped()) EmuGraphics.SetLcdcStatus(status);
 }
 
+void Emulator::DrawLine()
+{
+	if (!EmuCpu.IsStopped()) EmuGraphics.DrawLine();
+}
+
+void Emulator::EndLine()
+{
+	if (!EmuCpu.IsStopped()) EmuGraphics.EndLine();
+}
+
 void Emulator::RenderLine()
 {
 	if (!EmuCpu.IsStopped()) EmuGraphics.RenderLine();
@@ -48,8 +58,12 @@ Emulator::Emulator(std::shared_ptr<Cartridge> cartridge)
 
 int* Emulator::GetFrame()
 {
-	EmuGraphics.ResetFrame();
-	auto cycleCounter = 0;
+	// Resetting the frame sets LY and can raise the LY=LYC interrupt, so it waits while STOP has the PPU stopped
+	if (!EmuCpu.IsStopped()) EmuGraphics.ResetFrame();
+
+	// The last instruction of a frame can run past its end; those clocks come off this frame, so frames
+	// average exactly FrameClocks and the emulated clock doesn't creep ahead of the frame rate
+	auto cycleCounter = _frameOvershoot;
 	auto cycleTarget = 0;
 
 	for (auto i = 0; i < Graphics::VertPixels; i++)
@@ -57,6 +71,9 @@ int* Emulator::GetFrame()
 		SetPpuMode(LcdcStatus::OamReadMode);
 		cycleTarget += Graphics::OamReadClocks;
 		Run(cycleCounter, cycleTarget);
+
+		// Drawn before mode 3 starts, so H-Blank writes only affect the next line, as on hardware
+		DrawLine();
 
 		SetPpuMode(LcdcStatus::OamAndVramReadMode);
 		cycleTarget += Graphics::OamAndVramReadClocks;
@@ -66,7 +83,7 @@ int* Emulator::GetFrame()
 		cycleTarget += Graphics::HBlankPeriodClocks;
 		Run(cycleCounter, cycleTarget);
 
-		RenderLine();
+		EndLine();
 	}
 
 	SetPpuMode(LcdcStatus::VBlankMode);
@@ -78,6 +95,8 @@ int* Emulator::GetFrame()
 
 		RenderLine();
 	}
+
+	_frameOvershoot = cycleCounter - cycleTarget;
 
 	// Per SameBoy (display.c), a DMG's screen is blank while stopped
 	if (EmuCpu.IsStopped()) EmuGraphics.BlankScreen();

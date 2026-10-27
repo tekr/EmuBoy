@@ -392,11 +392,11 @@ TEST_F(EmulatorStopTests, DivRunsAgainAfterWaking)
 	EXPECT_NE(0, ReadByte(MemoryMap::DividerPort));
 }
 
-TEST_F(EmulatorStopTests, PpuRestartsAtTheFrameLoopsPositionOnWaking)
+TEST_F(EmulatorStopTests, PpuCarriesOnFromItsLineOnWaking)
 {
-	// A documented simplification. The program stops on line 50 and wakes at the start of a later frame. The first
-	// instruction still reads LY and STAT as they were when the CPU stopped, and once the frame loop finishes its
-	// first line LY reads 1, where a PPU resuming from where it stopped would read 51
+	// The program stops on line 50 and wakes at the start of a later frame. The first instruction still reads LY and
+	// STAT as they were when the CPU stopped, and once the frame loop finishes its first line LY reads 51, as the
+	// PPU carries on from where it stopped
 	Rom->SetBytes(0, {
 		0x3e, SelectDirections,	// LD A,$20
 		0xe0, 0x00,				// LDH (JOYP),A
@@ -424,5 +424,5 @@ TEST_F(EmulatorStopTests, PpuRestartsAtTheFrameLoopsPositionOnWaking)
 
 	EXPECT_EQ(50, ReadByte(0xff80));
 	EXPECT_EQ(2, ReadByte(0xff81) & 3);
-	EXPECT_EQ(1, ReadByte(0xff82));
+	EXPECT_EQ(51, ReadByte(0xff82));
 }

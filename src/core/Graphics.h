@@ -55,6 +55,7 @@ public:
 	static_assert(ScanlineClocks == 456, "Clocks per scanline is incorrect");
 
 	static const unsigned int VBlankLines = 10;
+	static const unsigned int FrameLines = VertPixels + VBlankLines;
 	static const unsigned int FrameClocks = ScanlineClocks * (VertPixels + VBlankLines);
 	static_assert(FrameClocks == 70224, "Clocks per frame is incorrect");
 
@@ -97,10 +98,11 @@ protected:
 	unsigned char _vram[VramSize];
 	unsigned char _oam[OamSize];
 
-	unsigned char _registers[RegisterBlockSize];
+	// All zero at power-on (display off, as the boot ROM expects), apart from the palettes, set in the constructor
+	unsigned char _registers[RegisterBlockSize]{};
 
-	unsigned int _currentScanline;
-	unsigned int _currentWindowScanline;
+	unsigned int _currentScanline{ 0 };
+	unsigned int _currentWindowScanline{ 0 };
 
 	bool DisplayEnabled() const { return (_registers[RegLcdControl] & 0x80) != 0; }
 	bool WindowEnabled() const { return (_registers[RegLcdControl] & 0x20) != 0; }
@@ -123,12 +125,20 @@ protected:
 	SpriteManager& _spriteManager;
 
 	void CheckLineCompare();
+	void StartLine(unsigned int line);
 
 public:
 
 	int Bitmap[HozPixels * VertPixels];
 
 	Graphics(Cpu& cpu, MemoryMap& memoryMap, SpriteManager& spriteManager);
+
+	// The Bitmap colour for a DMG shade, 0 (lightest) to 3 (darkest)
+	static int ShadeColour(unsigned char shade)
+	{
+		// 60% opacity to emulate the slow GB screen response time. Green tinge to look more like the original
+		return 0x99000000 | ((3 - shade) * 0x40504a);
+	}
 
 	unsigned char& Vram(unsigned short address) { return _status != LcdcStatus::OamAndVramReadMode ? _vram[address] : _dummy; }
 
@@ -141,12 +151,20 @@ public:
 
 	void WriteRegister(unsigned short address, unsigned char value);
 
+	// RenderLine wraps to line 0 after the last line of a frame, so this only has an effect if a frame was cut short
 	void ResetFrame()
 	{
-		_currentScanline = 0;
-		_currentWindowScanline = 0;
+		if (_currentScanline != 0) StartLine(0);
 	}
 
+	// Draws the current line in one go, using the registers, OAM and VRAM as they are when its OAM scan (mode 2)
+	// ends. Writes made later in the line, including in its H-Blank, take effect from the next line
+	void DrawLine();
+
+	// Moves to the next line, wrapping to line 0 after the last V-Blank line
+	void EndLine();
+
+	// DrawLine then EndLine, for when there's nothing to run in between
 	int RenderLine();
 
 	// Fills the screen with white, as when the display is disabled
