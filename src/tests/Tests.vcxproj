@@ -160,6 +160,11 @@
     <ClInclude Include="TestCpu.h" />
     <ClInclude Include="TestGraphics.h" />
     <ClInclude Include="TestMemoryMap.h" />
+    <ClInclude Include="..\frontend\InputMapper.h" />
+    <ClInclude Include="..\frontend\RunState.h" />
+    <ClInclude Include="..\frontend\FramePacer.h" />
+    <ClInclude Include="..\frontend\ScreenshotNamer.h" />
+    <ClInclude Include="..\frontend\Letterbox.h" />
     <ClInclude Include="TimerTestHardware.h" />
   </ItemGroup>
   <ItemGroup>
@@ -195,6 +200,7 @@
     <ClCompile Include="Mbc2Tests.cpp" />
     <ClCompile Include="Mbc3Tests.cpp" />
     <ClCompile Include="Mbc5Tests.cpp" />
+    <ClCompile Include="CartridgeResetTests.cpp" />
     <ClCompile Include="MooneyeMbcTests.cpp" />
     <ClCompile Include="RealTimeClockTests.cpp" />
     <ClCompile Include="Rtc3Tests.cpp" />
@@ -218,6 +224,26 @@
     <ClCompile Include="TestCpu.cpp" />
     <ClCompile Include="TestMemoryMap.cpp" />
     <ClCompile Include="TimerQuirkTests.cpp" />
+    <ClCompile Include="InputMapperTests.cpp" />
+    <ClCompile Include="RunStateTests.cpp" />
+    <ClCompile Include="FramePacerTests.cpp" />
+    <ClCompile Include="ScreenshotNamerTests.cpp" />
+    <ClCompile Include="LetterboxTests.cpp" />
+    <ClCompile Include="..\frontend\InputMapper.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="..\frontend\RunState.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="..\frontend\FramePacer.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="..\frontend\ScreenshotNamer.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="..\frontend\Letterbox.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\core\Core.vcxproj">

@@ -16,8 +16,13 @@ add_library(core STATIC ${CORE_SOURCES})
 target_include_directories(core PUBLIC src/core)
 target_link_libraries(core PUBLIC Boost::boost)
 
-add_executable(EmuBoy src/ui/main.cpp src/ui/AudioOutput.cpp)
-target_link_libraries(EmuBoy PRIVATE core sfml-graphics sfml-window sfml-audio sfml-system)
+# The front end's logic that doesn't need SFML, kept apart so the tests can build it. It brings in core
+file(GLOB FRONTEND_SOURCES CONFIGURE_DEPENDS src/frontend/*.cpp)
+add_library(frontend STATIC ${FRONTEND_SOURCES})
+target_link_libraries(frontend PUBLIC core)
+
+add_executable(EmuBoy src/ui/main.cpp src/ui/App.cpp src/ui/AudioOutput.cpp src/ui/Controls.cpp)
+target_link_libraries(EmuBoy PRIVATE frontend sfml-graphics sfml-window sfml-audio sfml-system)
 
 # Unit tests (Google Test). Run with ctest, or run Tests from src/tests, which the tests' file paths are relative to
 find_package(GTest)
@@ -26,7 +31,7 @@ if(GTest_FOUND)
 	file(GLOB TEST_SOURCES CONFIGURE_DEPENDS src/tests/*.cpp)
 	list(FILTER TEST_SOURCES EXCLUDE REGEX "stdafx\\.cpp$")
 	add_executable(Tests ${TEST_SOURCES})
-	target_link_libraries(Tests PRIVATE core GTest::gtest)
+	target_link_libraries(Tests PRIVATE frontend GTest::gtest)
 	# The tests use INSTANTIATE_TEST_CASE_P so they also build with the Google Test 1.7 used on Windows
 	if(NOT MSVC)
 		target_compile_options(Tests PRIVATE -Wno-deprecated-declarations)

@@ -59,6 +59,35 @@ VBA-M do; mGBA's 8 KB saves for them load too. The clock catches up with the tim
 running. Battery-backed cartridges whose mapper isn't emulated (MMM01, Pocket Camera, HuC1 and HuC3) still have
 their RAM saved, though the HuC3's clock isn't, and the MBC7's EEPROM isn't saved at all.
 
+## Controls
+
+| Game Boy | Keyboard | Gamepad |
+|----------|----------|---------|
+| D-pad    | W A S D  | D-pad or left stick |
+| A        | `.`      | Right face button (B on Xbox pads) |
+| B        | `,`      | Bottom face button (A on Xbox pads) |
+| Start    | Return   | Start / Menu |
+| Select   | Tab      | Back / View |
+
+| Emulator | Key |
+|----------|-----|
+| Pause / resume | P |
+| Fast-forward (up to 8x) | Hold Space |
+| Reset (power off and on, keeping the save) | F2 |
+| Fullscreen on / off | F11; Ctrl+Cmd+F on a Mac (Escape also leaves fullscreen) |
+| Screenshot | F12 |
+
+The window title shows the game's title from the cartridge header, and whether it is paused or fast-forwarding.
+Fast-forward is silent. Screenshots are saved at the Game Boy's 160x144 resolution
+next to the ROM, named after it and numbered (`Tetris-1.png`, `Tetris-2.png`, ...), or in the working directory if the
+ROM's folder can't be written to. On a Mac keyboard whose top row controls brightness and volume, hold fn for F2 and
+F12. The emulator's commands are on the keyboard only.
+
+Gamepad buttons are numbered differently by each platform's drivers. The defaults suit Xbox-style pads: through
+DirectInput on Windows and the xpad driver on Linux (buttons 0, 1, 6 and 7), and Xbox One and Series pads over
+Bluetooth on macOS (buttons 0, 1, 10 and 11). Other pads may number their buttons differently. On macOS, SFML 2
+doesn't read d-pads that report as a hat switch numbered 1-8, as some Xbox pads' do, so use the left stick there.
+
 
 ## Building on Linux
 Install the dependencies with your package manager, then build with CMake. On Ubuntu 24.04 or Debian 12/13:
@@ -98,7 +127,7 @@ As of now Emu Boy is still in its early stages and is very much a work in progre
 * Unit testing of most CPU instructions, the sound hardware and the cartridge mappers
 * Windows (Visual Studio 2015 solution), macOS and Linux (CMake), with CI builds and tests on macOS and Linux
 * Simulates the slow response-time of the Game Boy LCD screen and smoothes upsized jagged pixels
-* Keyboard input
+* Keyboard and gamepad input, pause, fast-forward, reset, screenshots and fullscreen
 
 &nbsp;
 <p align="center" style="border: 5px solid red"><kbd><img src="http://codingthemachine.com/wp-content/uploads/2017/01/EmuBoyRun.gif" /></kbd></p>
@@ -109,3 +138,7 @@ Various features remain to be added including:
 * Menus & ROM file selector
 * Drawing pixels as mode 3 runs (a pixel FIFO), for effects that change registers partway through a line
 * Performance optimisation
+
+Known bugs are tracked as [GitHub issues](https://github.com/tekr/EmuBoy/issues). Places where the emulator may
+differ from the hardware, but where the right behaviour is unclear or unlikely to matter, are listed in
+[docs/known-gaps.md](docs/known-gaps.md).

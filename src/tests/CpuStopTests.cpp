@@ -333,6 +333,19 @@ public:
 	static bool IsBlank(const int* frame) { return IsAll(frame, Graphics::BlankColour); }
 };
 
+TEST_F(EmulatorStopTests, EachFrameLastsAFrameOfClocksWhileStopped)
+{
+	// The front end paces frames by the clocks emulated, so a stopped Game Boy must keep the normal frame rate
+	Emulator.GetFrame();
+
+	for (auto i = 0; i < 3; i++)
+	{
+		auto clocks = Emulator.GetCpuClocks();
+		Emulator.GetFrame();
+		EXPECT_EQ(uint64_t{ Graphics::FrameClocks }, Emulator.GetCpuClocks() - clocks);
+	}
+}
+
 TEST_F(EmulatorStopTests, ScreenShowsLightestShadeWhileStoppedWithLcdOn)
 {
 	// A frame is shown in full before STOP, which runs on line 50. As in SameBoy (GB_display_vblank in display.c), a

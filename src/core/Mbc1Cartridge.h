@@ -19,6 +19,9 @@ class Mbc1Cartridge : public Cartridge
 
 	void UpdateRomBanks();
 
+protected:
+	void ResetRegisters() override;
+
 public:
 	Mbc1Cartridge(std::vector<unsigned char>&& rom, size_t ramSize, bool hasBattery = false, bool isMulticart = false);
 

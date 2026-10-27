@@ -26,6 +26,12 @@ void AudioOutput::Push(const std::vector<short>& samples)
 	}
 }
 
+void AudioOutput::Clear()
+{
+	std::lock_guard<std::mutex> lock(_mutex);
+	_buffer.clear();
+}
+
 bool AudioOutput::onGetData(Chunk& data)
 {
 	{

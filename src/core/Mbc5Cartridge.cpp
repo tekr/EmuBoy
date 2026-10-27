@@ -6,6 +6,14 @@ Mbc5Cartridge::Mbc5Cartridge(std::vector<unsigned char>&& rom, size_t ramSize, b
 {
 }
 
+void Mbc5Cartridge::ResetRegisters()
+{
+	_romBank = 1;
+	_ramBank = 0;
+	_ramEnabled = false;
+	_rumbling = false;
+}
+
 void Mbc5Cartridge::RomWriteByte(unsigned short address, unsigned char value)
 {
 	if (address < 0x2000)

@@ -38,6 +38,11 @@ public:
 	// The cartridge RAM's size in bytes, from the header's RAM size code
 	static size_t RamSizeFromHeader(const std::vector<unsigned char>& rom);
 
+	// The game's title from $0134-$0143, up to the first byte that isn't printable ASCII (the padding $00s, or on
+	// later cartridges the colour flag at $0143), without a manufacturer code at $013F-$0142 and with surrounding
+	// spaces trimmed. Empty if the ROM is too short
+	static std::string TitleFromHeader(const std::vector<unsigned char>& rom);
+
 	static std::shared_ptr<Cartridge> Create(std::vector<unsigned char>&& rom);
 
 	// Overrides the header's RAM size (in bytes, 0 or a power of two), for ROMs that need RAM without declaring it

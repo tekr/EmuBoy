@@ -29,6 +29,14 @@ public:
 	virtual unsigned char RamReadByte(unsigned short address) const = 0;
 	virtual void RamWriteByte(unsigned short address, unsigned char value) = 0;
 
+	// Returns the mapper's registers to their power-on state, as when the Game Boy is switched off and on again with
+	// the cartridge in. RAM and any real-time clock keep their contents, as the battery (if any) keeps them powered
+	void Reset()
+	{
+		SetRomBanks(0, 1);
+		ResetRegisters();
+	}
+
 	// Advances any real-time hardware on the cartridge by emulated clock cycles
 	virtual void RunCycles(int cycles) {}
 
@@ -64,6 +72,9 @@ protected:
 	void WriteRamBank(int bank, unsigned short address, unsigned char value);
 
 	void MarkChanged() { _hasUnsavedChanges = true; }
+
+	// Called by Reset after the ROM banks are back at 0 and 1
+	virtual void ResetRegisters() {}
 
 private:
 	bool _hasBattery;
