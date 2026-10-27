@@ -4,6 +4,7 @@
 #include <vector>
 #include "../core/Emulator.h"
 #include "../core/GbInternalRom.h"
+#include "../core/RomOnlyCartridge.h"
 
 namespace
 {
@@ -27,7 +28,7 @@ namespace
 		for (auto address = HeaderChecksumStart; address < HeaderChecksum; address++) checksum = checksum - rom[address] - 1;
 		rom[HeaderChecksum] = checksum;
 
-		return std::make_shared<Cartridge>(std::move(rom), 0);
+		return std::make_shared<RomOnlyCartridge>(std::move(rom), 0);
 	}
 
 	// JR -2: spin at the entry point

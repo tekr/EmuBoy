@@ -10,6 +10,7 @@
 
 class Emulator : ClockedHardware
 {
+	std::shared_ptr<Cartridge> EmuCartridge;
 	InputJoypad EmuJoypad;
 	MemoryMap EmuMemoryMap { EmuJoypad };
 	Cpu EmuCpu{ EmuMemoryMap };
@@ -47,6 +48,7 @@ public:
 
 	// Clocks the CPU has run since power-on, including time halted or stopped
 	uint64_t GetCpuClocks() const { return EmuCpu.GetTotalCycles(); }
+	const Cpu& GetCpu() const { return EmuCpu; }
 
 	// Interleaved stereo 16-bit samples at the APU's sample rate, produced since the last call
 	void TakeAudioSamples(std::vector<short>& out) { EmuApu.TakeSamples(out); }

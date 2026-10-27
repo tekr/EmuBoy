@@ -76,7 +76,7 @@ namespace
 
 TEST(DmgAcid2Test, FrameMatchesReferenceImage)
 {
-	auto cartridge = CartridgeFactory::LoadFromFile("roms/dmg-acid2/dmg-acid2.gb", 1);
+	auto cartridge = CartridgeFactory::LoadFromFileWithRamSize("roms/dmg-acid2/dmg-acid2.gb", Cartridge::RamBankSize);
 	ASSERT_NE(nullptr, cartridge) << "ROM not found; run the tests from src/tests";
 
 	auto reference = LoadReference("roms/dmg-acid2/reference-dmg.txt");
