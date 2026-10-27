@@ -1,7 +1,7 @@
 #include "stdafx.h"
 #include <gtest/gtest.h>
 #include "CpuTestFixture.h"
-#include "../core/Timer.h"
+#include "TimerTestHardware.h"
 
 // Runs the CPU with the timer as its clocked hardware, so timer register accesses happen at the machine cycle the
 // instruction makes them. Per https://gbdev.io/pandocs/Timer_Obscure_Behaviour.html, TIMA increments on the
@@ -17,18 +17,6 @@ namespace
 
 	// Enabled, 16 cycles per increment (divider bit 3)
 	const unsigned char TacMode1 = 0x05;
-
-	const unsigned short StackTop = 0xc010;
-
-	class TimerHardware : public ClockedHardware
-	{
-		Timer& _timer;
-
-	public:
-		explicit TimerHardware(Timer& timer) : _timer(timer) {}
-
-		void RunCycles(int cycles) override { _timer.RunCycles(cycles); }
-	};
 }
 
 class CpuTimerTests : public CpuTestFixture
@@ -56,11 +44,6 @@ public:
 		MemoryMap.WriteByte(TmaAddress, 0xf0);
 		MemoryMap.WriteByte(TimaAddress, 0xff);
 		MemoryMap.WriteByte(TacAddress, TacMode1);
-	}
-
-	void Step(int instructions)
-	{
-		for (auto i = 0; i < instructions; i++) Cpu.DoNextInstruction();
 	}
 
 	unsigned char Tima() { return MemoryMap.ReadByte(TimaAddress); }

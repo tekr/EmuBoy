@@ -2,7 +2,7 @@
 #include <gtest/gtest.h>
 #include "CpuTestFixture.h"
 #include "../core/Emulator.h"
-#include "../core/Timer.h"
+#include "TimerTestHardware.h"
 
 // Per https://gbdev.io/pandocs/CPU_Instruction_Set.html, the unused opcodes $D3, $DB, $DD, $E3, $E4, $EB, $EC, $ED,
 // $F4, $FC and $FD hard-lock the CPU until the console is powered off. Only the CPU stops: the rest of the hardware,
@@ -10,21 +10,9 @@
 
 namespace
 {
-	const int MachineCycle = 4;
-	const unsigned short DivAddress = 0xff04;
-	const unsigned short StackTop = 0xc010;
+	const unsigned short DivAddress = MemoryMap::DividerPort;
 
 	const unsigned char IllegalOpcodes[] = { 0xd3, 0xdb, 0xdd, 0xe3, 0xe4, 0xeb, 0xec, 0xed, 0xf4, 0xfc, 0xfd };
-
-	class TimerHardware : public ClockedHardware
-	{
-		Timer& _timer;
-
-	public:
-		explicit TimerHardware(Timer& timer) : _timer(timer) {}
-
-		void RunCycles(int cycles) override { _timer.RunCycles(cycles); }
-	};
 }
 
 class CpuIllegalOpcodeTests : public CpuTestFixture, public testing::WithParamInterface<unsigned char>
@@ -47,11 +35,6 @@ public:
 
 		// The illegal opcode, then INC A, which must never run
 		MemoryMap.SetBytes(0, { GetParam(), 0x3c, 0x3c, 0x3c });
-	}
-
-	void Step(int instructions)
-	{
-		for (auto i = 0; i < instructions; i++) Cpu.DoNextInstruction();
 	}
 };
 

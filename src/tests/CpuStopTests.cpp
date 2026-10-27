@@ -3,7 +3,7 @@
 #include <algorithm>
 #include "CpuTestFixture.h"
 #include "../core/Emulator.h"
-#include "../core/Timer.h"
+#include "TimerTestHardware.h"
 
 // STOP on the DMG, per the "Using the STOP Instruction" diagram in
 // https://gbdev.io/pandocs/Reducing_Power_Consumption.html (the DMG has no speed switch, so KEY1 never applies):
@@ -20,15 +20,12 @@
 
 namespace
 {
-	const int MachineCycle = 4;
-
-	const unsigned short JoypAddress = 0xff00;
-	const unsigned short DivAddress = 0xff04;
+	const unsigned short JoypAddress = MemoryMap::JoypadPort;
+	const unsigned short DivAddress = MemoryMap::DividerPort;
 	const unsigned short TimaAddress = 0xff05;
 	const unsigned short TacAddress = 0xff07;
 	const unsigned short LyAddress = 0xff44;
 	const unsigned short StatAddress = 0xff41;
-	const unsigned short StackTop = 0xc010;
 
 	// JOYP values that select the direction keys, the action buttons, or neither
 	const unsigned char SelectDirections = 0x20;
@@ -38,25 +35,6 @@ namespace
 	// STOP, then INC B, then INC A. A 2-byte STOP skips INC B
 	const unsigned char IncB = 0x04;
 	const unsigned char IncA = 0x3c;
-
-	class TimerHardware : public ClockedHardware
-	{
-		Timer& _timer;
-
-	public:
-		explicit TimerHardware(Timer& timer) : _timer(timer) {}
-
-		int Cycles = 0;
-		int StoppedCycles = 0;
-
-		void RunCycles(int cycles) override
-		{
-			Cycles += cycles;
-			_timer.RunCycles(cycles);
-		}
-
-		void RunStoppedCycles(int cycles) override { StoppedCycles += cycles; }
-	};
 }
 
 class CpuStopTests : public CpuTestFixture
@@ -83,11 +61,6 @@ public:
 
 		// Leave DIV non-zero, to show whether STOP resets it
 		Timer.RunCycles(0x1234);
-	}
-
-	void Step(int instructions)
-	{
-		for (auto i = 0; i < instructions; i++) Cpu.DoNextInstruction();
 	}
 
 	void MakeInterruptPending()
