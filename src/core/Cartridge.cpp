@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "Cartridge.h"
+#include <cassert>
 
 namespace
 {
@@ -15,6 +16,8 @@ namespace
 Cartridge::Cartridge(std::vector<unsigned char>&& rom, size_t ramSize, bool hasBattery) : _rom{ std::move(rom) },
 	_ram(ramSize), _hasBattery(hasBattery), _ramMask(ramSize == 0 ? 0 : ramSize - 1)
 {
+	assert((ramSize & (ramSize - 1)) == 0);
+
 	auto banks = RomBankCount(_rom.size());
 
 	// Padding reads as $FF, like an absent ROM chip

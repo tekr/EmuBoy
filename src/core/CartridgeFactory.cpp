@@ -43,9 +43,11 @@ CartridgeFactory::CartridgeType CartridgeFactory::TypeFromHeader(const std::vect
 size_t CartridgeFactory::RamSizeFromHeader(const std::vector<unsigned char>& rom)
 {
 	// Per https://gbdev.io/pandocs/The_Cartridge_Header.html#0149--ram-size. No licensed cartridge uses code 1, but
-	// it is a 2 KB chip (mirrored through $A000-$BFFF) in BGB, SameBoy and VBA-M, whose save files are 2 KB. Code 5
-	// (64 KB) is smaller than code 4 (128 KB)
-	static const std::array<size_t, 6> ramSizeBySizeCode{ { 0, 2 << 10, 8 << 10, 32 << 10, 128 << 10, 64 << 10 } };
+	// it is a 2 KB chip (mirrored through $A000-$BFFF) in BGB, SameBoy and VBA-M, whose save files are 2 KB. mGBA
+	// gives it 8 KB instead, so a homebrew ROM that declares code 1 by mistake but uses more than 2 KB works there and
+	// not here; following the other three keeps saves interchangeable with them. Code 5 (64 KB) is smaller than
+	// code 4 (128 KB)
+	static const std::array<size_t, 6> ramSizeBySizeCode{ { 0, RamSizeCode1Bytes, 8 << 10, 32 << 10, 128 << 10, 64 << 10 } };
 
 	if (rom.size() <= RamSizeHeaderOffset) return 0;
 
@@ -56,10 +58,10 @@ size_t CartridgeFactory::RamSizeFromHeader(const std::vector<unsigned char>& rom
 std::shared_ptr<Cartridge> CartridgeFactory::Create(std::vector<unsigned char>&& rom)
 {
 	auto ramSize = RamSizeFromHeader(rom);
-	return Create(std::move(rom), ramSize);
+	return CreateWithRamSize(std::move(rom), ramSize);
 }
 
-std::shared_ptr<Cartridge> CartridgeFactory::Create(std::vector<unsigned char>&& rom, size_t ramSize)
+std::shared_ptr<Cartridge> CartridgeFactory::CreateWithRamSize(std::vector<unsigned char>&& rom, size_t ramSize)
 {
 	auto type = TypeFromHeader(rom);
 
@@ -95,10 +97,10 @@ std::shared_ptr<Cartridge> CartridgeFactory::LoadFromFile(const std::string& fil
 	return ReadFile(filePath, rom) ? Create(std::move(rom)) : nullptr;
 }
 
-std::shared_ptr<Cartridge> CartridgeFactory::LoadFromFile(const std::string& filePath, size_t ramSize)
+std::shared_ptr<Cartridge> CartridgeFactory::LoadFromFileWithRamSize(const std::string& filePath, size_t ramSize)
 {
 	std::vector<unsigned char> rom;
-	return ReadFile(filePath, rom) ? Create(std::move(rom), ramSize) : nullptr;
+	return ReadFile(filePath, rom) ? CreateWithRamSize(std::move(rom), ramSize) : nullptr;
 }
 
 bool CartridgeFactory::ReadFile(const std::string& filePath, std::vector<unsigned char>& contents)
