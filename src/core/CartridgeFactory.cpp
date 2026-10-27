@@ -28,6 +28,14 @@ CartridgeFactory::CartridgeType CartridgeFactory::TypeFromHeader(const std::vect
 	case 0x1b: return { MapperType::Mbc5, true, false, false, true };
 	case 0x1c: case 0x1d: return { MapperType::Mbc5, false, false, true, true };
 	case 0x1e: return { MapperType::Mbc5, true, false, true, true };
+
+	// Mappers that aren't emulated run as MBC1, but keep their battery so the game's save isn't lost: MMM01+RAM+BATTERY,
+	// MBC7+SENSOR+RUMBLE+RAM+BATTERY, Pocket Camera, HuC3 (which also has a clock) and HuC1+RAM+BATTERY
+	case 0x0d: return { MapperType::Mbc1, true, false, false, false };
+	case 0x22: return { MapperType::Mbc1, true, false, true, false };
+	case 0xfc: return { MapperType::Mbc1, true, false, false, false };
+	case 0xfe: return { MapperType::Mbc1, true, true, false, false };
+	case 0xff: return { MapperType::Mbc1, true, false, false, false };
 	default: return { MapperType::Mbc1, false, false, false, false };
 	}
 }

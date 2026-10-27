@@ -26,7 +26,8 @@ public:
 		bool HasClock;
 		bool HasRumble;
 
-		// False for mappers not emulated, which fall back to MBC1 as the most common
+		// False for mappers not emulated, which fall back to MBC1 as the most common. Their battery, clock and rumble
+		// flags still describe the cartridge, though only the battery has an effect
 		bool IsSupported;
 	};
 
