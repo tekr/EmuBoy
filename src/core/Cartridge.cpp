@@ -47,5 +47,12 @@ unsigned char Cartridge::ReadRamBank(int bank, unsigned short address) const
 
 void Cartridge::WriteRamBank(int bank, unsigned short address, unsigned char value)
 {
-	if (!_ram.empty()) _ram[RamIndex(bank, address)] = value;
+	if (_ram.empty()) return;
+
+	// Games often rewrite RAM with the values it already holds, which needn't be saved
+	auto& byte = _ram[RamIndex(bank, address)];
+	if (byte == value) return;
+
+	byte = value;
+	MarkChanged();
 }

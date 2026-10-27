@@ -42,6 +42,10 @@ public:
 	std::vector<unsigned char>& GetRam() { return _ram; }
 	const std::vector<unsigned char>& GetRam() const { return _ram; }
 
+	// Whether the RAM or clock registers have changed since MarkSaved, so the front end only saves when needed
+	bool HasUnsavedChanges() const { return _hasUnsavedChanges; }
+	void MarkSaved() { _hasUnsavedChanges = false; }
+
 protected:
 	std::vector<unsigned char> _rom;
 	std::vector<unsigned char> _ram;
@@ -59,8 +63,11 @@ protected:
 	unsigned char ReadRamBank(int bank, unsigned short address) const;
 	void WriteRamBank(int bank, unsigned short address, unsigned char value);
 
+	void MarkChanged() { _hasUnsavedChanges = true; }
+
 private:
 	bool _hasBattery;
+	bool _hasUnsavedChanges{ false };
 	size_t _ramMask;
 	int _romBankMask;
 	size_t _romBank0Offset{ 0 };

@@ -2,16 +2,23 @@
 #include <gtest/gtest.h>
 #include "../core/MemoryMap.h"
 #include "../core/Mbc1Cartridge.h"
+#include "../core/Mbc2Cartridge.h"
+#include "../core/Mbc3Cartridge.h"
+#include "../core/RealTimeClock.h"
 
 class CartridgeRamTest : public testing::Test
 {
 public:
 	InputJoypad Joypad;
 	MemoryMap Memory{ Joypad };
+	// Members named after their types qualify the type with :: so the name's meaning doesn't change within the
+	// class, which GCC rejects
+	std::shared_ptr<::Cartridge> Cartridge{ std::make_shared<Mbc1Cartridge>(std::vector<unsigned char>(2 * MemoryMap::RomBankSize),
+		::Cartridge::RamBankSize, true) };
 
 	CartridgeRamTest()
 	{
-		Memory.SetCartridge(std::make_shared<Mbc1Cartridge>(std::vector<unsigned char>(2 * MemoryMap::RomBankSize), Cartridge::RamBankSize));
+		Memory.SetCartridge(Cartridge);
 	}
 };
 
@@ -47,4 +54,69 @@ TEST_F(CartridgeRamTest, EnabledOnlyByLowNibbleOfA)
 
 	Memory.WriteByte(0x0000, 0x1a);
 	EXPECT_EQ(0x12, Memory.ReadByte(0xa000));
+}
+
+// The unsaved-changes flag tells the front end when battery-backed RAM needs saving
+
+TEST_F(CartridgeRamTest, StartsWithNoUnsavedChanges)
+{
+	EXPECT_FALSE(Cartridge->HasUnsavedChanges());
+}
+
+TEST_F(CartridgeRamTest, RamWriteMarksUnsavedChangesUntilSaved)
+{
+	Memory.WriteByte(0x0000, 0x0a);
+	Memory.WriteByte(0xa123, 0x45);
+	EXPECT_TRUE(Cartridge->HasUnsavedChanges());
+
+	Cartridge->MarkSaved();
+	EXPECT_FALSE(Cartridge->HasUnsavedChanges());
+}
+
+TEST_F(CartridgeRamTest, RewritingTheSameValueIsNotAChange)
+{
+	Memory.WriteByte(0x0000, 0x0a);
+	Memory.WriteByte(0xa123, 0x45);
+	Cartridge->MarkSaved();
+
+	Memory.WriteByte(0xa123, 0x45);
+	EXPECT_FALSE(Cartridge->HasUnsavedChanges());
+}
+
+TEST_F(CartridgeRamTest, IgnoredWriteIsNotAChange)
+{
+	Memory.WriteByte(0xa123, 0x45);
+
+	EXPECT_FALSE(Cartridge->HasUnsavedChanges());
+}
+
+TEST(UnsavedChangesTest, Mbc2RamWriteIsAChange)
+{
+	Mbc2Cartridge cartridge{ std::vector<unsigned char>(0x8000), true };
+	cartridge.RomWriteByte(0x0000, 0x0a);
+
+	cartridge.RamWriteByte(0x0010, 0x07);
+
+	EXPECT_TRUE(cartridge.HasUnsavedChanges());
+}
+
+TEST(UnsavedChangesTest, Mbc3ClockRegisterWriteIsAChange)
+{
+	Mbc3Cartridge cartridge{ std::vector<unsigned char>(0x8000), 0, true, true };
+	cartridge.RomWriteByte(0x0000, 0x0a);
+	cartridge.RomWriteByte(0x4000, 0x08 + RealTimeClock::Minutes);
+
+	cartridge.RamWriteByte(0x0000, 0x15);
+
+	EXPECT_TRUE(cartridge.HasUnsavedChanges());
+}
+
+TEST(UnsavedChangesTest, ClockTickingIsNotAChange)
+{
+	// The save records when it was written, so time passing needn't be saved
+	Mbc3Cartridge cartridge{ std::vector<unsigned char>(0x8000), 0, true, true };
+
+	cartridge.RunCycles(2 * RealTimeClock::CyclesPerSecond);
+
+	EXPECT_FALSE(cartridge.HasUnsavedChanges());
 }

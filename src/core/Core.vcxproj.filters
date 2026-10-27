@@ -18,6 +18,12 @@
     <ClCompile Include="Serial.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="SaveFile.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="BatteryStore.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="RealTimeClock.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -75,6 +81,12 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Serial.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="SaveFile.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="BatteryStore.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="RealTimeClock.h">
