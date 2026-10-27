@@ -157,6 +157,7 @@
     <ClInclude Include="TestMemoryMap.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="CpuIllegalOpcodeTests.cpp" />
     <ClCompile Include="CpuTimerTests.cpp" />
     <ClCompile Include="CpuTimingTests.cpp" />
     <ClCompile Include="BlarggCpuTests.cpp" />

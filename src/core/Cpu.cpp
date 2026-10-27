@@ -1,9 +1,7 @@
 #include "stdafx.h"
 #include "Cpu.h"
 #include "MemoryMap.h"
-#include <iostream>
 #include <algorithm>
-#include <stdexcept>
 
 #ifndef _MSC_VER
 // Stand-ins for the MSVC intrinsics the rotate instructions use
@@ -659,8 +657,8 @@ void Cpu::PrefixCb(unsigned char opcode)
 
 void Cpu::InvalidOp(unsigned char opcode)
 {
-	std::cout << "Invalid opcode " << std::hex << opcode << " encountered" << std::endl;
-	throw std::runtime_error("Invalid operation");
+	// Per https://gbdev.io/pandocs/CPU_Instruction_Set.html, the unused opcodes hard-lock the CPU
+	_state = CpuState::Locked;
 }
 
 void Cpu::RequestInterrupt(InterruptFlags interruptFlags)
@@ -758,6 +756,11 @@ int Cpu::DoNextInstruction()
 	}
 	else if (_state == CpuState::Stopped)
 	{
+		InternalCycle();
+	}
+	else if (_state == CpuState::Locked)
+	{
+		// The rest of the hardware keeps running
 		InternalCycle();
 	}
 

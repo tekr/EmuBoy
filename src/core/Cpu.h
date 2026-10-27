@@ -29,7 +29,10 @@ enum class CpuState
 {
 	Running,
 	Halted,
-	Stopped
+	Stopped,
+
+	// An unused opcode hard-locked the CPU: it executes nothing more and ignores interrupts until power-off
+	Locked
 };
 
 // Register file representation for CPU
@@ -363,7 +366,7 @@ public:
 	// Simulates an IRQ
 	void RequestInterrupt(InterruptFlags interruptFlags);
 
-	// Executes the next emulated CPU instruction, dispatches an interrupt, or runs a machine cycle while halted.
+	// Executes the next emulated CPU instruction, dispatches an interrupt, or runs a machine cycle while halted or locked.
 	// Runs the clocked hardware alongside. Returns emulated CPU cycles elapsed
 	int DoNextInstruction();
 };

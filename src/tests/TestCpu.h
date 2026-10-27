@@ -9,6 +9,7 @@ public:
 	~TestCpu() = default;
 
 	Registers& Registers() { return _registers; }
+	CpuState& State() { return _state; }
 
 	bool& InterruptsEnabled() { return _interruptsEnabled; }
 	unsigned char& EnabledInterrupts() { return _enabledInterrupts; }
