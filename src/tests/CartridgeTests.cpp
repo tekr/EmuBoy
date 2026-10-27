@@ -14,7 +14,7 @@ public:
 	// Members named after their types qualify the type with :: so the name's meaning doesn't change within the
 	// class, which GCC rejects
 	std::shared_ptr<::Cartridge> Cartridge{ std::make_shared<Mbc1Cartridge>(std::vector<unsigned char>(2 * MemoryMap::RomBankSize),
-		MemoryMap::RamBankSize, true) };
+		::Cartridge::RamBankSize, true) };
 
 	CartridgeRamTest()
 	{

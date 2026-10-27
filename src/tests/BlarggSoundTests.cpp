@@ -15,7 +15,7 @@ class BlarggSoundTest : public testing::TestWithParam<const char*>
 TEST_P(BlarggSoundTest, Passes)
 {
 	SCOPED_TRACE(GetParam());
-	auto cartridge = CartridgeFactory::LoadFromFile(std::string("roms/dmg_sound/") + GetParam() + ".gb", 1);
+	auto cartridge = CartridgeFactory::LoadFromFile(std::string("roms/dmg_sound/") + GetParam() + ".gb", Cartridge::RamBankSize);
 	ASSERT_NE(nullptr, cartridge) << "ROM not found; run the tests from src/tests";
 
 	Emulator emulator{ cartridge };
