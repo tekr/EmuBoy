@@ -4,8 +4,9 @@
 class StateWriter;
 class StateReader;
 
-// Original Game Boy (DMG) sound. References: Pan Docs (Audio, Audio Registers, Audio Details) and the gbdev wiki
-// "Gameboy sound hardware"; SameBoy's apu.c where those are silent.
+// Game Boy sound, as on the original Game Boy (DMG), or in CGB mode with the CGB's differences. References: Pan Docs
+// (Audio, Audio Registers, Audio Details) and the gbdev wiki "Gameboy sound hardware"; SameBoy's apu.c where those are
+// silent.
 
 struct LengthCounter
 {
@@ -102,6 +103,7 @@ private:
 	static const unsigned char ReadMasks[RegisterCount];
 	static const unsigned char DutyPatterns[4];
 	static const unsigned char InitialWaveRam[16];
+	static const unsigned char CgbPostBootWaveRam[16];
 	static const int WaveVolumeShifts[4];
 
 	int _sampleRate;
@@ -109,6 +111,7 @@ private:
 
 	unsigned char _registers[RegisterCount];
 	bool _powered = false;
+	bool _cgbMode = false;
 
 	unsigned short _divider = 0;
 	int _frameStep = 0;
@@ -141,7 +144,7 @@ private:
 	unsigned char Nrx2(int channel) const { return _registers[Nr12 + channel * RegistersPerChannel]; }
 	bool DacOn(int channel) const;
 	int PlayingWaveIndex() const { return WaveRam + (_wave.Position >> 1); }
-	bool WaveRamAccessible() const { return !_wave.Active || (_wave.JustRead && _pendingCycles == 0); }
+	bool WaveRamAccessible() const { return !_wave.Active || _cgbMode || (_wave.JustRead && _pendingCycles == 0); }
 	bool NoiseRunning() const { return _noise.Active && NoisePeriod() > 0; }
 	Channel& GetChannel(int index);
 
@@ -181,6 +184,18 @@ private:
 
 public:
 	explicit Apu(int sampleRate = 44100);
+
+	// CGB mode: wave RAM is accessible while CH3 plays, retriggering CH3 doesn't corrupt it, and powering off clears
+	// the length counters, which can't be written while powered off (blargg's cgb_sound; SameBoy's apu.c)
+	void SetCgbMode(bool cgbMode) { _cgbMode = cgbMode; }
+
+	// As the CGB boot ROM leaves the APU for a CGB game (https://gbdev.io/pandocs/Power_Up_Sequence.html#hardware-registers):
+	// powered, NR50 $77, NR51 $F3, and CH1 still on from the boot sound, its envelope having faded it to silence
+	void ApplyCgbPostBootState();
+
+	// PCM12 ($FF76) and PCM34 ($FF77), CGB only: the digital outputs (0-15) of CH1 and CH2, or CH3 and CH4, with the
+	// lower-numbered channel in the low nibble (https://gbdev.io/pandocs/Audio_details.html; SameBoy)
+	unsigned char ReadPcm(unsigned short address) const;
 
 	// address is the full CPU address, 0xff10-0xff3f (includes unused addresses in that range)
 	unsigned char ReadRegister(unsigned short address) const;

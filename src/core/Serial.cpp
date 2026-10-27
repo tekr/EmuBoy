@@ -15,10 +15,10 @@ void Serial::WriteRegister(int reg, unsigned char value)
 		return;
 	}
 
-	_control = value & (TransferStart | InternalClock);
+	_control = value & ControlBits();
 
 	// With an external clock the transfer waits for a link partner that never arrives
-	if (_control == (TransferStart | InternalClock))
+	if ((_control & (TransferStart | InternalClock)) == (TransferStart | InternalClock))
 	{
 		_sentByte = _data;
 		_bitsLeft = BitsPerTransfer;
@@ -56,7 +56,7 @@ void Serial::ReadState(StateReader& reader)
 {
 	reader.BeginSection("SERL");
 	_data = reader.ReadU8();
-	_control = reader.ReadU8() & (TransferStart | InternalClock);
+	_control = reader.ReadU8() & ControlBits();
 	_bitsLeft = reader.ReadInt(0, BitsPerTransfer);
 	_clockPhase = reader.ReadInt(0, CyclesPerBit - 1);
 	_sentByte = reader.ReadU8();

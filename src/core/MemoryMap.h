@@ -8,6 +8,11 @@
 #include "InputJoypad.h"
 #include "Serial.h"
 #include "OamDma.h"
+#include "InfraredPort.h"
+#include "UndocumentedRegisters.h"
+
+class VramDma;
+class Cpu;
 
 class StateWriter;
 class StateReader;
@@ -34,6 +39,18 @@ public:
 	static const size_t RomBankSize = 1 << 14;
 	static const size_t RamBankSize = 1 << 13;
 
+	// Work RAM: the DMG has 8 KB, the CGB eight 4 KB banks, of which $D000-$DFFF shows the one SVBK selects
+	static const size_t WorkRamBankSize = 1 << 12;
+	static const int WorkRamBanks = 8;
+
+	// CGB registers the memory map handles itself, or passes to components that have no other registers
+	static const unsigned short CpuModeRegister = 0xff4c;
+	static const unsigned short SpeedSwitchRegister = 0xff4d;
+	static const unsigned short InfraredRegister = 0xff56;
+	static const unsigned short WorkRamBankRegister = 0xff70;
+	static const unsigned short Pcm12Register = 0xff76;
+	static const unsigned short Pcm34Register = 0xff77;
+
 	static const unsigned short JoypadPort = 0xff00;
 	static const unsigned short DividerPort = 0xff04;
 	static const unsigned short InternalRomDisable = 0xff50;
@@ -48,11 +65,32 @@ protected:
 	Apu* _apu;
 	Serial* _serial;
 	OamDma* _oamDma;
+	VramDma* _vramDma{ nullptr };
+	Cpu* _cpu{ nullptr };
 	InputJoypad& _joypad;
 
-	// Zeroed for repeatability, though their contents at power-on are random on hardware
-	unsigned char _fixedRam[RamBankSize]{};
+	// Zeroed for repeatability, though their contents at power-on are random on hardware. The DMG uses the first
+	// two banks of work RAM
+	unsigned char _workRam[WorkRamBanks * WorkRamBankSize]{};
 	unsigned char _highRam[128]{};
+
+	// The offset into _workRam of the bank at $D000-$DFFF, and SVBK's bits 0-2, where 0 selects bank 1
+	unsigned int _workRamBankOffset{ WorkRamBankSize };
+	unsigned char _workRamBankRegister{ 0 };
+
+	bool _cgbMode{ false };
+	InfraredPort _infraredPort;
+	UndocumentedRegisters _undocumentedRegisters;
+
+	unsigned char ReadWorkRam(unsigned short address) const
+	{
+		return address & WorkRamBankSize ? _workRam[_workRamBankOffset + (address & (WorkRamBankSize - 1))] : _workRam[address & (WorkRamBankSize - 1)];
+	}
+
+	unsigned char& WorkRam(unsigned short address)
+	{
+		return address & WorkRamBankSize ? _workRam[_workRamBankOffset + (address & (WorkRamBankSize - 1))] : _workRam[address & (WorkRamBankSize - 1)];
+	}
 
 	GbInternalRom _internalRom;
 	bool _internalRomEnabled = true;
@@ -67,6 +105,16 @@ public:
 	void SetApu(Apu* apu) { _apu = apu; }
 	void SetSerial(Serial* serial) { _serial = serial; }
 	void SetOamDma(OamDma* oamDma) { _oamDma = oamDma; }
+	void SetVramDma(VramDma* vramDma) { _vramDma = vramDma; }
+
+	// For KEY1, the CGB's speed switch
+	void SetCpu(Cpu* cpu) { _cpu = cpu; }
+
+	// CGB mode adds work RAM banks and the CGB's registers
+	void SetCgbMode(bool cgbMode);
+
+	// The CGB boot ROM has handed over, so is no longer mapped
+	void ApplyCgbPostBootState();
 
 	// The boot ROM overlays the cartridge until it hands over by writing to $FF50
 	bool InternalRomEnabled() const { return _internalRomEnabled; }
@@ -87,5 +135,9 @@ public:
 
 private:
 	unsigned char ReadUnblocked(unsigned short address) const;
+
+	// $FF4C-$FF7F in CGB mode
+	unsigned char ReadCgbRegister(unsigned short address) const;
+	void WriteCgbRegister(unsigned short address, unsigned char value);
 };
 

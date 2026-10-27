@@ -30,12 +30,15 @@ namespace
 
 		// RAM in bytes for ROMs that use RAM without declaring it in their header, as blargg's do, or RamFromHeader
 		std::optional<size_t> RamSize;
+
+		// The Game Boy to run on, whatever the header asks for
+		GameBoyModel Model = GameBoyModel::Dmg;
 	};
 
 	std::unique_ptr<Emulator> PowerOn(const Rom& rom)
 	{
 		auto cartridge = rom.RamSize ? CartridgeFactory::LoadFromFileWithRamSize(rom.Path, *rom.RamSize) : CartridgeFactory::LoadFromFile(rom.Path);
-		return cartridge == nullptr ? nullptr : std::make_unique<Emulator>(cartridge);
+		return cartridge == nullptr ? nullptr : std::make_unique<Emulator>(cartridge, rom.Model);
 	}
 
 	// What the emulator puts out over some frames
@@ -431,4 +434,30 @@ TEST(SaveStateRoundTripTest, MooneyeOamDmaBeforeTheTransferStarts)
 {
 	ExpectRoundTrips({ "roms/mooneye-test-suite/acceptance/oam_dma_restart.gb", RamFromHeader }, { DuringOamDmaStartDelay });
 	ExpectRoundTrips({ "roms/mooneye-test-suite/acceptance/oam_dma/basic.gb", RamFromHeader }, { DuringOamDmaStartDelay });
+}
+
+TEST(SaveStateRoundTripTest, CgbAcid2)
+{
+	ExpectRoundTrips({ "roms/cgb-acid2/cgb-acid2.gbc", RamFromHeader, GameBoyModel::Cgb },
+		{ { "Frame 2", Frames(2) }, MidFrame(72), InMode(2), InMode(3), InMode(0), { "Frame 40", Frames(30) } });
+}
+
+TEST(SaveStateRoundTripTest, BlarggCgbSoundWaveRead)
+{
+	ExpectRoundTrips({ "roms/cgb_sound/09-wave read while on.gb", OneRamBank, GameBoyModel::Cgb },
+		{ { "Wave playing", Until([](Emulator& e) { return ChannelsPlaying(e, 4); }) }, { "Mid-frame", Instructions(2500) } });
+}
+
+TEST(SaveStateRoundTripTest, BlarggCgbCpuInstructionsAtDoubleSpeed)
+{
+	auto doubleSpeed = [](Emulator& e) { return e.GetCpu().IsDoubleSpeed(); };
+	ExpectRoundTrips({ "roms/cpu_instrs/09-op r,r.gb", OneRamBank, GameBoyModel::Cgb },
+		{ { "Switching speed", Until([](Emulator& e) { return e.GetCpu().IsSwitchingSpeed(); }) },
+			{ "Double speed", Until(doubleSpeed) }, DuringSerialTransfer, { "Mid-frame", Instructions(4321) } });
+}
+
+TEST(SaveStateRoundTripTest, BlarggInterruptTimeAtBothSpeeds)
+{
+	ExpectRoundTrips({ "roms/interrupt_time/interrupt_time.gb", OneRamBank, GameBoyModel::Cgb },
+		{ { "Switching speed", Until([](Emulator& e) { return e.GetCpu().IsSwitchingSpeed(); }) } });
 }

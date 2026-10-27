@@ -62,6 +62,6 @@ public:
 	// the sprites one at a time would leave the others in the index under their old positions, which breaks it
 	void IndexAllSprites(SpriteData* sprites);
 
-	unsigned char GetSpriteColour(SpriteData& spriteData, int x, int y, unsigned char* vram) const;
+	unsigned char GetSpriteColour(const SpriteData& spriteData, int x, int y, const unsigned char* vram) const;
 };
 

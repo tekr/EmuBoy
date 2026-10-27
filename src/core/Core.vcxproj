@@ -146,6 +146,12 @@
   <ItemGroup>
     <ClInclude Include="Serial.h" />
     <ClInclude Include="OamDma.h" />
+    <ClInclude Include="CgbColourCorrection.h" />
+    <ClInclude Include="CgbPalettes.h" />
+    <ClInclude Include="GameBoyModel.h" />
+    <ClInclude Include="InfraredPort.h" />
+    <ClInclude Include="UndocumentedRegisters.h" />
+    <ClInclude Include="VramDma.h" />
     <ClInclude Include="SaveFile.h" />
     <ClInclude Include="BatteryStore.h" />
     <ClInclude Include="FileIo.h" />
@@ -175,6 +181,11 @@
   <ItemGroup>
     <ClCompile Include="Serial.cpp" />
     <ClCompile Include="OamDma.cpp" />
+    <ClCompile Include="CgbColourCorrection.cpp" />
+    <ClCompile Include="CgbPalettes.cpp" />
+    <ClCompile Include="GameBoyModel.cpp" />
+    <ClCompile Include="GraphicsCgb.cpp" />
+    <ClCompile Include="VramDma.cpp" />
     <ClCompile Include="SaveFile.cpp" />
     <ClCompile Include="BatteryStore.cpp" />
     <ClCompile Include="FileIo.cpp" />

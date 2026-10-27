@@ -20,7 +20,7 @@ void App::ReportSaveResult(const BatteryStore::Result& result)
 App::App(const Options& options, std::shared_ptr<Cartridge> cartridge, std::string gameTitle, BatteryStore& saves) :
 	_options(options), _cartridge{ std::move(cartridge) }, _gameTitle{ std::move(gameTitle) }, _saves(saves),
 	_stateSlots{ options.RomPath },
-	_emulator{ std::make_unique<Emulator>(_cartridge) }, _audio{ _emulator->GetAudioSampleRate() },
+	_emulator{ PowerOn() }, _audio{ _emulator->GetAudioSampleRate() },
 	_input{ Controls::CreateInputMapper() }, _pacer{ Graphics::SystemClockHz, Graphics::FrameClocks },
 	_framesUntilSave{ FramesBetweenSaves }
 {
@@ -29,7 +29,8 @@ App::App(const Options& options, std::shared_ptr<Cartridge> cartridge, std::stri
 	_frameTexture.create(Graphics::HozPixels, Graphics::VertPixels);
 	_frameSprite.setTexture(_frameTexture);
 
-	// Frames are drawn at 60% opacity over the previous ones to emulate the slow LCD. They build up in a texture
+	// Frames are drawn partly transparent over the previous ones to emulate the slow LCD: 60% opaque on the DMG, 80%
+	// on the faster CGB screen (the emulator sets each pixel's alpha). They build up in a texture
 	// the app owns, as a window's back buffer isn't guaranteed to keep its contents between frames
 	_screen.create(Graphics::HozPixels, Graphics::VertPixels);
 	_screen.setSmooth(true);
@@ -85,7 +86,7 @@ void App::Run(const volatile std::sig_atomic_t& quitRequested)
 {
 	// Paced to the emulated clock rather than by frames, as the frame in which the LCD is turned on lasts up to
 	// nearly two frames. Scheduled from here, as opening the window takes time
-	_pacer.Restart(Now(), _emulator->GetCpuClocks());
+	_pacer.Restart(Now(), _emulator->GetSystemClocks());
 
 	while (_window.isOpen())
 	{
@@ -107,12 +108,12 @@ void App::Run(const volatile std::sig_atomic_t& quitRequested)
 		{
 			// Still drawn, so the window repaints after being resized or switched to fullscreen
 			Present();
-			wait = _pacer.Paused(Now(), _emulator->GetCpuClocks());
+			wait = _pacer.Paused(Now(), _emulator->GetSystemClocks());
 		}
 		else
 		{
 			RunFrame(speed);
-			wait = _pacer.FrameDone(Now(), _emulator->GetCpuClocks(), speed);
+			wait = _pacer.FrameDone(Now(), _emulator->GetSystemClocks(), speed);
 		}
 
 		if (wait > 0) sf::sleep(sf::microseconds(wait));
@@ -211,16 +212,21 @@ void App::Present()
 	_window.display();
 }
 
+std::unique_ptr<Emulator> App::PowerOn() const
+{
+	return _options.Model ? std::make_unique<Emulator>(_cartridge, *_options.Model) : std::make_unique<Emulator>(_cartridge);
+}
+
 void App::Reset()
 {
 	// Like switching the Game Boy off and on: the game starts again, keeping what the battery keeps
 	ReportSaveResult(_saves.SaveIfChanged());
 	_audio.Clear();
 	_cartridge->Reset();
-	_emulator = std::make_unique<Emulator>(_cartridge);
+	_emulator = PowerOn();
 
 	// The new emulator's clocks start again from 0
-	_pacer.Restart(Now(), _emulator->GetCpuClocks());
+	_pacer.Restart(Now(), _emulator->GetSystemClocks());
 
 	// The old game's last frames shouldn't fade out over the new one's first
 	_screen.clear();
@@ -255,7 +261,7 @@ void App::LoadFromSlot()
 
 	// The clocks carry on from the state's, so pacing starts again from them, and sound from before is dropped
 	_audio.Clear();
-	_pacer.Restart(Now(), _emulator->GetCpuClocks());
+	_pacer.Restart(Now(), _emulator->GetSystemClocks());
 
 	// The state's screen shows straight away, even while paused, without the old one fading out under it. Frames
 	// are drawn partly transparent to build up like the slow LCD, so a few draws bring it to full brightness
@@ -270,7 +276,7 @@ void App::ShowSlot()
 
 void App::SaveScreenshot()
 {
-	// The emulator's frames are 60% opaque for the slow-LCD effect; screenshots shouldn't be
+	// The emulator's frames are partly transparent for the slow-LCD effect; screenshots shouldn't be
 	auto image = _frameTexture.copyToImage();
 	auto size = image.getSize();
 	for (unsigned y = 0; y < size.y; y++)

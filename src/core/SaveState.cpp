@@ -83,10 +83,11 @@ namespace
 		// The version comes before the CRC check, so a state from another version is reported as one
 		StateReader header{ state.data() + MagicSize, state.size() - MagicSize };
 		auto version = header.ReadU32();
-		if (version != SaveState::FormatVersion)
+		if (version < SaveState::OldestFormatVersion || version > SaveState::FormatVersion)
 		{
 			throw StateError("The save state is in version " + std::to_string(version) + " of the format; this version of "
-				"Emu Boy reads version " + std::to_string(SaveState::FormatVersion));
+				"Emu Boy reads versions " + std::to_string(SaveState::OldestFormatVersion) + " to " +
+				std::to_string(SaveState::FormatVersion));
 		}
 
 		if (state.size() < MagicSize + sizeof(uint32_t) + CrcSize) throw StateError("The save state is truncated");
@@ -99,6 +100,7 @@ namespace
 		}
 
 		StateReader reader{ state.data() + MagicSize + sizeof(uint32_t), bodySize - MagicSize - sizeof(uint32_t) };
+		reader.SetFormatVersion(version);
 
 		RomIdentity saved;
 		saved.Read(reader);
@@ -114,6 +116,7 @@ namespace
 }
 
 const uint32_t SaveState::FormatVersion;
+const uint32_t SaveState::OldestFormatVersion;
 
 std::vector<unsigned char> SaveState::Create(const Emulator& emulator)
 {

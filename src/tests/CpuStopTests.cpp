@@ -186,13 +186,13 @@ TEST_F(CpuStopTests, TimePassesWhileStoppedWithoutRunningTheSystemClock)
 {
 	Step(1);
 	auto cycles = Hardware.Cycles;
-	auto totalCycles = Processor.GetTotalCycles();
+	auto totalCycles = Processor.GetTotalSystemClocks();
 
 	for (auto i = 0; i < 1000; i++) EXPECT_EQ(MachineCycle, Processor.DoNextInstruction());
 
 	EXPECT_EQ(cycles, Hardware.Cycles);
 	EXPECT_EQ(1000 * MachineCycle, Hardware.StoppedCycles);
-	EXPECT_EQ(totalCycles + 1000 * MachineCycle, Processor.GetTotalCycles());
+	EXPECT_EQ(totalCycles + 1000 * MachineCycle, Processor.GetTotalSystemClocks());
 }
 
 TEST_F(CpuStopTests, InterruptsDontEndStopMode)
@@ -329,7 +329,7 @@ public:
 		return std::all_of(frame, frame + Graphics::HozPixels * Graphics::VertPixels, [=](int pixel) { return pixel == colour; });
 	}
 
-	static bool IsBlank(const int* frame) { return IsAll(frame, Graphics::BlankColour); }
+	static bool IsBlank(const int* frame) { return IsAll(frame, Graphics::DmgLcdOffPixel); }
 };
 
 TEST_F(EmulatorStopTests, EachFrameLastsAFrameOfClocksWhileStopped)
@@ -339,9 +339,9 @@ TEST_F(EmulatorStopTests, EachFrameLastsAFrameOfClocksWhileStopped)
 
 	for (auto i = 0; i < 3; i++)
 	{
-		auto clocks = GameBoy.GetCpuClocks();
+		auto clocks = GameBoy.GetSystemClocks();
 		GameBoy.GetFrame();
-		EXPECT_EQ(uint64_t{ Graphics::FrameClocks }, GameBoy.GetCpuClocks() - clocks);
+		EXPECT_EQ(uint64_t{ Graphics::FrameClocks }, GameBoy.GetSystemClocks() - clocks);
 	}
 }
 

@@ -3,16 +3,20 @@
 #include "MemoryMap.h"
 #include "Cpu.h"
 #include "OamDma.h"
+#include "VramDma.h"
+#include "CgbColourCorrection.h"
 #include "SpriteManager.h"
 #include "StateStream.h"
 #include <algorithm>
 #include <climits>
 #include <cstring>
 
+const unsigned short Graphics::LcdOffRgb555;
+
 namespace
 {
-	// BlankColour in a save state, where pixels are kept as shades
-	const unsigned char BlankShade = 4;
+	// DmgLcdOffPixel in a save state, where pixels are kept as shades
+	const unsigned char LcdOffShade = 4;
 }
 
 // Line timing
@@ -73,7 +77,7 @@ int Graphics::MapColour(unsigned char colour, Palette palette)
 }
 
 Graphics::Graphics(Cpu& cpu, MemoryMap& memoryMap, SpriteManager& spriteManager)
-	: _cpu(cpu), _memoryMap(memoryMap), _spriteManager(spriteManager)
+	: _cpu(cpu), _memoryMap(memoryMap), _spriteManager(spriteManager), _lcdOffPixel(DmgLcdOffPixel)
 {
 	_memoryMap.SetGraphics(this);
 
@@ -143,9 +147,17 @@ void Graphics::StartLine(unsigned int line)
 	}
 	else
 	{
+		// mooneye-test-suite's vblank_stat_intr-C
+		if (_cgbMode && line == VertPixels) RequestVBlankOamStatInterrupt();
+
 		UpdateStat();
 		Schedule(LineEvent::VBlankCompare, OamScanStart);
 	}
+}
+
+void Graphics::RequestVBlankOamStatInterrupt()
+{
+	if ((_registers[RegLcdStatus] & OamIntSelect) && !_statLine) _cpu.RequestInterrupt(InterruptFlags::LcdStatInt);
 }
 
 void Graphics::StartOamScan()
@@ -185,7 +197,7 @@ void Graphics::StartDrawing()
 	SetBlocking(true, true);
 	UpdateStat();
 
-	Schedule(LineEvent::HBlank, DrawStart + DrawLine());
+	Schedule(LineEvent::HBlank, DrawStart + (_cgbMode ? DrawCgbLine() : DrawLine()));
 }
 
 void Graphics::StartHBlank()
@@ -196,6 +208,8 @@ void Graphics::StartHBlank()
 
 	UpdateStat();
 	Schedule(LineEvent::LineEnd, ScanlineClocks);
+
+	if (_vramDma != nullptr) _vramDma->HBlankStarted();
 }
 
 void Graphics::CompareInVBlank()
@@ -218,8 +232,9 @@ void Graphics::CompareInVBlank()
 		_cpu.RequestInterrupt(InterruptFlags::VBlankInt);
 
 		// The mode 2 interrupt select also requests a STAT interrupt as V-Blank starts, at the same time as the
-		// V-Blank interrupt (mooneye-test-suite's vblank_stat_intr-GS)
-		if ((_registers[RegLcdStatus] & OamIntSelect) && !_statLine) _cpu.RequestInterrupt(InterruptFlags::LcdStatInt);
+		// V-Blank interrupt on the DMG (mooneye-test-suite's vblank_stat_intr-GS). The CGB requests it a machine cycle
+		// earlier, as LY changes (StartLine)
+		if (!_cgbMode) RequestVBlankOamStatInterrupt();
 
 		_interruptMode = LcdcStatus::VBlankMode;
 		CompleteFrame();
@@ -242,7 +257,7 @@ void Graphics::TurnOn()
 	_currentWindowScanline = 0;
 	_registers[RegLineCount] = 0;
 	_linePosition = FirstLineStart;
-	_blankFrame = true;
+	_lcdOffFrame = true;
 
 	_mode = LcdcStatus::HBlankMode;
 	_interruptMode = NoInterruptMode;
@@ -257,6 +272,10 @@ void Graphics::TurnOn()
 
 void Graphics::TurnOff()
 {
+	// Turning the LCD off outside H-Blank starts a block of an H-Blank VRAM DMA transfer, as the PPU enters mode 0
+	// (SameBoy's GB_lcd_off)
+	if (_vramDma != nullptr && _mode != LcdcStatus::HBlankMode) _vramDma->HBlankStarted();
+
 	// LY reads 0 and STAT mode 0, while the LY=LYC flag and the STAT interrupt line keep their values
 	// (mooneye-test-suite's stat_lyc_onoff)
 	_registers[RegLineCount] = 0;
@@ -267,10 +286,11 @@ void Graphics::TurnOff()
 
 void Graphics::CompleteFrame()
 {
-	// A frame completing with the LCD off, or the first after it was turned on, is blank, even if lines were drawn
-	// while it was on, as in SameBoy (GB_display_vblank and GB_FRAMESKIP_LCD_TURNED_ON) and Gambatte (blanklcd_)
-	if (!DisplayEnabled() || _blankFrame) std::fill(std::begin(Bitmap), std::end(Bitmap), BlankColour);
-	_blankFrame = false;
+	// A frame completing with the LCD off, or the first after it was turned on, shows the LCD-off colour, even if lines
+	// were drawn while it was on, as in SameBoy (GB_display_vblank and GB_FRAMESKIP_LCD_TURNED_ON) and Gambatte
+	// (blanklcd_). On the CGB SameBoy sometimes repeats the previous frame instead (see docs/known-gaps.md)
+	if (!DisplayEnabled() || _lcdOffFrame) ShowLcdOff();
+	_lcdOffFrame = false;
 
 	_frameCompleted = true;
 
@@ -278,9 +298,18 @@ void Graphics::CompleteFrame()
 	_framePosition = DisplayEnabled() ? 0 : _framePosition - FrameClocks;
 }
 
+void Graphics::ShowLcdOff()
+{
+	std::fill(std::begin(Bitmap), std::end(Bitmap), _lcdOffPixel);
+	std::fill(std::begin(_cgbFrameRgb555), std::end(_cgbFrameRgb555), LcdOffRgb555);
+}
+
 void Graphics::CompleteStoppedFrame()
 {
-	std::fill(std::begin(Bitmap), std::end(Bitmap), DisplayEnabled() ? ShadeColour(0) : BlankColour);
+	// A stopped CGB keeps showing its last frame while the LCD is on (SameBoy's GB_display_vblank)
+	if (!DisplayEnabled()) ShowLcdOff();
+	else if (!_cgbMode) std::fill(std::begin(Bitmap), std::end(Bitmap), ShadeColour(0));
+
 	_frameCompleted = true;
 	_framePosition -= FrameClocks;
 }
@@ -355,7 +384,8 @@ void Graphics::SpriteChanged(unsigned short address)
 
 void Graphics::CorruptOam(OamCorruption corruption)
 {
-	if (!_oamScanning) return;
+	// The CGB doesn't have the bug
+	if (!_oamScanning || _cgbMode) return;
 
 	// OAM is read as 16-bit words, in 20 rows of four words (two sprites), one row per machine cycle of the scan
 	const int rowBytes = 8;
@@ -438,8 +468,8 @@ void Graphics::WriteRegister(unsigned short address, unsigned char value)
 		// stat_write_glitch_l1_a shows it doesn't on a DMG: a write in mode 3's last machine cycle doesn't select
 		// mode 0 as it starts. In SameBoy it lasts a single clock, so both values apply in the write's machine cycle.
 		// SameBoy writes ~$20 rather than $FF at the edge between H-Blank and mode 2 when mode 0 is selected and mode
-		// 2 isn't, which isn't modelled here
-		if (DisplayEnabled()) SetStatLine(StatLineFor(AllIntSelects));
+		// 2 isn't, which isn't modelled here. The CGB doesn't have the bug
+		if (DisplayEnabled() && !_cgbMode) SetStatLine(StatLineFor(AllIntSelects));
 
 		_registers[RegLcdStatus] = value & AllIntSelects;
 		UpdateStat();
@@ -452,6 +482,81 @@ void Graphics::WriteRegister(unsigned short address, unsigned char value)
 
 	default:
 		_registers[address] = value;
+	}
+}
+
+void Graphics::SetCgbMode(bool cgbMode)
+{
+	_cgbMode = cgbMode;
+	_lcdOffPixel = cgbMode ? CgbColourCorrection::LcdOffPixel() : DmgLcdOffPixel;
+	if (!cgbMode) _vramBankOffset = 0;
+}
+
+void Graphics::ApplyCgbPostBootState()
+{
+	_registers[RegBgWinPalette] = 0xfc;
+	_palettes.ApplyCgbPostBootState();
+	ShowLcdOff();
+	WriteRegister(RegLcdControl, 0x91);
+}
+
+bool Graphics::InHBlankForVramDma() const
+{
+	// Mode 0 at the start of a line or after turning the LCD on comes before the line is drawn, so isn't an H-Blank
+	if (!DisplayEnabled()) return true;
+	return _mode == LcdcStatus::HBlankMode && _nextEvent == LineEvent::LineEnd && _currentScanline < VertPixels;
+}
+
+unsigned char Graphics::ReadCgbRegister(unsigned short address) const
+{
+	switch (address)
+	{
+	case VramBankRegister:
+		return 0xfe | (_vramBankOffset ? 1 : 0);
+	case BackgroundPaletteIndex:
+		return _palettes.ReadIndex(CgbPalettes::Set::Background);
+	case BackgroundPaletteData:
+		return _palettes.ReadData(CgbPalettes::Set::Background, PaletteRamBlocked());
+	case ObjectPaletteIndex:
+		return _palettes.ReadIndex(CgbPalettes::Set::Objects);
+	case ObjectPaletteData:
+		return _palettes.ReadData(CgbPalettes::Set::Objects, PaletteRamBlocked());
+	case ObjectPriorityMode:
+		// Only bit 0 is kept (SameBoy)
+		return 0xfe | _objectPriorityMode;
+	default:
+		return 0xff;
+	}
+}
+
+void Graphics::WriteCgbRegister(unsigned short address, unsigned char value)
+{
+	switch (address)
+	{
+	case VramBankRegister:
+		_vramBankOffset = (value & 1) ? VramSize : 0;
+		break;
+	case BackgroundPaletteIndex:
+		_palettes.WriteIndex(CgbPalettes::Set::Background, value);
+		break;
+	case BackgroundPaletteData:
+		_palettes.WriteData(CgbPalettes::Set::Background, value, PaletteRamBlocked());
+		break;
+	case ObjectPaletteIndex:
+		_palettes.WriteIndex(CgbPalettes::Set::Objects, value);
+		break;
+	case ObjectPaletteData:
+		_palettes.WriteData(CgbPalettes::Set::Objects, value, PaletteRamBlocked());
+		break;
+	case ObjectPriorityMode:
+		// Only the boot ROM's write takes effect: after it, writes are kept for reading back but drawing keeps the
+		// CGB's priority by OAM position (Pan Docs; SameBoy's memory.c and Gambatte's memory.cpp apply OPRI only
+		// during the boot ROM). Emu Boy has no CGB boot ROM, so drawing in CGB mode always ranks objects by OAM
+		// position
+		_objectPriorityMode = value & 1;
+		break;
+	default:
+		break;
 	}
 }
 
@@ -597,7 +702,7 @@ void Graphics::WriteState(StateWriter& writer) const
 {
 	writer.BeginSection("PPU ");
 
-	writer.WriteBytes(_vram, sizeof(_vram));
+	writer.WriteBytes(_vram, VramSize);
 	writer.WriteBytes(_oam, sizeof(_oam));
 	writer.WriteBytes(_registers, sizeof(_registers));
 
@@ -611,13 +716,22 @@ void Graphics::WriteState(StateWriter& writer) const
 	writer.WriteInt(_lyForComparison);
 
 	for (auto flag : { _lineCompareFlag, _lineCompareMatch, _statLine, _oamReadBlocked, _oamWriteBlocked,
-		_vramReadBlocked, _vramWriteBlocked, _oamScanning, _dmaDuringOamScan, _frameCompleted, _blankFrame })
+		_vramReadBlocked, _vramWriteBlocked, _oamScanning, _dmaDuringOamScan, _frameCompleted, _lcdOffFrame })
 	{
 		writer.WriteBool(flag);
 	}
 
 	writer.WriteInt(static_cast<int>(_framePosition));
 	WriteBitmap(writer);
+
+	// The CGB's VRAM bank 1, VBK, palettes and OPRI, in CGB states only
+	if (_cgbMode)
+	{
+		writer.WriteBytes(_vram + VramSize, VramSize);
+		writer.WriteBool(_vramBankOffset != 0);
+		_palettes.WriteState(writer);
+		writer.WriteU8(_objectPriorityMode);
+	}
 
 	writer.EndSection();
 }
@@ -626,7 +740,7 @@ void Graphics::ReadState(StateReader& reader)
 {
 	reader.BeginSection("PPU ");
 
-	reader.ReadBytes(_vram, sizeof(_vram));
+	reader.ReadBytes(_vram, VramSize);
 	reader.ReadBytes(_oam, sizeof(_oam));
 	reader.ReadBytes(_registers, sizeof(_registers));
 
@@ -643,7 +757,7 @@ void Graphics::ReadState(StateReader& reader)
 	_lyForComparison = reader.ReadInt(NoComparison, FrameLines - 1);
 
 	for (auto flag : { &_lineCompareFlag, &_lineCompareMatch, &_statLine, &_oamReadBlocked, &_oamWriteBlocked,
-		&_vramReadBlocked, &_vramWriteBlocked, &_oamScanning, &_dmaDuringOamScan, &_frameCompleted, &_blankFrame })
+		&_vramReadBlocked, &_vramWriteBlocked, &_oamScanning, &_dmaDuringOamScan, &_frameCompleted, &_lcdOffFrame })
 	{
 		*flag = reader.ReadBool();
 	}
@@ -651,6 +765,21 @@ void Graphics::ReadState(StateReader& reader)
 	// Frames come at least every FrameClocks, except that the frame the LCD is turned on in lasts nearly two
 	_framePosition = static_cast<unsigned int>(reader.ReadInt(0, 2 * FrameClocks));
 	ReadBitmap(reader);
+
+	if (_cgbMode)
+	{
+		reader.ReadBytes(_vram + VramSize, VramSize);
+		_vramBankOffset = reader.ReadBool() ? VramSize : 0;
+		_palettes.ReadState(reader);
+		_objectPriorityMode = reader.ReadU8() & 1;
+	}
+	else
+	{
+		std::fill(_vram + VramSize, _vram + 2 * VramSize, 0);
+		_vramBankOffset = 0;
+		_palettes = CgbPalettes();
+		_objectPriorityMode = 0;
+	}
 
 	reader.EndSection();
 
@@ -683,21 +812,40 @@ bool Graphics::EventHappensOnLine(LineEvent event, unsigned int line)
 
 void Graphics::WriteBitmap(StateWriter& writer) const
 {
-	// As the shade of each pixel, or BlankShade, rather than the colours, which are the front end's choice
+	// In CGB mode as 15-bit colours, or LcdOffRgb555
+	if (_cgbMode)
+	{
+		for (auto colour : _cgbFrameRgb555) writer.WriteU16(colour);
+		return;
+	}
+
+	// As the shade of each pixel, or LcdOffShade, rather than the colours, which are the front end's choice
 	for (auto pixel : Bitmap)
 	{
 		unsigned char shade = 0;
-		while (shade < BlankShade && ShadeColour(shade) != pixel) shade++;
+		while (shade < LcdOffShade && ShadeColour(shade) != pixel) shade++;
 		writer.WriteU8(shade);
 	}
 }
 
 void Graphics::ReadBitmap(StateReader& reader)
 {
+	if (_cgbMode)
+	{
+		for (auto i = 0u; i < HozPixels * VertPixels; i++)
+		{
+			auto colour = reader.ReadU16();
+			if (colour != LcdOffRgb555 && colour > 0x7fff) reader.Fail("a pixel's colour is " + std::to_string(colour));
+			_cgbFrameRgb555[i] = colour;
+			Bitmap[i] = colour == LcdOffRgb555 ? _lcdOffPixel : CgbColourCorrection::Pixel(colour);
+		}
+		return;
+	}
+
 	for (auto& pixel : Bitmap)
 	{
 		auto shade = reader.ReadU8();
-		if (shade > BlankShade) reader.Fail("a pixel's shade is " + std::to_string(shade));
-		pixel = shade == BlankShade ? BlankColour : ShadeColour(shade);
+		if (shade > LcdOffShade) reader.Fail("a pixel's shade is " + std::to_string(shade));
+		pixel = shade == LcdOffShade ? DmgLcdOffPixel : ShadeColour(shade);
 	}
 }

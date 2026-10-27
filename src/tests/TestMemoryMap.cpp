@@ -6,7 +6,7 @@ unsigned char& TestMemoryMap::operator[](unsigned short address)
 {
 	if (address >= RamFixed && address < RamFixed + TestRamSize)
 	{
-		return _fixedRam[address - RamFixed];
+		return _workRam[address - RamFixed];
 	}
 
 	throw std::string{ "Memory address outside test range" };
@@ -14,12 +14,12 @@ unsigned char& TestMemoryMap::operator[](unsigned short address)
 
 bool TestMemoryMap::operator==(const TestMemoryMap& other) const
 {
-	return memcmp(_fixedRam, other._fixedRam, TestRamSize) == 0;
+	return memcmp(_workRam, other._workRam, TestRamSize) == 0;
 }
 
 void TestMemoryMap::operator=(const TestMemoryMap& other)
 {
-	memcpy(_fixedRam, other._fixedRam, TestRamSize);
+	memcpy(_workRam, other._workRam, TestRamSize);
 }
 
 void TestMemoryMap::SetBytes(unsigned short address, std::vector<unsigned char>&& bytes)

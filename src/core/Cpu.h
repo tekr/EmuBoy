@@ -35,7 +35,10 @@ enum class CpuState
 	Stopped,
 
 	// An unused opcode hard-locked the CPU: it executes nothing more and ignores interrupts until power-off
-	Locked
+	Locked,
+
+	// The CGB's CPU pauses after STOP switches its speed (see Cpu::Stop)
+	SpeedSwitchPause
 };
 
 // Register file representation for CPU
@@ -70,18 +73,21 @@ class ClockedHardware
 public:
 	virtual ~ClockedHardware() = default;
 
-	// T-cycles (4194304 Hz)
-	virtual void RunCycles(int cycles) = 0;
+	// A machine cycle, as clocks of the CPU's clock: 4, which at the CGB's double speed take the time of 2 clocks of
+	// the 4 MHz (4194304 Hz) system clock
+	virtual void RunCycles(int cpuClocks) = 0;
 
-	// T-cycles of time passing while STOP has stopped the system clock. Only hardware with a clock of its own
-	// (such as the host's audio output) runs
-	virtual void RunStoppedCycles(int cycles) {}
+	// Clocks of the system clock passing while STOP has stopped it. Only hardware with a clock of its own (such as the
+	// host's audio output) runs
+	virtual void RunStoppedCycles(int systemClocks) {}
 };
+
+class VramDma;
 
 // Gameboy LR35902 CPU
 class Cpu
 {
-	// Machine cycle in terms of system clocks
+	// A machine cycle in clocks of the CPU's clock, which is the system clock at normal speed
 	static const int OneCycle = 4;
 
 	// LD B,B, which debuggers and test ROMs use as a breakpoint
@@ -90,6 +96,11 @@ class Cpu
 	static const unsigned short HiMemBaseAddress = 0xff00;
 	static const unsigned short WaitingInterruptsAddress = 0xff0f;
 	static const unsigned short EnabledInterruptsAddress = 0xffff;
+
+	// The CPU's pause after switching speed, in machine cycles of the new speed: 0x20008 CPU clocks, counted from the
+	// end of STOP's opcode fetch, 8 clocks into which DIV restarts from 0. See SwitchSpeed for where this comes from
+	static const int SpeedSwitchPauseCycles = 0x20008 / OneCycle;
+	static const int SpeedSwitchDivResetCycles = 8 / OneCycle;
 
 	static const unsigned char FirstInterruptVector = 0x40;
 
@@ -101,7 +112,7 @@ protected:
 	CpuState _state;
 	uint64_t _totalCycles;
 
-	// Cycles run so far by the current instruction
+	// CPU clocks run so far by the current instruction
 	int _instructionCycles;
 
 	// Set by the HALT bug: the next opcode fetch doesn't increment PC, so the byte after HALT is read twice
@@ -119,6 +130,21 @@ protected:
 	unsigned char _waitingInterrupts;
 
 	bool _softwareBreakpointHit;
+
+	// CGB mode: the speed KEY1 ($FF4D) switches between. At double speed a machine cycle lasts 2 clocks of the 4 MHz
+	// system clock rather than 4. Only CGB mode has KEY1, so only it can arm a switch
+	bool _cgbMode{ false };
+	bool _doubleSpeed{ false };
+	bool _speedSwitchArmed{ false };
+	int _speedSwitchPauseLeft{ 0 };
+
+	// The CGB's VRAM DMA, which holds the CPU while it copies, and whether it's waiting to. Checked as a flag of the
+	// CPU's own on every instruction, so the DMG pays only for that
+	VramDma* _vramDma{ nullptr };
+	bool _vramDmaRequested{ false };
+
+	// CPU clocks as system clocks
+	int ToSystemClocks(int cpuClocks) const { return cpuClocks >> static_cast<int>(_doubleSpeed); }
 
 	const std::vector<unsigned char(*)(unsigned char& dest, unsigned char src, bool carry)> _aluOps;
 	const std::vector<void(*)(unsigned char& dest, unsigned char& flags)> _prefixCbOps;
@@ -299,6 +325,9 @@ protected:
 	void DispatchInterrupt();
 	bool RunHalted();
 	void RunStopped();
+	void RunSpeedSwitchPause();
+	void SwitchSpeed();
+	void RunVramDma();
 
 	void Nop(unsigned char opcode);
 
@@ -392,6 +421,31 @@ public:
 	explicit Cpu(MemoryMap& memory);
 
 	void SetClockedHardware(ClockedHardware* hardware) { _hardware = hardware; }
+	void SetVramDma(VramDma* vramDma) { _vramDma = vramDma; }
+
+	// The CGB's VRAM DMA has bytes to copy, which it copies after the next opcode fetch
+	void RequestVramDma() { _vramDmaRequested = true; }
+
+	// CGB mode keeps the speed switch's state in save states
+	void SetCgbMode(bool cgbMode) { _cgbMode = cgbMode; }
+
+	// KEY1, which only CGB mode has (MemoryMap handles it there): bit 7 the current speed, bit 0 whether STOP will
+	// switch it, the rest 1
+	unsigned char ReadSpeedSwitchRegister() const { return (_doubleSpeed ? 0x80 : 0) | 0x7e | (_speedSwitchArmed ? 1 : 0); }
+	void WriteSpeedSwitchRegister(unsigned char value) { _speedSwitchArmed = (value & 1) != 0; }
+
+	// The registers and interrupt flags as the CGB boot ROM leaves them for a CGB game, per
+	// https://gbdev.io/pandocs/Power_Up_Sequence.html#cpu-registers and #hardware-registers (IF = $E1)
+	void ApplyCgbPostBootState();
+
+	// In double speed (CGB only) the CPU runs two machine cycles in the time of one at normal speed
+	bool IsDoubleSpeed() const { return _doubleSpeed; }
+
+	// Pausing after STOP switched the CGB's speed
+	bool IsSwitchingSpeed() const { return _state == CpuState::SpeedSwitchPause; }
+
+	// Halted, which also holds back the H-Blank transfers of the CGB's VRAM DMA
+	bool IsHalted() const { return _state == CpuState::Halted; }
 
 	// Executing instructions: not halted, stopped or locked
 	bool IsRunning() const { return _state == CpuState::Running; }
@@ -400,8 +454,9 @@ public:
 	// output keeps going)
 	bool IsStopped() const { return _state == CpuState::Stopped; }
 
-	// Gets the total number of elapsed emulated CPU cycles, including while halted or stopped
-	uint64_t GetTotalCycles() const { return _totalCycles; }
+	// Clocks of the 4 MHz system clock since power-on, including while halted or stopped. At double speed the CPU
+	// runs two of its own clocks in each
+	uint64_t GetTotalSystemClocks() const { return _totalCycles; }
 
 	const Registers& GetRegisters() const { return _registers; }
 
@@ -413,7 +468,7 @@ public:
 
 	// Executes the next emulated CPU instruction, dispatches an interrupt, or runs a machine cycle while halted,
 	// stopped or locked.
-	// Runs the clocked hardware alongside. Returns emulated CPU cycles elapsed
+	// Runs the clocked hardware alongside. Returns the system clocks elapsed
 	int DoNextInstruction();
 
 	// Save states, which are taken between instructions

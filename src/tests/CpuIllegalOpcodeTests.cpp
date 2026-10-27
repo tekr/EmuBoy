@@ -95,9 +95,9 @@ TEST(EmulatorIllegalOpcodeTests, EachFrameLastsAFrameOfClocksAfterLockingUp)
 
 	for (auto i = 0; i < 3; i++)
 	{
-		auto clocks = emulator.GetCpuClocks();
+		auto clocks = emulator.GetSystemClocks();
 		emulator.GetFrame();
-		EXPECT_EQ(uint64_t{ Graphics::FrameClocks }, emulator.GetCpuClocks() - clocks);
+		EXPECT_EQ(uint64_t{ Graphics::FrameClocks }, emulator.GetSystemClocks() - clocks);
 	}
 }
 

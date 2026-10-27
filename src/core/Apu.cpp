@@ -24,6 +24,12 @@ const unsigned char Apu::InitialWaveRam[16] =
 	0x84, 0x40, 0x43, 0xaa, 0x2d, 0x78, 0x92, 0x3c, 0x60, 0x59, 0x59, 0xb0, 0x34, 0xb8, 0x2e, 0xda
 };
 
+// The CGB boot ROM fills wave RAM with alternate $00 and $FF bytes (the gbdev wiki's "Gameboy sound hardware")
+const unsigned char Apu::CgbPostBootWaveRam[16] =
+{
+	0x00, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff
+};
+
 // CH3 output level (NR32 bits 5-6): mute, 100%, 50%, 25%
 const int Apu::WaveVolumeShifts[4] = { 4, 0, 1, 2 };
 
@@ -152,7 +158,8 @@ unsigned char Apu::ReadRegister(unsigned short address) const
 
 	if (reg >= WaveRam)
 	{
-		// While CH3 plays, the CPU sees the byte CH3 is reading, and on DMG only at the moment CH3 reads it
+		// While CH3 plays, the CPU sees the byte CH3 is reading, and on DMG only at the moment CH3 reads it (on CGB
+		// at any time)
 		if (!_wave.Active) return _registers[reg];
 		return WaveRamAccessible() ? _registers[PlayingWaveIndex()] : 0xff;
 	}
@@ -200,8 +207,9 @@ void Apu::Write(int reg, unsigned char value)
 
 	if (!_powered)
 	{
-		// DMG keeps its length counters writable while powered off (Pan Docs, gbdev wiki); nothing else is
-		if (reg == Nr11 || reg == Nr21 || reg == Nr31 || reg == Nr41) WriteLength(reg / RegistersPerChannel, value);
+		// DMG keeps its length counters writable while powered off (Pan Docs, gbdev wiki); nothing else is, and on
+		// CGB not even those
+		if (!_cgbMode && (reg == Nr11 || reg == Nr21 || reg == Nr31 || reg == Nr41)) WriteLength(reg / RegistersPerChannel, value);
 		return;
 	}
 
@@ -336,7 +344,7 @@ void Apu::TriggerWave()
 	// DMG corrupts wave RAM when CH3 is retriggered in the 2 MHz tick before it reads a sample (gbdev wiki;
 	// SameBoy's sample_countdown == 0, counted in 2 MHz ticks): the first bytes are overwritten with the byte, or
 	// 4-byte block, being read
-	if (_wave.Active && _wave.Timer <= 2)
+	if (!_cgbMode && _wave.Active && _wave.Timer <= 2)
 	{
 		auto offset = ((_wave.Position + 1) >> 1) & 15;
 		auto wave = _registers + WaveRam;
@@ -449,7 +457,7 @@ void Apu::PowerOff()
 {
 	// Powering off clears NR10-NR51 and all channel state, except that DMG keeps the length counters
 	int lengths[ChannelCount];
-	for (auto i = 0; i < ChannelCount; i++) lengths[i] = GetChannel(i).Length.Counter;
+	for (auto i = 0; i < ChannelCount; i++) lengths[i] = _cgbMode ? 0 : GetChannel(i).Length.Counter;
 
 	_square[Ch1] = SquareChannel();
 	_square[Ch2] = SquareChannel();
@@ -532,6 +540,36 @@ int Apu::ChannelOutput(int channel) const
 	default:
 		return _noise.Active && (_noise.Lfsr & 1) ? _noise.Env.Volume : 0;
 	}
+}
+
+unsigned char Apu::ReadPcm(unsigned short address) const
+{
+	auto first = address == 0xff76 ? 1 : 3;
+	auto low = std::max(ChannelOutput(first), 0);
+	auto high = std::max(ChannelOutput(first + 1), 0);
+	return static_cast<unsigned char>(low | high << 4);
+}
+
+void Apu::ApplyCgbPostBootState()
+{
+	std::copy(std::begin(CgbPostBootWaveRam), std::end(CgbPostBootWaveRam), _registers + WaveRam);
+
+	_powered = true;
+	_registers[Nr10] = 0x00;
+	_registers[Nr11] = 0x80;
+	_registers[Nr12] = 0xf3;
+	_registers[Nr50] = 0x77;
+	_registers[Nr51] = 0xf3;
+
+	// Simplification: CH1's frequency and duty position are left at 0, as the boot sound's are inaudible at volume 0
+	_square[Ch1].Active = true;
+	_square[Ch1].Env.Volume = 0;
+	_square[Ch1].Env.Period = 3;
+	_square[Ch1].Env.Running = false;
+	_square[Ch1].Timer = _square[Ch1].Period();
+
+	UpdateMix();
+	_cyclesToEvent = CyclesToNextEvent();
 }
 
 void Apu::UpdateMix()

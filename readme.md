@@ -2,7 +2,7 @@
 Emu Boy
 =======
 
-A Nintendo Game Boy emulator written in C++.
+A Nintendo Game Boy and Game Boy Color emulator written in C++.
 
 ## Why another emulator?
 There are many PC-based emulators that have existed for some time including [VBA](http://vba-m.com/) and [BGB](http://bgb.bircd.org/). This project was intentionally started independently as a hobby/practice exercise.
@@ -17,6 +17,14 @@ Emu Boy has been built using Game Boy hardware information available online, pri
 [Pan Docs](http://bgb.bircd.org/pandocs.htm)
 
 [GB boot ROM](http://gbdev.gg8.se/wiki/articles/Gameboy_Bootstrap_ROM)
+
+[SameBoy](https://github.com/LIJI32/SameBoy)'s source, where the documentation is silent
+
+Pokefan531's measured model of the Game Boy Color's screen, from his
+[Handheld-Colorspace-Shaders](https://github.com/Pokefan531/Handheld-Colorspace-Shaders/tree/a21d4d4154af1dd87588febe545e6d9f0555ec8f)
+(the GBC colour shader is marked public domain)
+
+[Gambatte](https://github.com/sinamas/gambatte)'s hardware test results
 
 The repo includes a binary of [GBSnake](https://github.com/brovador/GBsnake).
     
@@ -38,9 +46,15 @@ cmake --build build
 Run the unit tests with `ctest --test-dir build` (or run `../../build/Tests` from `src/tests`). Google Test is optional;
 without it, only the emulator is built.
 
-`EmuBoy [rom] [record-file] [scale]`: `scale` sets the window size as a multiple of the Game Boy's 160x144 screen
-(default 4). If `record-file` is given, every frame is appended to it as raw 160x144 RGBA, which is useful for making
-screen captures.
+`EmuBoy [--dmg | --cgb] [rom] [record-file] [scale]`: `scale` sets the window size as a multiple of the Game Boy's
+160x144 screen (default 4). If `record-file` is given, every frame is appended to it as raw 160x144 RGBA, which is
+useful for making screen captures.
+
+A game runs on the Game Boy Color, in colour, if its header says it supports it (byte $0143 is $80 or $C0), and on
+the original Game Boy otherwise. `--dmg` or `--cgb` runs it on the other one instead. A colour game that also runs on
+the original Game Boy can be played that way with `--dmg`; a game made only for the original Game Boy can be run
+with `--cgb`, though only as a Game Boy Color game would run, as the Game Boy Color's compatibility mode for original
+Game Boy games (with its colourised palettes) isn't emulated.
 
 Games with battery-backed RAM keep their saves in a `.sav` file next to the ROM, named after it (`Tetris.gb` saves
 to `Tetris.sav`). It is loaded at start-up, written within a few seconds of the game changing it, and written on exit
@@ -64,9 +78,12 @@ RAM and clock) so a game can carry on from that moment. There are four slots per
 `<name>.ss1` to `<name>.ss4` (`Tetris.gb` saves slot 1 to `Tetris.ss1`). F5 saves to the selected slot and F8 loads
 from it; F6 and F7 select the previous and next slot. The window title briefly shows the slot selected and whether
 saving or loading worked, and the terminal shows the same messages with any error. A state only loads into the game
-it was saved from (it checks a checksum of the whole ROM) and into the same version of the state format; a state
-that doesn't match, or is damaged, is reported and the game carries on undisturbed. Saving and loading take well
-under a millisecond, and a state takes about 40 KB plus the cartridge's RAM.
+it was saved from (it checks a checksum of the whole ROM) and into a version of Emu Boy that reads its version of the
+state format; a state that doesn't match, or is damaged, is reported and the game carries on undisturbed. States
+record whether the game was running on the Game Boy or the Game Boy Color, and loading one switches to that model.
+States saved before Game Boy Color support (version 2 of the format) still load, on the original Game Boy. Saving and
+loading take well under a millisecond, and a state takes about 50 KB (100 KB on the Game Boy Color) plus the
+cartridge's RAM.
 
 Loading a state also puts back the cartridge RAM as it was when the state was saved, and that becomes the game's
 battery save too: it is written to the `.sav` file within a few seconds, as if the game had just saved. This keeps
@@ -153,9 +170,18 @@ As of now Emu Boy is still in its early stages and is very much a work in progre
   test ROMs and rtc3test
 * Battery-backed saves, including the MBC3 real-time clock, compatible with other emulators' `.sav` files
 * Save states in four slots per game
-* Unit testing of most CPU instructions, the sound hardware and the cartridge mappers
+* Game Boy Color games, in colour: double speed, the extra VRAM and work RAM banks, VRAM DMA, colour palettes,
+  background map attributes, the Game Boy Color's sprite attributes and priorities, and its other registers. There's
+  no Game Boy Color boot ROM, so games start where it would hand over. Passes cgb-acid2, blargg's cgb_sound and
+  interrupt_time, his CPU and timing test ROMs on the Game Boy Color too, and the mooneye-test-suite tests that apply
+  to it (see `src/tests/roms/readme.md`). [docs/known-gaps.md](docs/known-gaps.md) lists what's simplified
+* The Game Boy Color's screen as it looks on the real, unlit reflective LCD, using Pokefan531's measurements of it:
+  against raw colours, white is a little dimmer, colours are less saturated and slightly mixed between channels, and
+  the mid-tones are lighter
+* Unit testing of most CPU instructions, the sound hardware, the cartridge mappers and the Game Boy Color
 * Windows (Visual Studio 2015 solution), macOS and Linux (CMake), with CI builds and tests on macOS and Linux
-* Simulates the slow response-time of the Game Boy LCD screen and smoothes upsized jagged pixels
+* Simulates the slow response-time of the Game Boy LCD screen (less so for the Game Boy Color's faster screen) and
+  smoothes upsized jagged pixels
 * Keyboard and gamepad input, pause, fast-forward, reset, save states, screenshots and fullscreen
 
 &nbsp;

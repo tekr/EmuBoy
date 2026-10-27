@@ -74,7 +74,7 @@ namespace
 		void SetUp() override
 		{
 			ASSERT_NE(nullptr, Rom) << "ROM not found; run the tests from src/tests";
-			GameBoy = std::make_unique<Emulator>(Rom);
+			GameBoy = std::make_unique<Emulator>(Rom, GameBoyModel::Dmg);
 			RunFrames(*GameBoy, 30);
 			State = SaveState::Create(*GameBoy);
 		}
@@ -82,7 +82,7 @@ namespace
 		// Expects restoring the state to fail with a message containing the text, leaving the emulator as it was
 		void ExpectRejected(const Bytes& state, const std::string& text)
 		{
-			auto target = std::make_unique<Emulator>(LoadRom());
+			auto target = std::make_unique<Emulator>(LoadRom(), GameBoyModel::Dmg);
 			RunFrames(*target, 10);
 			auto before = SaveState::Create(*target);
 
@@ -105,7 +105,7 @@ TEST_F(SaveStateTest, StartsWithMagicAndFormatVersion)
 {
 	EXPECT_EQ("EMUBOYSS", std::string(State.begin(), State.begin() + 8));
 	EXPECT_EQ(SaveState::FormatVersion, ReadU32(State, 8));
-	EXPECT_EQ(2u, SaveState::FormatVersion);
+	EXPECT_EQ(3u, SaveState::FormatVersion);
 }
 
 TEST_F(SaveStateTest, EndsWithCrcOfEverythingElse)
@@ -132,7 +132,7 @@ TEST_F(SaveStateTest, HoldsASectionForEachComponentInOrder)
 		tags.emplace_back(State.begin() + offset, State.begin() + offset + 4);
 	}
 
-	EXPECT_EQ((std::vector<std::string>{ "ROM ", "CPU ", "MEM ", "PPU ", "DMA ", "TIMR", "APU ", "SERL", "JOYP", "CART" }), tags);
+	EXPECT_EQ((std::vector<std::string>{ "ROM ", "MODL", "CPU ", "MEM ", "PPU ", "DMA ", "TIMR", "APU ", "SERL", "JOYP", "CART" }), tags);
 }
 
 TEST_F(SaveStateTest, SavingTwiceGivesTheSameState)
@@ -142,12 +142,12 @@ TEST_F(SaveStateTest, SavingTwiceGivesTheSameState)
 
 TEST_F(SaveStateTest, RestoresIntoANewEmulator)
 {
-	Emulator restored{ LoadRom() };
+	Emulator restored{ LoadRom(), GameBoyModel::Dmg };
 
 	ASSERT_EQ("", SaveState::Restore(restored, State));
 
 	EXPECT_TRUE(GameBoy->GetCpu().GetRegisters() == restored.GetCpu().GetRegisters());
-	EXPECT_EQ(GameBoy->GetCpuClocks(), restored.GetCpuClocks());
+	EXPECT_EQ(GameBoy->GetSystemClocks(), restored.GetSystemClocks());
 	EXPECT_TRUE(State == SaveState::Create(restored));
 }
 
@@ -156,7 +156,7 @@ TEST_F(SaveStateTest, SavesAndLoadsWithoutAnyLongDelay)
 	// Not a benchmark: each takes well under a millisecond on a desktop, so this only catches something badly wrong,
 	// however slow or busy the machine running the tests
 	const auto limit = std::chrono::seconds(1);
-	Emulator restored{ LoadRom() };
+	Emulator restored{ LoadRom(), GameBoyModel::Dmg };
 
 	auto start = std::chrono::steady_clock::now();
 	auto state = SaveState::Create(*GameBoy);
@@ -260,19 +260,19 @@ TEST_F(SaveStateTest, RejectsAStateForAnotherVersionOfTheGame)
 
 TEST_F(SaveStateTest, RejectsAStateWithAnotherAmountOfCartridgeRam)
 {
-	Emulator other{ LoadRom(4 * Cartridge::RamBankSize) };
+	Emulator other{ LoadRom(4 * Cartridge::RamBankSize), GameBoyModel::Dmg };
 
 	ExpectRejected(SaveState::Create(other), "32768 bytes of cartridge RAM rather than 8192");
 }
 
 TEST_F(SaveStateTest, RejectsOutOfRangeValues)
 {
-	// The CPU's state (running, halted, stopped or locked) follows its six register pairs
+	// The CPU's state (running, halted, stopped, locked or pausing to switch speed) follows its six register pairs
 	auto state = State;
-	WriteU32(state, FindSection(state, "CPU ") + 12, 4);
+	WriteU32(state, FindSection(state, "CPU ") + 12, 5);
 	FixCrc(state);
 
-	ExpectRejected(state, "invalid in its CPU section: a value is 4, outside 0 to 3");
+	ExpectRejected(state, "invalid in its CPU section: a value is 5, outside 0 to 4");
 }
 
 TEST_F(SaveStateTest, RejectsAPpuEventThatCantHappenOnItsLine)
@@ -325,8 +325,8 @@ TEST_F(SaveStateTest, RejectsExtraDataAfterTheSections)
 TEST_F(SaveStateTest, FailingLateInTheStateLeavesTheEmulatorRunningAsBefore)
 {
 	// The cartridge comes last, so every other component has been read before its RAM size is found to differ
-	auto target = std::make_unique<Emulator>(LoadRom(4 * Cartridge::RamBankSize));
-	auto twin = std::make_unique<Emulator>(LoadRom(4 * Cartridge::RamBankSize));
+	auto target = std::make_unique<Emulator>(LoadRom(4 * Cartridge::RamBankSize), GameBoyModel::Dmg);
+	auto twin = std::make_unique<Emulator>(LoadRom(4 * Cartridge::RamBankSize), GameBoyModel::Dmg);
 	RunFrames(*target, 380);
 	RunFrames(*twin, 380);
 
@@ -400,7 +400,7 @@ namespace
 		auto state = SaveState::Create(emulator);
 
 		auto restored = CartridgeFactory::Create(std::vector<unsigned char>(rom));
-		Emulator restoredEmulator{ restored };
+		Emulator restoredEmulator{ restored, GameBoyModel::Dmg };
 		EXPECT_EQ("", SaveState::Restore(restoredEmulator, state));
 
 		// The RAM bank selected, and whether RAM is enabled

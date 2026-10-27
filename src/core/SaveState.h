@@ -1,5 +1,6 @@
 #pragma once
 #include "Emulator.h"
+#include "StateStream.h"
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -11,16 +12,20 @@
 //   u32            Format version, FormatVersion
 //   ROM section    The game the state belongs to: the title bytes from its header ($0134-$0143, for messages), its
 //                  size and the CRC-32 of the whole ROM
-//   Sections       Each component's state, as Emulator::WriteState writes it: CPU, memory, PPU, OAM DMA, timer,
-//                  APU, serial port, joypad and cartridge (mapper, RAM and clock)
+//   Sections       As Emulator::WriteState writes them: the model (DMG or CGB), then each component's state: CPU,
+//                  memory, PPU, OAM DMA, timer, APU, serial port, joypad and cartridge (mapper, RAM and clock), then
+//                  in CGB states the CGB's VRAM DMA
 //   u32            CRC-32 of everything before it
 //
-// A section is a four-character tag, its length as a u32 and its contents. A state from another version of the
-// format is rejected rather than converted, as is one from another game.
+// A section is a four-character tag, its length as a u32 and its contents. Version 3 added the Game Boy Color: the
+// model section and, in CGB states only, the CGB's state at the end of the components' sections and the VRAM DMA
+// section, so a DMG state is a version 2 state with the model section added. Version 2 states, from before then, still
+// load, on the DMG. Other versions are rejected, as is a state from another game.
 class SaveState
 {
 public:
-	static const uint32_t FormatVersion = 2;
+	static const uint32_t FormatVersion = StateFormatVersion;
+	static const uint32_t OldestFormatVersion = 2;
 
 	static std::vector<unsigned char> Create(const Emulator& emulator);
 

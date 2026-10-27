@@ -43,7 +43,7 @@ void SpriteManager::IndexAllSprites(SpriteData* sprites)
 	for (auto sprite = 0; sprite < MaxSprites; sprite++) _yOrderedSprites.insert(&sprites[sprite]);
 }
 
-unsigned char SpriteManager::GetSpriteColour(SpriteData& spriteData, int x, int y, unsigned char* vram) const
+unsigned char SpriteManager::GetSpriteColour(const SpriteData& spriteData, int x, int y, const unsigned char* vram) const
 {
 	auto patternX = x - spriteData.XPos + SpriteXOffset;
 	auto patternY = y - spriteData.YPos + SpriteYOffset;
