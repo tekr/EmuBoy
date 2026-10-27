@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "SaveFile.h"
+#include "CartridgeFactory.h"
 #include "Mbc2Cartridge.h"
 #include "RealTimeClock.h"
 #include <algorithm>
@@ -34,6 +35,20 @@ namespace
 		}
 
 		return unpacked;
+	}
+
+	// The clock footer's size if the save is ramSize bytes of RAM followed by a footer (either version), or 0
+	size_t ClockFooterSize(size_t ramSize, size_t saveSize)
+	{
+		if (saveSize == ramSize + SaveFile::RtcFooterSize) return SaveFile::RtcFooterSize;
+		if (saveSize == ramSize + SaveFile::LegacyRtcFooterSize) return SaveFile::LegacyRtcFooterSize;
+		return 0;
+	}
+
+	// Whether a save is ramSize bytes of RAM, followed by a footer if the cartridge has a clock
+	bool SaveMatchesRamSize(size_t ramSize, size_t saveSize, bool hasClock)
+	{
+		return hasClock ? ClockFooterSize(ramSize, saveSize) != 0 : saveSize == ramSize;
 	}
 
 	void AppendLittleEndian(std::vector<unsigned char>& out, uint64_t value, size_t bytes)
@@ -118,13 +133,15 @@ std::string SaveFile::Deserialise(Cartridge& cartridge, const std::vector<unsign
 	auto& ram = cartridge.GetRam();
 	auto clock = cartridge.GetRealTimeClock();
 
+	// mGBA saves RAM size code 1 as a whole 8 KB bank, whose first 2 KB is the cartridge's RAM
+	auto hasClock = clock != nullptr;
+	auto isMgbaTwoKbSave = ram.size() == CartridgeFactory::RamSizeCode1Bytes &&
+		SaveMatchesRamSize(Cartridge::RamBankSize, data.size(), hasClock);
+	auto savedRamSize = isMgbaTwoKbSave ? Cartridge::RamBankSize : ram.size();
+
 	// The footer is recognised by its size, as it has no signature
-	size_t footerSize = 0;
-	if (clock != nullptr)
-	{
-		if (data.size() == ram.size() + RtcFooterSize) footerSize = RtcFooterSize;
-		else if (data.size() == ram.size() + LegacyRtcFooterSize) footerSize = LegacyRtcFooterSize;
-	}
+	auto footerSize = hasClock ? ClockFooterSize(savedRamSize, data.size()) : 0;
+	auto sizeMatches = hasClock ? footerSize != 0 : data.size() == savedRamSize;
 
 	auto ramData = data.size() - footerSize;
 	auto ramToLoad = std::min(ramData, ram.size());
@@ -138,12 +155,12 @@ std::string SaveFile::Deserialise(Cartridge& cartridge, const std::vector<unsign
 	if (footerSize != 0) RestoreClock(*clock, data.data() + ramData, footerSize, unixTime);
 
 	std::ostringstream warning;
-	if (ramData != ram.size() || (clock != nullptr && footerSize == 0))
+	if (!sizeMatches)
 	{
 		warning << "The save is " << data.size() << " bytes but " << ExpectedSize(cartridge) << " were expected";
 		if (ramData < ram.size()) warning << "; the rest of the RAM is left blank";
 		if (ramData > ram.size()) warning << "; the extra data is ignored";
-		if (clock != nullptr && footerSize == 0) warning << "; it has no clock data, so the clock starts from zero";
+		if (hasClock && footerSize == 0) warning << "; it has no clock data, so the clock starts from zero";
 	}
 
 	// What was loaded is what is on disk

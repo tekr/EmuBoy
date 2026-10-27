@@ -219,6 +219,7 @@ protected:
 	void TurnOn();
 	void TurnOff();
 	void CompleteFrame();
+	void CompleteStoppedFrame();
 
 	void SetBlocking(bool oam, bool vram);
 
@@ -269,7 +270,15 @@ public:
 		while (_linePosition >= _nextEventPosition) RunLineEvent();
 	}
 
-	// True once per frame: as V-Blank starts, or every FrameClocks while the LCD is off
+	// Time passing while STOP has the system clock, and so the PPU, stopped: the PPU carries on from where it is on
+	// waking, but the screen is blank (white, as in SameBoy's display.c), and frames keep coming every FrameClocks
+	void RunStoppedCycles(int cycles)
+	{
+		_framePosition += cycles;
+		while (_framePosition >= FrameClocks) CompleteStoppedFrame();
+	}
+
+	// True once per frame: as V-Blank starts, or every FrameClocks while the LCD is off or the PPU is stopped
 	bool TakeCompletedFrame()
 	{
 		auto completed = _frameCompleted;

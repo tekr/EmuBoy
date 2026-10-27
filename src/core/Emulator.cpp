@@ -11,6 +11,15 @@ void Emulator::RunCycles(int cycles)
 	EmuSerial.RunCycles(cycles);
 }
 
+void Emulator::RunStoppedCycles(int cycles)
+{
+	// Only the APU's sample output keeps time of its own. Simplification: a serial transfer on an external clock
+	// stands still too, though on hardware the other Game Boy could still clock it. The PPU stays where it stopped,
+	// but frames keep coming for the front end
+	EmuApu.RunStoppedCycles(cycles);
+	EmuGraphics.RunStoppedCycles(cycles);
+}
+
 Emulator::Emulator(std::shared_ptr<Cartridge> cartridge) : EmuCartridge{ cartridge }
 {
 	EmuCpu.SetClockedHardware(this);
@@ -31,7 +40,9 @@ int* Emulator::GetFrame()
 	{
 		auto cycles = EmuCpu.DoNextInstruction();
 
-		// The cartridge's clock counts seconds, so it runs once per instruction rather than every machine cycle
+		// The cartridge's clock counts seconds, so it runs once per instruction rather than every machine cycle. It
+		// has a crystal of its own, so it also keeps counting while STOP has the system clock stopped (when each
+		// call to DoNextInstruction is one stopped machine cycle)
 		EmuCartridge->RunCycles(cycles);
 	}
 

@@ -1,7 +1,6 @@
 
 Emu Boy
 =======
-[![CI](https://github.com/tekr/EmuBoy/actions/workflows/ci.yml/badge.svg)](https://github.com/tekr/EmuBoy/actions/workflows/ci.yml)
 
 A Nintendo Game Boy emulator written in C++.
 
@@ -49,19 +48,23 @@ if anything changed (always, for real-time clock cartridges, to record the time)
 the window, Ctrl+C and closing the terminal, and save errors and warnings are shown in the terminal. On Windows,
 saves are written when the window is closed; Emu Boy has no console there, so messages aren't shown. If a save is the
 wrong size for the cartridge, what fits is loaded, and the original is copied to `<name>.sav.bak` before it is first
-replaced.
+replaced. So is a save that loads fully but is written back at a different size: mGBA's 8 KB saves for 2 KB RAM
+(as a game may have used more under mGBA) and 256-byte MBC2 saves, and older VBA versions' 44-byte clock footer.
 
 The format is the raw RAM dump most emulators use, with the BGB/VBA-M real-time clock footer for MBC3 clock
 cartridges, so saves can be moved to and from BGB, VBA-M, mGBA and SameBoy. A clock save from mGBA can run ahead by
 the time between the game last reading the clock and mGBA saving. MBC2 saves are written as 512 bytes, as SameBoy and
-VBA-M do; mGBA's 256-byte MBC2 saves can be loaded too. The clock catches up with the time that passed while Emu Boy
-wasn't running.
+VBA-M do; mGBA's 256-byte MBC2 saves can be loaded too. Cartridges with 2 KB of RAM save 2 KB, as BGB, SameBoy and
+VBA-M do; mGBA's 8 KB saves for them load too. The clock catches up with the time that passed while Emu Boy wasn't
+running. Battery-backed cartridges whose mapper isn't emulated (MMM01, Pocket Camera, HuC1 and HuC3) still have
+their RAM saved, though the HuC3's clock isn't, and the MBC7's EEPROM isn't saved at all.
 
 
 ## Building on Linux
 Install the dependencies with your package manager, then build with CMake. On Ubuntu 24.04 or Debian 12/13:
 
 ```sh
+sudo apt-get update
 sudo apt-get install cmake g++ libboost-dev libsfml-dev libgtest-dev
 cmake -S . -B build
 cmake --build build
@@ -75,7 +78,8 @@ tests as on macOS.
 ## Current status
 As of now Emu Boy is still in its early stages and is very much a work in progress. It currently supports the following:
 
-* Fairly cycle-accurate emulation of the LR35902 CPU (all documented instructions + interrupts)
+* Fairly cycle-accurate emulation of the LR35902 CPU (all documented instructions + interrupts), including STOP
+  and the lock-up caused by the unused opcodes
 * Full graphics implementation (sprites + background + window support). The LCD's timing (including how long each
   line's mode 3 lasts, from the registers as mode 3 starts), STAT interrupts, OAM DMA, when the CPU can access video
   memory, and the DMG's OAM corruption bug are emulated to the machine cycle. The pixels aren't: each line is drawn

@@ -1,9 +1,7 @@
 #include "stdafx.h"
 #include "Cpu.h"
 #include "MemoryMap.h"
-#include <iostream>
 #include <algorithm>
-#include <stdexcept>
 
 #ifndef _MSC_VER
 // Stand-ins for the MSVC intrinsics the rotate instructions use
@@ -415,6 +413,28 @@ void Cpu::Ld8AccMem(unsigned char opcode)
 
 void Cpu::Stop(unsigned char opcode)
 {
+	// Per the "Using the STOP Instruction" diagram in https://gbdev.io/pandocs/Reducing_Power_Consumption.html
+	// (the DMG can't switch speed). With an interrupt pending, STOP is a 1-byte opcode and the byte after it runs
+	// as the next opcode; otherwise that byte is skipped
+	auto twoByteOpcode = !PendingInterrupts();
+
+	if (SelectedButtonHeld())
+	{
+		// STOP mode would end at once, so the CPU halts instead or, with an interrupt pending, carries on
+		if (twoByteOpcode)
+		{
+			GetByteOperand();
+			_state = CpuState::Halted;
+		}
+
+		return;
+	}
+
+	// The system clock stops, which resets DIV. Skipping the byte after STOP takes no time that anything can see.
+	// Simplification: SameBoy also holds DIV in reset for a cycle when IME is clear, which it notes as untrusted
+	_memoryMap.WriteByte(MemoryMap::DividerPort, 0);
+	_state = CpuState::Stopped;
+	if (twoByteOpcode) _registers.PC++;
 }
 
 void Cpu::Jr(unsigned char opcode)
@@ -665,19 +685,13 @@ void Cpu::PrefixCb(unsigned char opcode)
 
 void Cpu::InvalidOp(unsigned char opcode)
 {
-	std::cout << "Invalid opcode " << std::hex << opcode << " encountered" << std::endl;
-	throw std::runtime_error("Invalid operation");
+	// Per https://gbdev.io/pandocs/CPU_Instruction_Set.html, the unused opcodes hard-lock the CPU
+	_state = CpuState::Locked;
 }
 
 void Cpu::RequestInterrupt(InterruptFlags interruptFlags)
 {
 	_waitingInterrupts |= interruptFlags;
-
-	if (_state == CpuState::Stopped && interruptFlags & InterruptFlags::JoypadInt)
-	{
-		_state = CpuState::Running;
-		_instructionCycles += StopWakeCycles;
-	}
 }
 
 void Cpu::DispatchInterrupt()
@@ -729,6 +743,17 @@ bool Cpu::RunHalted()
 	return true;
 }
 
+void Cpu::RunStopped()
+{
+	// Time passes, but nothing runs on the system clock
+	_instructionCycles += OneCycle;
+	if (_hardware != nullptr) _hardware->RunStoppedCycles(OneCycle);
+
+	// STOP mode ends when a selected button pulls its input line low, whether or not the joypad interrupt is enabled.
+	// Simplification: waking takes no time here, where SameBoy spends 2 machine cycles
+	if (SelectedButtonHeld()) _state = CpuState::Running;
+}
+
 int Cpu::DoNextInstruction()
 {
 	_instructionCycles = 0;
@@ -768,6 +793,11 @@ int Cpu::DoNextInstruction()
 	}
 	else if (_state == CpuState::Stopped)
 	{
+		RunStopped();
+	}
+	else if (_state == CpuState::Locked)
+	{
+		// The rest of the hardware keeps running
 		InternalCycle();
 	}
 

@@ -271,6 +271,13 @@ void Graphics::CompleteFrame()
 	_framePosition = DisplayEnabled() ? 0 : _framePosition - FrameClocks;
 }
 
+void Graphics::CompleteStoppedFrame()
+{
+	std::fill(std::begin(Bitmap), std::end(Bitmap), BlankColour);
+	_frameCompleted = true;
+	_framePosition -= FrameClocks;
+}
+
 void Graphics::SetBlocking(bool oam, bool vram)
 {
 	_oamReadBlocked = _oamWriteBlocked = oam;

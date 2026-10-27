@@ -37,7 +37,7 @@ BlarggRomResult RunBlarggRom(const std::string& path, int maxFrames, const Betwe
 {
 	BlarggRomResult result;
 
-	auto cartridge = CartridgeFactory::LoadFromFile(path, 1);
+	auto cartridge = CartridgeFactory::LoadFromFileWithRamSize(path, Cartridge::RamBankSize);
 	if (cartridge == nullptr) return result;
 	result.RomFound = true;
 
