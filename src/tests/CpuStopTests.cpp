@@ -3,6 +3,8 @@
 #include <algorithm>
 #include "CpuTestFixture.h"
 #include "../core/Emulator.h"
+#include "../core/CartridgeFactory.h"
+#include "../core/RealTimeClock.h"
 #include "TimerTestHardware.h"
 #include "ApuTestHelpers.h"
 
@@ -425,4 +427,28 @@ TEST_F(EmulatorStopTests, PpuCarriesOnFromItsLineOnWaking)
 	EXPECT_EQ(50, ReadByte(0xff80));
 	EXPECT_EQ(2, ReadByte(0xff81) & 3);
 	EXPECT_EQ(51, ReadByte(0xff82));
+}
+
+TEST(EmulatorStopClockTest, CartridgeClockKeepsCountingWhileStopped)
+{
+	// The MBC3's real-time clock has its own 32.768 kHz crystal, so it keeps time while STOP has the system clock
+	// stopped (and while the Game Boy is off). 60 frames is just over a second
+	std::vector<unsigned char> rom(2 * MemoryMap::RomBankSize);
+	const unsigned char program[] = {
+		0x3e, SelectDirections,	// LD A,$20
+		0xe0, 0x00,				// LDH (JOYP),A
+		0x10, 0x00,				// STOP
+		0x18, 0xfe				// JR -2
+	};
+	std::copy(std::begin(program), std::end(program), rom.begin());
+	rom[CartridgeFactory::CartridgeTypeHeaderOffset] = 0x0f;	// MBC3+TIMER+BATTERY
+
+	auto cartridge = CartridgeFactory::Create(std::move(rom));
+	::Emulator emulator{ cartridge };
+	emulator.GetMemoryMap().WriteByte(0xff50, 1);
+
+	for (auto frame = 0; frame < 60; frame++) emulator.GetFrame();
+
+	EXPECT_TRUE(emulator.GetCpu().IsStopped());
+	EXPECT_EQ(1, cartridge->GetRealTimeClock()->GetState().Counters[0]);
 }
