@@ -10,6 +10,7 @@
 #include <csignal>
 #include <fstream>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -27,6 +28,9 @@ public:
 
 		// If not empty, every frame is appended to this file as raw 160x144 RGBA
 		std::string RecordPath;
+
+		// The Game Boy to run the game on, or none for the one its header asks for (see ModelForRom)
+		std::optional<GameBoyModel> Model;
 	};
 
 	App(const Options& options, std::shared_ptr<Cartridge> cartridge, std::string gameTitle, BatteryStore& saves);
@@ -80,6 +84,9 @@ private:
 
 	// Shows a message in the window title, and in the terminal if log is set
 	void ShowMessage(const std::string& message, bool log = true);
+
+	// A newly powered-on Game Boy of the chosen model
+	std::unique_ptr<Emulator> PowerOn() const;
 
 	void Reset();
 	void SaveToSlot();

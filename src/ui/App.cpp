@@ -20,7 +20,7 @@ void App::ReportSaveResult(const BatteryStore::Result& result)
 App::App(const Options& options, std::shared_ptr<Cartridge> cartridge, std::string gameTitle, BatteryStore& saves) :
 	_options(options), _cartridge{ std::move(cartridge) }, _gameTitle{ std::move(gameTitle) }, _saves(saves),
 	_stateSlots{ options.RomPath },
-	_emulator{ std::make_unique<Emulator>(_cartridge) }, _audio{ _emulator->GetAudioSampleRate() },
+	_emulator{ PowerOn() }, _audio{ _emulator->GetAudioSampleRate() },
 	_input{ Controls::CreateInputMapper() }, _pacer{ Graphics::SystemClockHz, Graphics::FrameClocks },
 	_framesUntilSave{ FramesBetweenSaves }
 {
@@ -212,13 +212,18 @@ void App::Present()
 	_window.display();
 }
 
+std::unique_ptr<Emulator> App::PowerOn() const
+{
+	return _options.Model ? std::make_unique<Emulator>(_cartridge, *_options.Model) : std::make_unique<Emulator>(_cartridge);
+}
+
 void App::Reset()
 {
 	// Like switching the Game Boy off and on: the game starts again, keeping what the battery keeps
 	ReportSaveResult(_saves.SaveIfChanged());
 	_audio.Clear();
 	_cartridge->Reset();
-	_emulator = std::make_unique<Emulator>(_cartridge);
+	_emulator = PowerOn();
 
 	// The new emulator's clocks start again from 0
 	_pacer.Restart(Now(), _emulator->GetSystemClocks());
