@@ -2,7 +2,7 @@
 #include "InputJoypad.h"
 #include "Cpu.h"
 
-InputJoypad::InputJoypad(): _cpu(nullptr), _keysDown(JoypadKey::NoKey), _register(0x3f)
+InputJoypad::InputJoypad(): _cpu(nullptr), _keysDown(JoypadKey::NoKey), _register(0)
 {
 }
 

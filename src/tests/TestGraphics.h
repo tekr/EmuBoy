@@ -27,8 +27,15 @@ public:
 	using Graphics::RegWindowX;
 	using Graphics::RegisterBlockSize;
 
+	using Graphics::OamScanStart;
+	using Graphics::OamScanLastCycle;
+	using Graphics::DrawStart;
+	using Graphics::FirstLineStart;
+
 	using Graphics::TileMapBase1;
 	using Graphics::TileMapBase2;
+
+	unsigned char OamByte(unsigned short address) const { return _oam[address]; }
 
 	TestGraphics(Cpu& cpu, MemoryMap& memoryMap, SpriteManager& spriteManager) : Graphics(cpu, memoryMap, spriteManager)
 	{

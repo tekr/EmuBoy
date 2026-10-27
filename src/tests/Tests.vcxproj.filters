@@ -36,6 +36,30 @@
     <ClCompile Include="BlarggRomRunner.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="PpuTimingTests.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="OamDmaTests.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="OamCorruptionTests.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="MooneyeAcceptanceTests.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="GbMicrotestTests.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="MemoryMapTests.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="BlarggOamBugTests.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="IoPortTests.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="SerialTests.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -186,6 +210,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="MooneyeRomRunner.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="GbMicrotestRunner.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="CartridgeTestHelpers.h">

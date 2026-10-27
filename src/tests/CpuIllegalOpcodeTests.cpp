@@ -83,6 +83,24 @@ TEST_P(CpuIllegalOpcodeTests, OtherHardwareKeepsRunning)
 
 INSTANTIATE_TEST_CASE_P(UnusedOpcodes, CpuIllegalOpcodeTests, ::testing::ValuesIn(IllegalOpcodes));
 
+TEST(EmulatorIllegalOpcodeTests, EachFrameLastsAFrameOfClocksAfterLockingUp)
+{
+	// The front end paces frames by the clocks emulated, so a locked-up Game Boy must keep the normal frame rate
+	auto rom = std::make_shared<TestCartridge>();
+	rom->SetBytes(0, { 0x3e, 0x91, 0xe0, 0x40, 0xd3 });	// LD A,$91; LDH (LCDC),A; then an unused opcode
+	Emulator emulator{ rom };
+	emulator.GetMemoryMap().WriteByte(0xff50, 1);
+	emulator.GetFrame();
+	emulator.GetFrame();
+
+	for (auto i = 0; i < 3; i++)
+	{
+		auto clocks = emulator.GetCpuClocks();
+		emulator.GetFrame();
+		EXPECT_EQ(uint64_t{ Graphics::FrameClocks }, emulator.GetCpuClocks() - clocks);
+	}
+}
+
 TEST(EmulatorIllegalOpcodeTests, KeepsProducingFramesAndSoundAfterLockingUp)
 {
 	auto rom = std::make_shared<TestCartridge>();

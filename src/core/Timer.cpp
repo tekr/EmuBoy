@@ -6,7 +6,7 @@
 
 const int Timer::ModeBits[] = { 9, 3, 5, 7 };
 
-Timer::Timer(): _cpu(nullptr), _divider(0), _registers{}, _isRunning(false), _divisorMode(0), _cyclesToReload(0),
+Timer::Timer(): _cpu(nullptr), _divider(PowerOnDivider), _registers{}, _isRunning(false), _divisorMode(0), _cyclesToReload(0),
 	_cyclesLeftInReload(0)
 {
 }

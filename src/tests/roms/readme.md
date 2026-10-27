@@ -17,10 +17,12 @@ at $A000.
 | `mem_timing/`   | When instructions read and write memory                  | `BlarggCpuTests.cpp`    |
 | `mem_timing-2/` | The same, from a later version of the test shell         | `BlarggCpuTests.cpp`    |
 | `halt_bug/`     | The HALT bug                                             | `BlarggCpuTests.cpp`    |
-| `oam_bug/`      | OAM corruption by 16-bit increments and decrements       | Not yet run (see below) |
+| `oam_bug/`      | OAM corruption by 16-bit increments and decrements       | `BlarggOamBugTests.cpp` |
 
-The `oam_bug` ROMs aren't run yet. They need the LCD's timing to advance every machine cycle and to restart when
-the LCD is turned on, as well as the corruption itself.
+`oam_bug/7-timing_effect.gb` logs an OAM dump for each of the 20 timings in its range that corrupt OAM, over 8 KB of
+text, more than the cartridge RAM it logs to holds, so the log would run on into the test's own code in work RAM,
+which starts at $C000 straight after cartridge RAM, and crash it. Its test moves the log pointer back to the start of
+cartridge RAM between frames. The ROM checks a checksum of the text it prints, which the log doesn't affect.
 
 `interrupt_time` isn't included. It's a Game Boy Color test (its header marks it CGB-only and its source sets
 `REQUIRE_CGB`) that times interrupts at both CPU speeds, so it needs the CGB's double-speed mode.
@@ -35,13 +37,30 @@ converted to text so the tests need no image library: one line per screen row, o
 the DMG shade from 0 (lightest, PNG value $FF) to 3 (darkest, $00), i.e. `3 - value / 85` for each 8-bit
 greyscale value. `DmgAcid2Tests.cpp` runs the ROM and compares the frame with it pixel for pixel.
 
+gbmicrotest
+-----------
+
+`gbmicrotest/` holds the STAT write bug ROMs (`stat_write_glitch_*`) from aappleby's gbmicrotest (MIT licence, in
+`LICENSE`), from the prebuilt `bin/` directory of https://github.com/aappleby/gbmicrotest. Each tests one register
+at one machine cycle, as checked on a DMG, and leaves its result at $FF80-$FF82, which `GbMicrotestRunner.h`
+reads. `GbMicrotestTests.cpp` runs them.
+`stat_write_glitch_l154_d` isn't included: it expects IF to read $E0 after running through line 144 of the first
+frame after turning the LCD on, without first clearing IF, unlike `stat_write_glitch_l154_c`, so without the V-Blank
+interrupt. That contradicts `stat_write_glitch_l143_d`, which runs through line 144 of the same frame and expects
+$E3, with the V-Blank interrupt requested (as SameBoy and mGBA request it at line 144).
+
 mooneye-test-suite
 ------------------
 
 `mooneye-test-suite/` holds test ROMs from Joonas Javanainen's (Gekkio's) mooneye-test-suite, with its licence,
 from the release build https://gekkio.fi/files/mooneye-test-suite/mts-20260714-0944-31510e1/ (source:
-https://github.com/Gekkio/mooneye-test-suite). `MooneyeMbcTests.cpp` runs the `emulator-only` MBC1, MBC2 and MBC5
-ROMs with `MooneyeRomRunner.h`, which detects the result each ROM leaves in the CPU registers.
+https://github.com/Gekkio/mooneye-test-suite). `MooneyeRomRunner.h` runs them, detecting the result each ROM leaves
+in the CPU registers. `MooneyeMbcTests.cpp` runs the `emulator-only` MBC1, MBC2 and MBC5 ROMs, and
+`MooneyeAcceptanceTests.cpp` the `acceptance` ROMs that apply to the DMG Emu Boy emulates, with its boot ROM. Those
+left out are for other models, as the suffix of their names says (`dmg0` for the early DMG, `S` for the Super Game
+Boys, `mgb` and `sgb`/`sgb2` for the Game Boy Pocket and Super Game Boys), and depend on those models' boot ROMs:
+`boot_div-dmg0`, `boot_div-S`, `boot_div2-S`, `boot_hwio-dmg0`, `boot_hwio-S`, `boot_regs-dmg0`, `boot_regs-mgb`,
+`boot_regs-sgb` and `boot_regs-sgb2`.
 
 rtc3test
 --------

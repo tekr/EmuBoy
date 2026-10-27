@@ -6,7 +6,8 @@
 
 // Per https://gbdev.io/pandocs/Serial_Data_Transfer_(Link_Cable).html: writing SC with bits 7 and 0 set starts
 // a transfer clocked internally at 8192 Hz (512 clocks a bit). With no link partner, 1s are shifted in.
-// When all 8 bits have been shifted, bit 7 of SC is cleared and the serial interrupt is requested.
+// When all 8 bits have been shifted, bit 7 of SC is cleared and the serial interrupt is requested. The clock is
+// divided down from power-on, so bits shift on its period boundaries (mooneye-test-suite's boot_sclk_align-dmgABCmgb).
 
 const int TransferCycles = 8 * 512;
 
@@ -23,6 +24,9 @@ public:
 		Serial.SetCpu(&Cpu);
 		Serial.SetByteSentHandler([this](unsigned char byte) { Sent.push_back(byte); });
 		Cpu.WaitingInterrupts() = 0;
+
+		// Transfers start at the beginning of a bit period unless a test says otherwise
+		Serial.RunCycles(Serial::CyclesPerBit - Serial::PowerOnClocks);
 	}
 
 	void StartTransfer(unsigned char data, unsigned char control = 0x81)
@@ -48,6 +52,19 @@ TEST_F(SerialTests, InternallyClockedTransferCompletesAfterEightBits)
 	EXPECT_EQ(0x42, Sent[0]);
 	EXPECT_TRUE(SerialInterruptRequested());
 	EXPECT_EQ(0x7f, Serial.ReadRegister(Serial::ControlReg));
+}
+
+TEST_F(SerialTests, TransferStartedMidPeriodShiftsItsFirstBitAtThePeriodEnd)
+{
+	const int clocksIntoPeriod = 100;
+	Serial.RunCycles(clocksIntoPeriod);
+	StartTransfer(0x42);
+
+	Serial.RunCycles(TransferCycles - clocksIntoPeriod - 1);
+	EXPECT_TRUE(Sent.empty());
+
+	Serial.RunCycles(1);
+	EXPECT_EQ(1u, Sent.size());
 }
 
 TEST_F(SerialTests, ShiftsOutTopBitFirstAndShiftsInOnes)

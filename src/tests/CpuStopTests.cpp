@@ -3,6 +3,8 @@
 #include <algorithm>
 #include "CpuTestFixture.h"
 #include "../core/Emulator.h"
+#include "../core/CartridgeFactory.h"
+#include "../core/RealTimeClock.h"
 #include "TimerTestHardware.h"
 #include "ApuTestHelpers.h"
 
@@ -323,38 +325,102 @@ public:
 
 	unsigned char ReadByte(unsigned short address) { return Emulator.GetMemoryMap().ReadByte(address); }
 
-	static bool IsBlank(const int* frame)
+	static bool IsAll(const int* frame, int colour)
 	{
-		return std::all_of(frame, frame + Graphics::HozPixels * Graphics::VertPixels, [](int pixel) { return pixel == -1; });
+		return std::all_of(frame, frame + Graphics::HozPixels * Graphics::VertPixels, [=](int pixel) { return pixel == colour; });
 	}
+
+	static bool IsBlank(const int* frame) { return IsAll(frame, Graphics::BlankColour); }
 };
 
-TEST_F(EmulatorStopTests, ScreenIsBlankWhileStopped)
+TEST_F(EmulatorStopTests, EachFrameLastsAFrameOfClocksWhileStopped)
 {
+	// The front end paces frames by the clocks emulated, so a stopped Game Boy must keep the normal frame rate
 	Emulator.GetFrame();
-	EXPECT_TRUE(IsBlank(Emulator.GetFrame()));
+
+	for (auto i = 0; i < 3; i++)
+	{
+		auto clocks = Emulator.GetCpuClocks();
+		Emulator.GetFrame();
+		EXPECT_EQ(uint64_t{ Graphics::FrameClocks }, Emulator.GetCpuClocks() - clocks);
+	}
+}
+
+TEST_F(EmulatorStopTests, ScreenShowsLightestShadeWhileStoppedWithLcdOn)
+{
+	// A frame is shown in full before STOP, which runs on line 50. As in SameBoy (GB_display_vblank in display.c), a
+	// stopped DMG's screen then shows the lightest shade (its background_palettes_rgb[0]), whatever BGP holds, rather
+	// than the LCD-off colour or the lines drawn before stopping
+	Rom->SetBytes(0, {
+		0x3e, SelectDirections,	// LD A,$20
+		0xe0, 0x00,				// LDH (JOYP),A
+		0x3e, 0xff,				// LD A,$FF
+		0xe0, 0x47,				// LDH (BGP),A
+		0x3e, 0x91,				// LD A,$91
+		0xe0, 0x40,				// LDH (LCDC),A		LCD and background on
+		0xf0, 0x44,				// LDH A,(LY)		Wait for the first V-Blank (line 144)
+		0xfe, 144,				// CP 144
+		0x20, 0xfa,				// JR NZ,-6
+		0xf0, 0x44,				// LDH A,(LY)		Then line 0
+		0xfe, 0,				// CP 0
+		0x20, 0xfa,				// JR NZ,-6
+		0xf0, 0x44,				// LDH A,(LY)		Then the second V-Blank, whose frame is shown
+		0xfe, 144,				// CP 144
+		0x20, 0xfa,				// JR NZ,-6
+		0xf0, 0x44,				// LDH A,(LY)		Then line 50 of the next frame
+		0xfe, 50,				// CP 50
+		0x20, 0xfa,				// JR NZ,-6
+		0x10, 0x00,				// STOP
+		0x18, 0xfe				// JR -2
+	});
+
+	// The first frame after turning the LCD on is blank
+	ASSERT_TRUE(IsBlank(Emulator.GetFrame()));
+	ASSERT_TRUE(IsAll(Emulator.GetFrame(), Graphics::ShadeColour(3)));
+
+	for (auto i = 0; i < 3; i++)
+	{
+		EXPECT_TRUE(IsAll(Emulator.GetFrame(), Graphics::ShadeColour(0))) << "stopped frame " << i;
+		EXPECT_TRUE(Emulator.GetCpu().IsStopped());
+	}
+}
+
+TEST_F(EmulatorStopTests, ScreenShowsLcdOffColourWhileStoppedWithLcdOff)
+{
+	Rom->SetBytes(0, {
+		0x3e, SelectDirections,	// LD A,$20
+		0xe0, 0x00,				// LDH (JOYP),A
+		0x10, 0x00,				// STOP				With the LCD off, as at power-on
+		0x18, 0xfe				// JR -2
+	});
+
+	for (auto i = 0; i < 2; i++) EXPECT_TRUE(IsBlank(Emulator.GetFrame()));
+	EXPECT_TRUE(Emulator.GetCpu().IsStopped());
 }
 
 TEST_F(EmulatorStopTests, ScreenComesBackAfterWaking)
 {
+	// The program turns the LCD on just before STOP, so the frame completed at the first V-Blank after waking is still
+	// the first since then, which stays blank (https://gbdev.io/pandocs/LCDC.html#lcdc7--lcd-enable). The next shows
 	Emulator.GetFrame();
 	Emulator.GetJoypad().SetKeysDown(JoypadKey::Right);
 
-	EXPECT_FALSE(IsBlank(Emulator.GetFrame()));
+	EXPECT_TRUE(IsBlank(Emulator.GetFrame()));
+	EXPECT_TRUE(IsAll(Emulator.GetFrame(), Graphics::ShadeColour(3)));
 }
 
 TEST_F(EmulatorStopTests, PpuDoesntRunWhileStopped)
 {
-	// STOP runs in mode 2 (OAM search) of line 0, and the PPU stays there. A running PPU would end each frame in
-	// VBlank (mode 1)
+	// STOP runs early in line 0 after the LCD is turned on, which has no OAM scan, so STAT shows mode 0 until mode 3
+	// (mooneye-test-suite's lcdon_timing-GS), and the PPU stays there. A running PPU would end each frame as V-Blank
+	// (mode 1) starts, on line 144
 	Emulator.GetFrame();
-	auto ly = ReadByte(LyAddress);
 
 	for (auto i = 0; i < 3; i++)
 	{
 		Emulator.GetFrame();
-		EXPECT_EQ(ly, ReadByte(LyAddress));
-		EXPECT_EQ(2, ReadByte(StatAddress) & 3);
+		EXPECT_EQ(0, ReadByte(LyAddress));
+		EXPECT_EQ(0, ReadByte(StatAddress) & 3);
 	}
 }
 
@@ -385,18 +451,23 @@ TEST_F(EmulatorStopTests, AudioKeepsItsRateWhileStopped)
 
 TEST_F(EmulatorStopTests, DivRunsAgainAfterWaking)
 {
+	// DIV counts every 256 clocks and wraps every 65536, so it's compared across a whole frame (70224 clocks, from
+	// one V-Blank to the next), over which it moves on 274 counts, 18 after wrapping. The frame after waking runs
+	// from line 0 to V-Blank, close enough to 65536 clocks for DIV to read 0 again
 	Emulator.GetFrame();
 	Emulator.GetJoypad().SetKeysDown(JoypadKey::Right);
 	Emulator.GetFrame();
+	auto div = ReadByte(MemoryMap::DividerPort);
 
-	EXPECT_NE(0, ReadByte(MemoryMap::DividerPort));
+	Emulator.GetFrame();
+	EXPECT_NE(div, ReadByte(MemoryMap::DividerPort));
 }
 
 TEST_F(EmulatorStopTests, PpuCarriesOnFromItsLineOnWaking)
 {
-	// The program stops on line 50 and wakes at the start of a later frame. The first instruction still reads LY and
-	// STAT as they were when the CPU stopped, and once the frame loop finishes its first line LY reads 51, as the
-	// PPU carries on from where it stopped
+	// The program stops on line 50 and wakes in a later frame. The first instruction still reads LY and STAT as they
+	// were when the CPU stopped (mode 2, early in the line), and LY moves on to 51, as the PPU carries on from where
+	// it stopped
 	Rom->SetBytes(0, {
 		0x3e, SelectDirections,	// LD A,$20
 		0xe0, 0x00,				// LDH (JOYP),A
@@ -425,4 +496,28 @@ TEST_F(EmulatorStopTests, PpuCarriesOnFromItsLineOnWaking)
 	EXPECT_EQ(50, ReadByte(0xff80));
 	EXPECT_EQ(2, ReadByte(0xff81) & 3);
 	EXPECT_EQ(51, ReadByte(0xff82));
+}
+
+TEST(EmulatorStopClockTest, CartridgeClockKeepsCountingWhileStopped)
+{
+	// The MBC3's real-time clock has its own 32.768 kHz crystal, so it keeps time while STOP has the system clock
+	// stopped (and while the Game Boy is off). 60 frames is just over a second
+	std::vector<unsigned char> rom(2 * MemoryMap::RomBankSize);
+	const unsigned char program[] = {
+		0x3e, SelectDirections,	// LD A,$20
+		0xe0, 0x00,				// LDH (JOYP),A
+		0x10, 0x00,				// STOP
+		0x18, 0xfe				// JR -2
+	};
+	std::copy(std::begin(program), std::end(program), rom.begin());
+	rom[CartridgeFactory::CartridgeTypeHeaderOffset] = 0x0f;	// MBC3+TIMER+BATTERY
+
+	auto cartridge = CartridgeFactory::Create(std::move(rom));
+	::Emulator emulator{ cartridge };
+	emulator.GetMemoryMap().WriteByte(0xff50, 1);
+
+	for (auto frame = 0; frame < 60; frame++) emulator.GetFrame();
+
+	EXPECT_TRUE(emulator.GetCpu().IsStopped());
+	EXPECT_EQ(1, cartridge->GetRealTimeClock()->GetState().Counters[0]);
 }

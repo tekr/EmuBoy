@@ -9,7 +9,7 @@ class RunState
 	bool _fastForwardHeld{ false };
 
 public:
-	// Fast-forward runs up to this many frames in the time of one, as fast as the computer allows
+	// Fast-forward runs the game up to this many times normal speed, as far as the computer allows
 	static constexpr int FastForwardSpeed = 8;
 
 	void TogglePause() { _paused = !_paused; }
@@ -18,8 +18,8 @@ public:
 	bool IsPaused() const { return _paused; }
 	bool IsFastForwarding() const { return _fastForwardHeld && !_paused; }
 
-	// Frames to run per Game Boy frame time: 1 normally, FastForwardSpeed when fast-forwarding. Not meaningful
-	// while paused, when no frames run
+	// How many times normal speed to run the emulated clock: 1 normally, FastForwardSpeed when fast-forwarding. Not
+	// meaningful while paused, when nothing runs
 	int GetSpeed() const { return IsFastForwarding() ? FastForwardSpeed : 1; }
 
 	// "Emu Boy - <game title>", with the state in brackets when paused or fast-forwarding

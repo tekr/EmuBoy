@@ -1448,6 +1448,31 @@ TEST_F(CpuTestFixture, CbPrefixOpcodes)
 }
 
 
+TEST_F(CpuTestFixture, InterruptsDisabledAtPowerOn)
+{
+	// Per https://gbdev.io/pandocs/Interrupts.html#ime-interrupt-master-enable-flag-write-only, IME is clear when
+	// the CPU starts, so a pending, enabled interrupt isn't dispatched until EI
+	Cpu.EnabledInterrupts() = InterruptFlags::VBlankInt;
+	Cpu.RequestInterrupt(InterruptFlags::VBlankInt);
+
+	EXPECT_FALSE(Cpu.InterruptsEnabled());
+	Cpu.DoNextInstruction();
+	EXPECT_EQ(1, Cpu.Registers().PC);
+}
+
+TEST_F(CpuTestFixture, InterruptEnableKeepsUpperBits)
+{
+	// Mooneye-test-suite's unused_hwio-GS: IE's upper three bits read back as written
+	MemoryMap.SetBytes(MemoryMap::RomFixed, { 0xe0, 0xff, 0xf0, 0xff });		// LDH ($FF),A; LDH A,($FF)
+	Cpu.Registers().A = 0xe0;
+
+	Cpu.DoNextInstruction();
+	Cpu.Registers().A = 0;
+	Cpu.DoNextInstruction();
+
+	EXPECT_EQ(0xe0, Cpu.Registers().A);
+}
+
 TEST_F(CpuTestFixture, VBlankInterrupt)
 {
 	/*
@@ -1474,8 +1499,9 @@ TEST_F(CpuTestFixture, VBlankInterrupt)
 	// Starting values
 	MemoryMap.SetBytes(MemoryMap::RamFixed, { 0x38, 0xff, 0xff, 0xff });
 
-	// Enable all individual interrupt types
+	// Enable all individual interrupt types, and interrupts as a whole (which are disabled at power-on)
 	Cpu.EnabledInterrupts() = 0xff;
+	Cpu.InterruptsEnabled() = true;
 
 	auto& reg = Cpu.Registers();
 

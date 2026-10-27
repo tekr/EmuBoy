@@ -6,6 +6,7 @@
 #include "Timer.h"
 #include "Apu.h"
 #include "Serial.h"
+#include "OamDma.h"
 #include <vector>
 
 class Emulator : ClockedHardware
@@ -16,23 +17,10 @@ class Emulator : ClockedHardware
 	Cpu EmuCpu{ EmuMemoryMap };
 	SpriteManager EmuSpriteManager;
 	Graphics EmuGraphics{ EmuCpu, EmuMemoryMap, EmuSpriteManager };
+	OamDma EmuOamDma{ EmuMemoryMap, EmuGraphics };
 	Timer EmuTimer;
 	Apu EmuApu;
 	Serial EmuSerial;
-
-	int _frameOvershoot{ 0 };
-
-	void Run(int& currentCycle, int cycleTarget);
-
-	// The PPU runs on the system clock, so while STOP has stopped it, it doesn't change mode, count or render lines,
-	// or raise interrupts, and on waking LY carries on from the line where it stopped. Simplification:
-	// GetFrame's loop still keeps time, so the PPU's modes pick up wherever the loop has reached (in practice the
-	// next frame's start, as the front end only changes keys between frames), out of step with LY until the next
-	// frame starts it again from line 0. No DMG game uses STOP, and a per-machine-cycle PPU would remove this
-	void SetPpuMode(LcdcStatus status);
-	void DrawLine();
-	void EndLine();
-	void RenderLine();
 
 	// Called by the CPU for each machine cycle
 	void RunCycles(int cycles) override;
@@ -41,6 +29,12 @@ class Emulator : ClockedHardware
 public:
 	explicit Emulator(std::shared_ptr<Cartridge> cartridge);
 
+	// Runs until the PPU completes a frame and returns it. Frames come as V-Blank starts, so they're FrameClocks
+	// apart while the LCD stays on, and every FrameClocks while it's off. Turning the LCD on moves the boundary: the
+	// next frame comes at its first V-Blank, so the frame it's turned on in lasts up to nearly two frames. While STOP
+	// has the system clock stopped, blank frames come every FrameClocks, and waking does the same as turning the LCD
+	// on: the frame it wakes in lasts until the PPU reaches V-Blank, from a machine cycle to nearly two frames. Pace
+	// by GetCpuClocks rather than by frames
 	int* GetFrame();
 	InputJoypad& GetJoypad() { return EmuJoypad; }
 	MemoryMap& GetMemoryMap() { return EmuMemoryMap; }

@@ -109,7 +109,13 @@ As of now Emu Boy is still in its early stages and is very much a work in progre
 
 * Fairly cycle-accurate emulation of the LR35902 CPU (all documented instructions + interrupts), including STOP
   and the lock-up caused by the unused opcodes
-* Full graphics implementation (sprites + background + window support)
+* Full graphics implementation (sprites + background + window support). The LCD's timing (including how long each
+  line's mode 3 lasts, from the registers as mode 3 starts), STAT interrupts, OAM DMA, when the CPU can access video
+  memory, and the DMG's OAM corruption bug are emulated to the machine cycle. The pixels aren't: each line is drawn
+  in one go as its mode 3 starts, so a game changing the scroll, palette, LCDC or window registers partway through
+  mode 3 doesn't affect that line, or how long its mode 3 lasts.
+  Passes dmg-acid2, blargg's CPU, timing and oam_bug test ROMs, the mooneye-test-suite acceptance tests that apply
+  to the DMG, and all but one of gbmicrotest's STAT write bug tests (see `src/tests/roms/readme.md`)
 * Runs (at least) the included snake and Super Mario Land
 * Sound: all four channels of the original Game Boy's sound hardware, including its documented quirks. Passes all of
   blargg's dmg_sound test ROMs
@@ -130,6 +136,7 @@ As of now Emu Boy is still in its early stages and is very much a work in progre
 Various features remain to be added including:
 
 * Menus & ROM file selector
+* Drawing pixels as mode 3 runs (a pixel FIFO), for effects that change registers partway through a line
 * Performance optimisation
 
 Known bugs are tracked as [GitHub issues](https://github.com/tekr/EmuBoy/issues). Places where the emulator may

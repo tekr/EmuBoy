@@ -153,6 +153,7 @@
     <ClInclude Include="CpuTestFixture.h" />
     <ClInclude Include="GraphicsTestFixture.h" />
     <ClInclude Include="MooneyeRomRunner.h" />
+    <ClInclude Include="GbMicrotestRunner.h" />
     <ClInclude Include="ScreenText.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="targetver.h" />
@@ -175,6 +176,14 @@
     <ClCompile Include="BlarggCpuTests.cpp" />
     <ClCompile Include="BlarggRomRunner.cpp" />
     <ClCompile Include="SerialTests.cpp" />
+    <ClCompile Include="PpuTimingTests.cpp" />
+    <ClCompile Include="OamDmaTests.cpp" />
+    <ClCompile Include="OamCorruptionTests.cpp" />
+    <ClCompile Include="MooneyeAcceptanceTests.cpp" />
+    <ClCompile Include="GbMicrotestTests.cpp" />
+    <ClCompile Include="MemoryMapTests.cpp" />
+    <ClCompile Include="BlarggOamBugTests.cpp" />
+    <ClCompile Include="IoPortTests.cpp" />
     <ClCompile Include="SaveFileTests.cpp" />
     <ClCompile Include="BatteryStoreTests.cpp" />
     <ClCompile Include="ApuTests.cpp" />

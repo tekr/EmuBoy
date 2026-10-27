@@ -6,6 +6,8 @@
 #include "../core/SpriteManager.h"
 
 const unsigned short LcdControlReg = 0x0;
+const unsigned short LcdStatusReg = 0x1;
+const unsigned short LineCountReg = 0x4;
 const unsigned short BgScrollYReg = 0x2;
 const unsigned short BgScrollXReg = 0x3;
 const unsigned short BgWinPaletteReg = 0x7;
@@ -14,6 +16,7 @@ const unsigned short Sprite1PaletteReg = 0x9;
 
 // Display, background and 8x8 sprites on, tile data at 0x8000 (shared with sprites), BG tile map at 0x9800
 const unsigned char LcdControl = 0x93;
+const unsigned char DisplayOn = 0x80;
 
 // Tile 0 is used by the background. Sprite tiles: solid colour 1, and left half transparent with right half colour 1
 const unsigned char SolidTile = 1;
@@ -48,7 +51,7 @@ public:
 		SetTile(SolidTile, 0xff);
 		SetTile(RightHalfTile, 0x0f);
 
-		Graphics.WriteRegister(LcdControlReg, LcdControl);
+		Graphics.WriteRegister(LcdControlReg, LcdControl & ~DisplayOn);
 		Graphics.WriteRegister(BgScrollYReg, 0);
 		Graphics.WriteRegister(BgScrollXReg, 0);
 
@@ -76,10 +79,41 @@ public:
 		Graphics.WriteOam(index * 4 + 3, flags);
 	}
 
+	void Run(int clocks)
+	{
+		for (; clocks > 0; clocks -= 4) Graphics.RunCycles(4);
+	}
+
+	// Turns the LCD on, with the other LCDC bits as they are, and runs until line 0 is drawn as its mode 3 starts
 	void RenderFirstLine()
 	{
-		Graphics.ResetFrame();
-		Graphics.RenderLine();
+		auto lcdControl = Graphics.ReadRegister(LcdControlReg);
+		Graphics.WriteRegister(LcdControlReg, lcdControl & ~DisplayOn);
+		Graphics.WriteRegister(LcdControlReg, lcdControl | DisplayOn);
+		Run(TestGraphics::DrawStart - TestGraphics::FirstLineStart);
+	}
+
+	// Runs to the current line's H-Blank, when the CPU can write OAM again
+	void RunToHBlank()
+	{
+		for (auto clocks = 0; (Graphics.ReadRegister(LcdStatusReg) & 3) != LcdcStatus::HBlankMode; clocks += 4)
+		{
+			ASSERT_LT(clocks, static_cast<int>(Graphics::ScanlineClocks)) << "no H-Blank";
+			Run(4);
+		}
+	}
+
+	// Runs until the next line is drawn
+	void RenderNextLine()
+	{
+		auto line = Graphics.ReadRegister(LineCountReg);
+		for (auto clocks = 0; Graphics.ReadRegister(LineCountReg) == line; clocks += 4)
+		{
+			ASSERT_LT(clocks, static_cast<int>(Graphics::ScanlineClocks)) << "LY didn't change";
+			Run(4);
+		}
+
+		Run(TestGraphics::DrawStart);
 	}
 
 	int Pixel(int x, int y = 0) const { return Graphics.Bitmap[y * Graphics::HozPixels + x]; }
@@ -140,9 +174,10 @@ TEST_F(SpriteTests, SpriteMovedAfterLineRenderedIsDrawnAtNewPositionOnNextLine)
 	SetSprite(0, ScreenLeft, SolidTile);
 	RenderFirstLine();
 
-	// As if written after line 0 was drawn (e.g. in its H-Blank), before line 1 is drawn
+	// Written after line 0 was drawn, in its H-Blank, before line 1 is drawn
+	RunToHBlank();
 	Graphics.WriteOam(1, ScreenLeft + 16);
-	Graphics.RenderLine();
+	RenderNextLine();
 
 	EXPECT_EQ(Colour(0, TestGraphics::Palette::BgAndWindow), Pixel(0, 1));
 	EXPECT_EQ(Colour(1, TestGraphics::Palette::Sprite0), Pixel(16, 1));
@@ -151,14 +186,12 @@ TEST_F(SpriteTests, SpriteMovedAfterLineRenderedIsDrawnAtNewPositionOnNextLine)
 TEST_F(SpriteTests, SpriteMovedInHBlankStaysAtOldPositionOnCurrentLine)
 {
 	SetSprite(0, ScreenLeft, SolidTile);
-	Graphics.ResetFrame();
-	Graphics.DrawLine();
+	RenderFirstLine();
 
 	// Written in line 0's H-Blank: line 0 has already been drawn
-	Graphics.SetLcdcStatus(LcdcStatus::HBlankMode);
+	RunToHBlank();
 	Graphics.WriteOam(1, ScreenLeft + 16);
-	Graphics.EndLine();
-	Graphics.DrawLine();
+	RenderNextLine();
 
 	EXPECT_EQ(Colour(1, TestGraphics::Palette::Sprite0), Pixel(0, 0));
 	EXPECT_EQ(Colour(0, TestGraphics::Palette::BgAndWindow), Pixel(16, 0));
@@ -173,8 +206,9 @@ TEST_F(SpriteTests, SpriteMovedOntoNextLineIsDrawnThere)
 	Graphics.WriteOam(0, FirstLine + 8);
 	RenderFirstLine();
 
+	RunToHBlank();
 	Graphics.WriteOam(0, FirstLine);
-	Graphics.RenderLine();
+	RenderNextLine();
 
 	EXPECT_EQ(Colour(1, TestGraphics::Palette::Sprite0), Pixel(0, 1));
 }
@@ -190,7 +224,7 @@ TEST_F(SpriteTests, LowerHalfOfTallSpriteNotDrawnAfterSwitchToShortSprites)
 
 	// As an 8x8 sprite it covers only the 8 lines above the screen
 	Graphics.WriteRegister(LcdControlReg, LcdControl);
-	Graphics.RenderLine();
+	RenderNextLine();
 
 	for (auto x = 0; x < SpriteManager::SpriteWidth; x++) EXPECT_EQ(Colour(0, TestGraphics::Palette::BgAndWindow), Pixel(x, 1)) << "at x = " << x;
 }
@@ -207,7 +241,7 @@ TEST_F(SpriteTests, YFlippedTallSpriteNotDrawnAfterSwitchToShortSprites)
 
 	// As an 8x8 sprite it covers only the 8 lines above the screen
 	Graphics.WriteRegister(LcdControlReg, LcdControl);
-	Graphics.RenderLine();
+	RenderNextLine();
 
 	EXPECT_EQ(Colour(0, TestGraphics::Palette::BgAndWindow), Pixel(0, 1));
 }
