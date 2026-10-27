@@ -11,14 +11,12 @@ class CartridgeRamTest : public testing::Test
 public:
 	InputJoypad Joypad;
 	MemoryMap Memory{ Joypad };
-	// Members named after their types qualify the type with :: so the name's meaning doesn't change within the
-	// class, which GCC rejects
-	std::shared_ptr<::Cartridge> Cartridge{ std::make_shared<Mbc1Cartridge>(std::vector<unsigned char>(2 * MemoryMap::RomBankSize),
-		::Cartridge::RamBankSize, true) };
+	std::shared_ptr<Cartridge> Mbc1{ std::make_shared<Mbc1Cartridge>(std::vector<unsigned char>(2 * MemoryMap::RomBankSize),
+		Cartridge::RamBankSize, true) };
 
 	CartridgeRamTest()
 	{
-		Memory.SetCartridge(Cartridge);
+		Memory.SetCartridge(Mbc1);
 	}
 };
 
@@ -60,34 +58,34 @@ TEST_F(CartridgeRamTest, EnabledOnlyByLowNibbleOfA)
 
 TEST_F(CartridgeRamTest, StartsWithNoUnsavedChanges)
 {
-	EXPECT_FALSE(Cartridge->HasUnsavedChanges());
+	EXPECT_FALSE(Mbc1->HasUnsavedChanges());
 }
 
 TEST_F(CartridgeRamTest, RamWriteMarksUnsavedChangesUntilSaved)
 {
 	Memory.WriteByte(0x0000, 0x0a);
 	Memory.WriteByte(0xa123, 0x45);
-	EXPECT_TRUE(Cartridge->HasUnsavedChanges());
+	EXPECT_TRUE(Mbc1->HasUnsavedChanges());
 
-	Cartridge->MarkSaved();
-	EXPECT_FALSE(Cartridge->HasUnsavedChanges());
+	Mbc1->MarkSaved();
+	EXPECT_FALSE(Mbc1->HasUnsavedChanges());
 }
 
 TEST_F(CartridgeRamTest, RewritingTheSameValueIsNotAChange)
 {
 	Memory.WriteByte(0x0000, 0x0a);
 	Memory.WriteByte(0xa123, 0x45);
-	Cartridge->MarkSaved();
+	Mbc1->MarkSaved();
 
 	Memory.WriteByte(0xa123, 0x45);
-	EXPECT_FALSE(Cartridge->HasUnsavedChanges());
+	EXPECT_FALSE(Mbc1->HasUnsavedChanges());
 }
 
 TEST_F(CartridgeRamTest, IgnoredWriteIsNotAChange)
 {
 	Memory.WriteByte(0xa123, 0x45);
 
-	EXPECT_FALSE(Cartridge->HasUnsavedChanges());
+	EXPECT_FALSE(Mbc1->HasUnsavedChanges());
 }
 
 TEST(UnsavedChangesTest, Mbc2RamWriteIsAChange)

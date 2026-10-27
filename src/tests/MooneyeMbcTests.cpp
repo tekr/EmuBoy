@@ -14,7 +14,7 @@ TEST_P(MooneyeMbcTest, Passes)
 	SCOPED_TRACE(GetParam());
 	auto result = MooneyeRomRunner::Run(std::string("roms/mooneye-test-suite/emulator-only/") + GetParam() + ".gb");
 
-	EXPECT_EQ(MooneyeRomRunner::Outcome::Passed, result.Outcome) << result;
+	EXPECT_EQ(MooneyeRomRunner::Outcome::Passed, result.Status) << result;
 }
 
 // INSTANTIATE_TEST_CASE_P (not _SUITE_P) and no name generator, for the Google Test 1.7 used on Windows

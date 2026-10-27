@@ -16,69 +16,69 @@ namespace
 class CpuIllegalOpcodeTests : public CpuTestFixture, public testing::WithParamInterface<unsigned char>
 {
 public:
-	::Timer Timer;
-	TimerTestHardware Hardware{ Timer };
+	Timer TimerUnit;
+	TimerTestHardware Hardware{ TimerUnit };
 
 	CpuIllegalOpcodeTests()
 	{
-		Timer.SetCpu(&Cpu);
-		MemoryMap.SetTimer(&Timer);
-		Cpu.SetClockedHardware(&Hardware);
+		TimerUnit.SetCpu(&Processor);
+		Memory.SetTimer(&TimerUnit);
+		Processor.SetClockedHardware(&Hardware);
 
-		Cpu.Registers().PC = 0;
-		Cpu.Registers().SP = StackTop;
-		Cpu.InterruptsEnabled() = false;
-		Cpu.EnabledInterrupts() = 0;
-		Cpu.WaitingInterrupts() = 0;
+		Processor.RegisterFile().PC = 0;
+		Processor.RegisterFile().SP = StackTop;
+		Processor.InterruptsEnabled() = false;
+		Processor.EnabledInterrupts() = 0;
+		Processor.WaitingInterrupts() = 0;
 
 		// The illegal opcode, then INC A, which must never run
-		MemoryMap.SetBytes(0, { GetParam(), 0x3c, 0x3c, 0x3c });
+		Memory.SetBytes(0, { GetParam(), 0x3c, 0x3c, 0x3c });
 	}
 };
 
 TEST_P(CpuIllegalOpcodeTests, LocksTheCpuWithoutThrowing)
 {
-	EXPECT_NO_THROW(Cpu.DoNextInstruction());
-	EXPECT_EQ(CpuState::Locked, Cpu.State());
+	EXPECT_NO_THROW(Processor.DoNextInstruction());
+	EXPECT_EQ(CpuState::Locked, Processor.State());
 }
 
 TEST_P(CpuIllegalOpcodeTests, ExecutesNothingMore)
 {
 	Step(1);
-	auto registers = Cpu.Registers();
+	auto registers = Processor.RegisterFile();
 
 	Step(100);
-	EXPECT_EQ(registers, Cpu.Registers());
-	EXPECT_EQ(CpuState::Locked, Cpu.State());
+	EXPECT_EQ(registers, Processor.RegisterFile());
+	EXPECT_EQ(CpuState::Locked, Processor.State());
 }
 
 TEST_P(CpuIllegalOpcodeTests, InterruptsDontWakeIt)
 {
 	Step(1);
-	auto registers = Cpu.Registers();
+	auto registers = Processor.RegisterFile();
 
-	Cpu.InterruptsEnabled() = true;
-	Cpu.EnabledInterrupts() = InterruptFlags::AllInt;
-	Cpu.RequestInterrupt(InterruptFlags::VBlankInt);
-	Cpu.RequestInterrupt(InterruptFlags::JoypadInt);
+	Processor.InterruptsEnabled() = true;
+	Processor.EnabledInterrupts() = InterruptFlags::AllInt;
+	Processor.RequestInterrupt(InterruptFlags::VBlankInt);
+	Processor.RequestInterrupt(InterruptFlags::JoypadInt);
 
 	Step(100);
-	EXPECT_EQ(registers, Cpu.Registers());
-	EXPECT_EQ(InterruptFlags::VBlankInt | InterruptFlags::JoypadInt, Cpu.WaitingInterrupts());
-	EXPECT_EQ(CpuState::Locked, Cpu.State());
+	EXPECT_EQ(registers, Processor.RegisterFile());
+	EXPECT_EQ(InterruptFlags::VBlankInt | InterruptFlags::JoypadInt, Processor.WaitingInterrupts());
+	EXPECT_EQ(CpuState::Locked, Processor.State());
 }
 
 TEST_P(CpuIllegalOpcodeTests, OtherHardwareKeepsRunning)
 {
 	Step(1);
-	MemoryMap.WriteByte(MemoryMap::DividerPort, 0);
+	Memory.WriteByte(MemoryMap::DividerPort, 0);
 
 	// DIV increments every 64 machine cycles
 	auto cycles = 0;
-	for (auto i = 0; i < 64; i++) cycles += Cpu.DoNextInstruction();
+	for (auto i = 0; i < 64; i++) cycles += Processor.DoNextInstruction();
 
 	EXPECT_EQ(64 * MachineCycle, cycles);
-	EXPECT_EQ(1, MemoryMap.ReadByte(MemoryMap::DividerPort));
+	EXPECT_EQ(1, Memory.ReadByte(MemoryMap::DividerPort));
 }
 
 INSTANTIATE_TEST_CASE_P(UnusedOpcodes, CpuIllegalOpcodeTests, ::testing::ValuesIn(IllegalOpcodes));

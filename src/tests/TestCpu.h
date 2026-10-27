@@ -8,8 +8,7 @@ public:
 	explicit TestCpu(TestMemoryMap& memory) : Cpu(memory) {}
 	~TestCpu() = default;
 
-	// Qualified with :: because GCC rejects a member that changes the meaning of the name Registers
-	::Registers& Registers() { return _registers; }
+	Registers& RegisterFile() { return _registers; }
 	CpuState& State() { return _state; }
 
 	bool& InterruptsEnabled() { return _interruptsEnabled; }

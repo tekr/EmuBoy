@@ -15,7 +15,7 @@ TEST_P(GbMicrotest, Passes)
 
 	auto result = GbMicrotestRunner::Run(std::string("roms/gbmicrotest/") + GetParam() + ".gb");
 
-	EXPECT_EQ(GbMicrotestRunner::Outcome::Passed, result.Outcome) << result;
+	EXPECT_EQ(GbMicrotestRunner::Outcome::Passed, result.Status) << result;
 }
 
 // The STAT write bug: a write to STAT on the DMG requests a STAT interrupt if, for a moment, any interrupt source would

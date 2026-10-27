@@ -10,15 +10,15 @@ public:
 	static constexpr unsigned short StackTop = 0xc010;
 
 	InputJoypad Joypad;
-	TestMemoryMap MemoryMap { Joypad };
-	TestCpu Cpu{ MemoryMap };
+	TestMemoryMap Memory { Joypad };
+	TestCpu Processor{ Memory };
 
 	CpuTestFixture() {}
 	~CpuTestFixture();
 
 	void Step(int instructions)
 	{
-		for (auto i = 0; i < instructions; i++) Cpu.DoNextInstruction();
+		for (auto i = 0; i < instructions; i++) Processor.DoNextInstruction();
 	}
 };
 

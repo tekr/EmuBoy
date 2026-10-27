@@ -16,29 +16,29 @@ namespace
 	class Mbc3ClockTest : public testing::Test
 	{
 	public:
-		Mbc3Cartridge Cartridge{ BankNumberedRom(4), 4 * RamBankSize, true, true };
+		Mbc3Cartridge Mbc3{ BankNumberedRom(4), 4 * RamBankSize, true, true };
 
 		Mbc3ClockTest()
 		{
-			Cartridge.RomWriteByte(0x0000, 0x0a);
+			Mbc3.RomWriteByte(0x0000, 0x0a);
 		}
 
 		void Latch()
 		{
-			Cartridge.RomWriteByte(0x6000, 0x00);
-			Cartridge.RomWriteByte(0x7fff, 0x01);
+			Mbc3.RomWriteByte(0x6000, 0x00);
+			Mbc3.RomWriteByte(0x7fff, 0x01);
 		}
 
 		unsigned char ReadClock(int reg)
 		{
-			Cartridge.RomWriteByte(0x4000, 0x08 + reg);
-			return Cartridge.RamReadByte(0x0000);
+			Mbc3.RomWriteByte(0x4000, 0x08 + reg);
+			return Mbc3.RamReadByte(0x0000);
 		}
 
 		void WriteClock(int reg, unsigned char value)
 		{
-			Cartridge.RomWriteByte(0x4000, 0x08 + reg);
-			Cartridge.RamWriteByte(0x0000, value);
+			Mbc3.RomWriteByte(0x4000, 0x08 + reg);
+			Mbc3.RamWriteByte(0x0000, value);
 		}
 	};
 }
@@ -216,8 +216,8 @@ TEST(Mbc3Test, WithoutClockClockRegistersReadFf)
 
 TEST_F(Mbc3ClockTest, ExposesClock)
 {
-	EXPECT_NE(nullptr, Cartridge.GetRealTimeClock());
-	EXPECT_TRUE(Cartridge.HasBattery());
+	EXPECT_NE(nullptr, Mbc3.GetRealTimeClock());
+	EXPECT_TRUE(Mbc3.HasBattery());
 }
 
 TEST_F(Mbc3ClockTest, MapsClockRegistersAt08To0c)
@@ -236,40 +236,40 @@ TEST_F(Mbc3ClockTest, MapsClockRegistersAt08To0c)
 	EXPECT_EQ(0xc1, ReadClock(RealTimeClock::DaysHigh));
 
 	// RAM is left alone
-	Cartridge.RomWriteByte(0x4000, 0x00);
-	EXPECT_EQ(0x00, Cartridge.RamReadByte(0x0000));
+	Mbc3.RomWriteByte(0x4000, 0x00);
+	EXPECT_EQ(0x00, Mbc3.RamReadByte(0x0000));
 }
 
 TEST_F(Mbc3ClockTest, UnmappedRegistersReadFf)
 {
-	Cartridge.RomWriteByte(0x4000, 0x0d);
-	EXPECT_EQ(0xff, Cartridge.RamReadByte(0x0000));
+	Mbc3.RomWriteByte(0x4000, 0x0d);
+	EXPECT_EQ(0xff, Mbc3.RamReadByte(0x0000));
 
-	Cartridge.RomWriteByte(0x4000, 0xff);
-	EXPECT_EQ(0xff, Cartridge.RamReadByte(0x0000));
+	Mbc3.RomWriteByte(0x4000, 0xff);
+	EXPECT_EQ(0xff, Mbc3.RamReadByte(0x0000));
 }
 
 TEST_F(Mbc3ClockTest, ClockRegistersReadFfWhenDisabled)
 {
 	WriteClock(RealTimeClock::Minutes, 5);
-	Cartridge.RomWriteByte(0x0000, 0x00);
+	Mbc3.RomWriteByte(0x0000, 0x00);
 	WriteClock(RealTimeClock::Minutes, 6);
 
 	EXPECT_EQ(0xff, ReadClock(RealTimeClock::Minutes));
 
-	Cartridge.RomWriteByte(0x0000, 0x0a);
+	Mbc3.RomWriteByte(0x0000, 0x0a);
 	EXPECT_EQ(5, ReadClock(RealTimeClock::Minutes));
 }
 
 TEST_F(Mbc3ClockTest, RunCyclesDrivesClockAndLatchFreezesReads)
 {
-	Cartridge.RunCycles(2 * RealTimeClock::CyclesPerSecond);
+	Mbc3.RunCycles(2 * RealTimeClock::CyclesPerSecond);
 	EXPECT_EQ(0, ReadClock(RealTimeClock::Seconds));
 
 	Latch();
 	EXPECT_EQ(2, ReadClock(RealTimeClock::Seconds));
 
-	Cartridge.RunCycles(RealTimeClock::CyclesPerSecond);
+	Mbc3.RunCycles(RealTimeClock::CyclesPerSecond);
 	EXPECT_EQ(2, ReadClock(RealTimeClock::Seconds));
 
 	Latch();
@@ -279,7 +279,7 @@ TEST_F(Mbc3ClockTest, RunCyclesDrivesClockAndLatchFreezesReads)
 TEST_F(Mbc3ClockTest, HaltBitStopsClock)
 {
 	WriteClock(RealTimeClock::DaysHigh, RealTimeClock::HaltBit);
-	Cartridge.RunCycles(2 * RealTimeClock::CyclesPerSecond);
+	Mbc3.RunCycles(2 * RealTimeClock::CyclesPerSecond);
 	Latch();
 
 	EXPECT_EQ(0, ReadClock(RealTimeClock::Seconds));

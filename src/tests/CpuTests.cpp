@@ -70,32 +70,32 @@ const std::vector<TestData16Reg2> Reg16TestCases2
 
 TEST_F(CpuTestFixture, Nop)
 {
-	MemoryMap.SetBytes(MemoryMap::RomFixed, { 0, 0 });
+	Memory.SetBytes(MemoryMap::RomFixed, { 0, 0 });
 
-	auto oldReg(Cpu.Registers());
+	auto oldReg(Processor.RegisterFile());
 
-	EXPECT_EQ(OneCycle, Cpu.DoNextInstruction());
-	EXPECT_EQ(OneCycle, Cpu.DoNextInstruction());
+	EXPECT_EQ(OneCycle, Processor.DoNextInstruction());
+	EXPECT_EQ(OneCycle, Processor.DoNextInstruction());
 
 	oldReg.PC += 2;
-	EXPECT_EQ(oldReg, Cpu.Registers());
+	EXPECT_EQ(oldReg, Processor.RegisterFile());
 }
 
 TEST_F(CpuTestFixture, Ld16RegImm)
 {
 	for (auto test : Reg16TestCases1)
 	{
-		auto& reg = Cpu.Registers();
+		auto& reg = Processor.RegisterFile();
 		reg.PC = 0;
 		reg.F = 0;
 		test.Selector(reg) = 0;
 
-		MemoryMap.SetBytes(MemoryMap::RomFixed, { test.LdImmOpcode, 0x34, 0x12 });
+		Memory.SetBytes(MemoryMap::RomFixed, { test.LdImmOpcode, 0x34, 0x12 });
 
 		auto oldReg{ reg };
 		EXPECT_EQ(oldReg, reg);
 
-		EXPECT_EQ(ThreeCycles, Cpu.DoNextInstruction());
+		EXPECT_EQ(ThreeCycles, Processor.DoNextInstruction());
 
 		test.Selector(oldReg) = 0x1234;
 		oldReg.PC += 3;
@@ -112,19 +112,19 @@ TEST_F(CpuTestFixture, St8MemAcc)
 	{
 		auto& test = Reg16TestCases2[i];
 
-		auto& reg = Cpu.Registers();
+		auto& reg = Processor.RegisterFile();
 		reg.PC = 0;
 		reg.F = 0;
 		reg.A = 0x33;
 		test.Selector(reg) = address;
 
-		MemoryMap.WriteByte(address, { 0 });
-		MemoryMap.SetBytes(MemoryMap::RomFixed, { test.StMemAccOpcode });
+		Memory.WriteByte(address, { 0 });
+		Memory.SetBytes(MemoryMap::RomFixed, { test.StMemAccOpcode });
 
-		EXPECT_EQ(0, MemoryMap.ReadByte(address));
+		EXPECT_EQ(0, Memory.ReadByte(address));
 		auto oldReg{ reg };
 
-		EXPECT_EQ(TwoCycles, Cpu.DoNextInstruction());
+		EXPECT_EQ(TwoCycles, Processor.DoNextInstruction());
 
 		oldReg.PC++;
 
@@ -132,7 +132,7 @@ TEST_F(CpuTestFixture, St8MemAcc)
 		else if (i == 3) oldReg.HL--;
 
 		EXPECT_EQ(oldReg, reg);
-		EXPECT_EQ(0x33, MemoryMap.ReadByte(address));
+		EXPECT_EQ(0x33, Memory.ReadByte(address));
 
 		address++;
 	}
@@ -146,19 +146,19 @@ TEST_F(CpuTestFixture, Ld8AccMem)
 	{
 		auto& test = Reg16TestCases2[i];
 
-		auto& reg = Cpu.Registers();
+		auto& reg = Processor.RegisterFile();
 		reg.PC = 0;
 		reg.F = 0;
 		reg.A = 0;
 		test.Selector(reg) = address;
 
-		MemoryMap.WriteByte(address, { 0x88 });
-		MemoryMap.SetBytes(MemoryMap::RomFixed, { test.LdAccMemOpcode, test.LdAccMemOpcode });
+		Memory.WriteByte(address, { 0x88 });
+		Memory.SetBytes(MemoryMap::RomFixed, { test.LdAccMemOpcode, test.LdAccMemOpcode });
 
 		EXPECT_EQ(0, reg.A);
 		auto oldReg{ reg };
 
-		EXPECT_EQ(TwoCycles, Cpu.DoNextInstruction());
+		EXPECT_EQ(TwoCycles, Processor.DoNextInstruction());
 
 		oldReg.PC++;
 		oldReg.A = 0x88;
@@ -171,11 +171,11 @@ TEST_F(CpuTestFixture, Ld8AccMem)
 		address++;
 
 		test.Selector(reg) = address;
-		MemoryMap.WriteByte(address, { 0x7f });
+		Memory.WriteByte(address, { 0x7f });
 
 		oldReg = reg;
 
-		EXPECT_EQ(TwoCycles, Cpu.DoNextInstruction());
+		EXPECT_EQ(TwoCycles, Processor.DoNextInstruction());
 
 		oldReg.PC++;
 		oldReg.A = 0x7f;
@@ -193,18 +193,18 @@ TEST_F(CpuTestFixture, IncDec16Reg)
 {
 	for (auto test : Reg16TestCases1)
 	{
-		auto& reg = Cpu.Registers();
+		auto& reg = Processor.RegisterFile();
 		reg.PC = 0;
 		reg.F = 0;
 		test.Selector(reg) = 0xffff;
 
-		MemoryMap.SetBytes(MemoryMap::RomFixed, { test.IncOpcode, test.IncOpcode, test.DecOpcode, test.DecOpcode });
+		Memory.SetBytes(MemoryMap::RomFixed, { test.IncOpcode, test.IncOpcode, test.DecOpcode, test.DecOpcode });
 
 		auto oldReg{ reg };
 		EXPECT_EQ(oldReg, reg);
 
 		// Inc
-		EXPECT_EQ(TwoCycles, Cpu.DoNextInstruction());
+		EXPECT_EQ(TwoCycles, Processor.DoNextInstruction());
 
 		test.Selector(oldReg) = 0;
 		oldReg.PC++;
@@ -212,7 +212,7 @@ TEST_F(CpuTestFixture, IncDec16Reg)
 		EXPECT_EQ(oldReg, reg);
 
 		// Inc
-		EXPECT_EQ(TwoCycles, Cpu.DoNextInstruction());
+		EXPECT_EQ(TwoCycles, Processor.DoNextInstruction());
 
 		test.Selector(oldReg)++;
 		oldReg.PC++;
@@ -220,7 +220,7 @@ TEST_F(CpuTestFixture, IncDec16Reg)
 		EXPECT_EQ(oldReg, reg);
 
 		// Dec
-		EXPECT_EQ(TwoCycles, Cpu.DoNextInstruction());
+		EXPECT_EQ(TwoCycles, Processor.DoNextInstruction());
 
 		test.Selector(oldReg)--;
 		oldReg.PC++;
@@ -228,7 +228,7 @@ TEST_F(CpuTestFixture, IncDec16Reg)
 		EXPECT_EQ(oldReg, reg);
 
 		// Dec
-		EXPECT_EQ(TwoCycles, Cpu.DoNextInstruction());
+		EXPECT_EQ(TwoCycles, Processor.DoNextInstruction());
 
 		test.Selector(oldReg) = 0xffff;
 		oldReg.PC++;
@@ -241,83 +241,83 @@ TEST_F(CpuTestFixture, IncDec8RegOrMem)
 {
 	for (auto test : Reg8TestCases)
 	{
-		Cpu.Registers().HL = MemoryMap::RamFixed;
+		Processor.RegisterFile().HL = MemoryMap::RamFixed;
 
-		auto& reg = Cpu.Registers();
+		auto& reg = Processor.RegisterFile();
 		reg.PC = 0;
-		test.Selector(reg, MemoryMap) = 0x3F;
+		test.Selector(reg, Memory) = 0x3F;
 
-		MemoryMap.SetBytes(MemoryMap::RomFixed, { test.IncOpcode, test.DecOpcode });
+		Memory.SetBytes(MemoryMap::RomFixed, { test.IncOpcode, test.DecOpcode });
 
 		auto oldReg{ reg };
-		auto oldMem{ MemoryMap };
+		auto oldMem{ Memory };
 
 		// Inc
-		EXPECT_EQ(test.IncDecCycleCount, Cpu.DoNextInstruction());
+		EXPECT_EQ(test.IncDecCycleCount, Processor.DoNextInstruction());
 
 		test.Selector(oldReg, oldMem)++;
 		oldReg.PC++;
 		oldReg.F = HalfCarryFlag;
 
 		EXPECT_EQ(oldReg, reg);
-		EXPECT_EQ(oldMem, MemoryMap);
+		EXPECT_EQ(oldMem, Memory);
 		
 		// Dec
-		EXPECT_EQ(test.IncDecCycleCount, Cpu.DoNextInstruction());
+		EXPECT_EQ(test.IncDecCycleCount, Processor.DoNextInstruction());
 
 		test.Selector(oldReg, oldMem)--;
 		oldReg.PC++;
 		oldReg.F = SubFlag | HalfCarryFlag;
 
 		EXPECT_EQ(oldReg, reg);
-		EXPECT_EQ(oldMem, MemoryMap);
+		EXPECT_EQ(oldMem, Memory);
 
 		// Inc to zero
 		reg.PC = 0;
-		test.Selector(reg, MemoryMap) = 0xff;
+		test.Selector(reg, Memory) = 0xff;
 
 		oldReg = reg;
-		oldMem = MemoryMap;
+		oldMem = Memory;
 
-		EXPECT_EQ(test.IncDecCycleCount, Cpu.DoNextInstruction());
+		EXPECT_EQ(test.IncDecCycleCount, Processor.DoNextInstruction());
 
 		test.Selector(oldReg, oldMem) = 0;
 		oldReg.PC++;
 		oldReg.F = HalfCarryFlag | ZeroFlag;
 
 		EXPECT_EQ(oldReg, reg);
-		EXPECT_EQ(oldMem, MemoryMap);
+		EXPECT_EQ(oldMem, Memory);
 
 		// Dec to zero
-		test.Selector(reg, MemoryMap) = 0x1;
+		test.Selector(reg, Memory) = 0x1;
 		
 		oldReg = reg;
-		oldMem = MemoryMap;
+		oldMem = Memory;
 
-		EXPECT_EQ(test.IncDecCycleCount, Cpu.DoNextInstruction());
+		EXPECT_EQ(test.IncDecCycleCount, Processor.DoNextInstruction());
 
 		test.Selector(oldReg, oldMem) = 0;
 		oldReg.PC++;
 		oldReg.F = ZeroFlag | SubFlag;
 
 		EXPECT_EQ(oldReg, reg);
-		EXPECT_EQ(oldMem, MemoryMap);
+		EXPECT_EQ(oldMem, Memory);
 
 		// Dec from zero
-		test.Selector(reg, MemoryMap) = 0;
+		test.Selector(reg, Memory) = 0;
 		reg.PC = 1;
 
 		oldReg = reg;
-		oldMem = MemoryMap;
+		oldMem = Memory;
 
-		EXPECT_EQ(test.IncDecCycleCount, Cpu.DoNextInstruction());
+		EXPECT_EQ(test.IncDecCycleCount, Processor.DoNextInstruction());
 
 		test.Selector(oldReg, oldMem) = 0xff;
 		oldReg.PC++;
 		oldReg.F = SubFlag | HalfCarryFlag;
 
 		EXPECT_EQ(oldReg, reg);
-		EXPECT_EQ(oldMem, MemoryMap);
+		EXPECT_EQ(oldMem, Memory);
 	}
 }
 
@@ -325,38 +325,38 @@ TEST_F(CpuTestFixture, Ld8RegOrMemImm)
 {
 	for (auto test : Reg8TestCases)
 	{
-		auto& reg = Cpu.Registers();
+		auto& reg = Processor.RegisterFile();
 	
 		// HL points to start of fixed RAM
 		reg.HL = MemoryMap::RamFixed;
 		reg.PC = 0;
 		reg.F = AllFlags;
-		test.Selector(reg, MemoryMap) = 0;
+		test.Selector(reg, Memory) = 0;
 
-		MemoryMap.SetBytes(MemoryMap::RomFixed, { test.LdImmOpcode, 0xaa, test.LdImmOpcode, 0x55 });
+		Memory.SetBytes(MemoryMap::RomFixed, { test.LdImmOpcode, 0xaa, test.LdImmOpcode, 0x55 });
 
 		auto oldReg{ reg };
-		auto oldMem{ MemoryMap };
+		auto oldMem{ Memory };
 
-		EXPECT_EQ(test.LdCycleCount, Cpu.DoNextInstruction());
+		EXPECT_EQ(test.LdCycleCount, Processor.DoNextInstruction());
 
 		test.Selector(oldReg, oldMem) = 0xaa;
 		oldReg.PC += 2;
 
 		EXPECT_EQ(oldReg, reg);
-		EXPECT_EQ(oldMem, MemoryMap);
+		EXPECT_EQ(oldMem, Memory);
 
 		reg.F = 0;
-		test.Selector(reg, MemoryMap) = 0;
+		test.Selector(reg, Memory) = 0;
 
-		EXPECT_EQ(test.LdCycleCount, Cpu.DoNextInstruction());
+		EXPECT_EQ(test.LdCycleCount, Processor.DoNextInstruction());
 
 		test.Selector(oldReg, oldMem) = 0x55;
 		oldReg.PC += 2;
 		oldReg.F = 0;
 
 		EXPECT_EQ(oldReg, reg);
-		EXPECT_EQ(oldMem, MemoryMap);
+		EXPECT_EQ(oldMem, Memory);
 	}
 }
 
@@ -371,8 +371,8 @@ TEST_F(CpuTestFixture, Rlca)
 		{ 0x34,			CarryFlag,								0x68,		NoFlags },
 	};
 
-	MemoryMap.SetBytes(MemoryMap::RomFixed, { 0x7 });
-	auto& reg = Cpu.Registers();
+	Memory.SetBytes(MemoryMap::RomFixed, { 0x7 });
+	auto& reg = Processor.RegisterFile();
 
 	for (auto& test : tests)
 	{
@@ -382,7 +382,7 @@ TEST_F(CpuTestFixture, Rlca)
 
 		auto oldReg{ reg };
 
-		EXPECT_EQ(OneCycle, Cpu.DoNextInstruction());
+		EXPECT_EQ(OneCycle, Processor.DoNextInstruction());
 
 		oldReg.A = test[2];
 		oldReg.F = test[3];
@@ -403,8 +403,8 @@ TEST_F(CpuTestFixture, Rla)
 		{ 0x34,			CarryFlag,								0x69,		NoFlags },
 	};
 
-	MemoryMap.SetBytes(MemoryMap::RomFixed, { 0x17 });
-	auto& reg = Cpu.Registers();
+	Memory.SetBytes(MemoryMap::RomFixed, { 0x17 });
+	auto& reg = Processor.RegisterFile();
 
 	for (auto& test : tests)
 	{
@@ -414,7 +414,7 @@ TEST_F(CpuTestFixture, Rla)
 
 		auto oldReg{ reg };
 
-		EXPECT_EQ(OneCycle, Cpu.DoNextInstruction());
+		EXPECT_EQ(OneCycle, Processor.DoNextInstruction());
 
 		oldReg.A = test[2];
 		oldReg.F = test[3];
@@ -435,8 +435,8 @@ TEST_F(CpuTestFixture, Rrca)
 		{ 0x35,			NoFlags,								0x9a,		CarryFlag },
 	};
 
-	MemoryMap.SetBytes(MemoryMap::RomFixed, { 0xf });
-	auto& reg = Cpu.Registers();
+	Memory.SetBytes(MemoryMap::RomFixed, { 0xf });
+	auto& reg = Processor.RegisterFile();
 
 	for (auto& test : tests)
 	{
@@ -446,7 +446,7 @@ TEST_F(CpuTestFixture, Rrca)
 
 		auto oldReg{ reg };
 
-		EXPECT_EQ(OneCycle, Cpu.DoNextInstruction());
+		EXPECT_EQ(OneCycle, Processor.DoNextInstruction());
 
 		oldReg.A = test[2];
 		oldReg.F = test[3];
@@ -467,8 +467,8 @@ TEST_F(CpuTestFixture, Rra)
 		{ 0x35,			NoFlags,								0x1a,		CarryFlag },
 	};
 
-	MemoryMap.SetBytes(MemoryMap::RomFixed, { 0x1f });
-	auto& reg = Cpu.Registers();
+	Memory.SetBytes(MemoryMap::RomFixed, { 0x1f });
+	auto& reg = Processor.RegisterFile();
 
 	for (auto& test : tests)
 	{
@@ -478,7 +478,7 @@ TEST_F(CpuTestFixture, Rra)
 
 		auto oldReg{ reg };
 
-		EXPECT_EQ(OneCycle, Cpu.DoNextInstruction());
+		EXPECT_EQ(OneCycle, Processor.DoNextInstruction());
 
 		oldReg.A = test[2];
 		oldReg.F = test[3];
@@ -490,53 +490,53 @@ TEST_F(CpuTestFixture, Rra)
 
 TEST_F(CpuTestFixture, St16MemSp)
 {
-	MemoryMap.SetBytes(MemoryMap::RomFixed, { 0x8, MemoryMap::RamFixed & 0xff, MemoryMap::RamFixed >> 8,
+	Memory.SetBytes(MemoryMap::RomFixed, { 0x8, MemoryMap::RamFixed & 0xff, MemoryMap::RamFixed >> 8,
 										0x8, (MemoryMap::RamFixed & 0xff) + 4, MemoryMap::RamFixed >> 8 });
 
-	auto& reg = Cpu.Registers();
+	auto& reg = Processor.RegisterFile();
 	reg.F = 0x0;
 	reg.SP = 0x3344;
 
 	auto oldReg{ reg };
 
-	EXPECT_EQ(FiveCycles, Cpu.DoNextInstruction());
+	EXPECT_EQ(FiveCycles, Processor.DoNextInstruction());
 
 	oldReg.PC += 3;
 
 	EXPECT_EQ(oldReg, reg);
-	EXPECT_EQ(0x44, MemoryMap.ReadByte(MemoryMap::RamFixed));
-	EXPECT_EQ(0x33, MemoryMap.ReadByte(MemoryMap::RamFixed + 1));
+	EXPECT_EQ(0x44, Memory.ReadByte(MemoryMap::RamFixed));
+	EXPECT_EQ(0x33, Memory.ReadByte(MemoryMap::RamFixed + 1));
 
 	reg.F = AllFlags;
 	reg.SP = 0xaabb;
 
 	oldReg = reg;
 
-	EXPECT_EQ(FiveCycles, Cpu.DoNextInstruction());
+	EXPECT_EQ(FiveCycles, Processor.DoNextInstruction());
 
 	oldReg.PC += 3;
 
 	EXPECT_EQ(oldReg, reg);
-	EXPECT_EQ(0xbb, MemoryMap.ReadByte(MemoryMap::RamFixed + 4));
-	EXPECT_EQ(0xaa, MemoryMap.ReadByte(MemoryMap:: RamFixed + 5));
+	EXPECT_EQ(0xbb, Memory.ReadByte(MemoryMap::RamFixed + 4));
+	EXPECT_EQ(0xaa, Memory.ReadByte(MemoryMap:: RamFixed + 5));
 }
 
 TEST_F(CpuTestFixture, Add16RegHl)
 {
 	for (auto test : Reg16TestCases1)
 	{
-		auto& reg = Cpu.Registers();
+		auto& reg = Processor.RegisterFile();
 		reg.PC = 0;
 		reg.F = AllFlags;
 		reg.HL = 0x8fff;
 		test.Selector(reg) = 0x8fff;
 
-		MemoryMap.SetBytes(MemoryMap::RomFixed, { test.AddHlOpcode, test.AddHlOpcode });
+		Memory.SetBytes(MemoryMap::RomFixed, { test.AddHlOpcode, test.AddHlOpcode });
 
 		auto oldReg{ reg };
 		EXPECT_EQ(oldReg, reg);
 
-		EXPECT_EQ(TwoCycles, Cpu.DoNextInstruction());
+		EXPECT_EQ(TwoCycles, Processor.DoNextInstruction());
 
 		oldReg.HL = 0x1ffe;
 		oldReg.PC++;
@@ -549,7 +549,7 @@ TEST_F(CpuTestFixture, Add16RegHl)
 
 		oldReg = reg;
 
-		EXPECT_EQ(TwoCycles, Cpu.DoNextInstruction());
+		EXPECT_EQ(TwoCycles, Processor.DoNextInstruction());
 
 		oldReg.HL = 0x2468;
 		oldReg.F = ZeroFlag;
@@ -572,8 +572,8 @@ TEST_F(CpuTestFixture, Daa)
 		{ 0x61 - 0x39,	SubFlag | HalfCarryFlag,				0x22,		SubFlag	},
 	};
 
-	MemoryMap.SetBytes(MemoryMap::RomFixed, { 0x27 });
-	auto& reg = Cpu.Registers();
+	Memory.SetBytes(MemoryMap::RomFixed, { 0x27 });
+	auto& reg = Processor.RegisterFile();
 
 	for (auto& test : tests)
 	{
@@ -583,7 +583,7 @@ TEST_F(CpuTestFixture, Daa)
 
 		auto oldReg{ reg };
 
-		EXPECT_EQ(OneCycle, Cpu.DoNextInstruction());
+		EXPECT_EQ(OneCycle, Processor.DoNextInstruction());
 
 		oldReg.A = test[2];
 		oldReg.F = test[3];
@@ -608,8 +608,8 @@ TEST_F(CpuTestFixture, Cpl)
 		{ 0xff,		NoFlags,					0x00 },
 	};
 
-	MemoryMap.SetBytes(MemoryMap::RomFixed, { 0x2f });
-	auto& reg = Cpu.Registers();
+	Memory.SetBytes(MemoryMap::RomFixed, { 0x2f });
+	auto& reg = Processor.RegisterFile();
 
 	for (auto& test : tests)
 	{
@@ -619,7 +619,7 @@ TEST_F(CpuTestFixture, Cpl)
 
 		auto oldReg{ reg };
 
-		EXPECT_EQ(OneCycle, Cpu.DoNextInstruction());
+		EXPECT_EQ(OneCycle, Processor.DoNextInstruction());
 
 		oldReg.A = test[2];
 		oldReg.F = test[1] | SubFlag | HalfCarryFlag;
@@ -641,8 +641,8 @@ TEST_F(CpuTestFixture, Scf)
 		{ CarryFlag,				CarryFlag },
 	};
 
-	MemoryMap.SetBytes(MemoryMap::RomFixed, { 0x37 });
-	auto& reg = Cpu.Registers();
+	Memory.SetBytes(MemoryMap::RomFixed, { 0x37 });
+	auto& reg = Processor.RegisterFile();
 
 	for (auto& test : tests)
 	{
@@ -652,7 +652,7 @@ TEST_F(CpuTestFixture, Scf)
 
 		auto oldReg{ reg };
 
-		EXPECT_EQ(OneCycle, Cpu.DoNextInstruction());
+		EXPECT_EQ(OneCycle, Processor.DoNextInstruction());
 
 		oldReg.F = test[1];
 		oldReg.PC++;
@@ -673,8 +673,8 @@ TEST_F(CpuTestFixture, Ccf)
 		{ CarryFlag,				NoFlags },
 	};
 
-	MemoryMap.SetBytes(MemoryMap::RomFixed, { 0x3f });
-	auto& reg = Cpu.Registers();
+	Memory.SetBytes(MemoryMap::RomFixed, { 0x3f });
+	auto& reg = Processor.RegisterFile();
 
 	for (auto& test : tests)
 	{
@@ -684,7 +684,7 @@ TEST_F(CpuTestFixture, Ccf)
 
 		auto oldReg{ reg };
 
-		EXPECT_EQ(OneCycle, Cpu.DoNextInstruction());
+		EXPECT_EQ(OneCycle, Processor.DoNextInstruction());
 
 		oldReg.F = test[1];
 		oldReg.PC++;
@@ -701,11 +701,11 @@ TEST_F(CpuTestFixture, Ld8RegOrMemRegOrMem)
 		{ 0x50,		OneCycle,		[](Registers& r, unsigned char val) { r.B = val; },							 [](Registers& r) { return r.D; } },
 		{ 0x41,		OneCycle,		[](Registers& r, unsigned char val) { r.C = val; },							 [](Registers& r) { return r.B; } },
 		{ 0x62,		OneCycle,		[](Registers& r, unsigned char val) { r.D = val; },							 [](Registers& r) { return r.H; } },
-		{ 0x73,		TwoCycles,		[](Registers& r, unsigned char val) { r.E = val; },							 [&](Registers& r) { return MemoryMap.ReadByte(r.HL); } },
+		{ 0x73,		TwoCycles,		[](Registers& r, unsigned char val) { r.E = val; },							 [&](Registers& r) { return Memory.ReadByte(r.HL); } },
 		{ 0x44,		OneCycle,		[](Registers& r, unsigned char val) { r.H = val; },							 [](Registers& r) { return r.B; } },
 		{ 0x55,		OneCycle,		[](Registers& r, unsigned char val) { r.L = val; },							 [](Registers& r) { return r.D; } },
-		{ 0x66,		TwoCycles,		[&](Registers& r, unsigned char val) { this->MemoryMap.WriteByte(r.HL, val); }, [](Registers& r) { return r.H; } },
-		{ 0x77,		TwoCycles,		[](Registers& r, unsigned char val) { r.A = val; },							 [&](Registers& r) { return MemoryMap.ReadByte(r.HL); } },
+		{ 0x66,		TwoCycles,		[&](Registers& r, unsigned char val) { this->Memory.WriteByte(r.HL, val); }, [](Registers& r) { return r.H; } },
+		{ 0x77,		TwoCycles,		[](Registers& r, unsigned char val) { r.A = val; },							 [&](Registers& r) { return Memory.ReadByte(r.HL); } },
 
 		{ 0x48,		OneCycle,		[](Registers& r, unsigned char val) { r.B = val; },							 [](Registers& r) { return r.C; } },
 		{ 0x59,		OneCycle,		[](Registers& r, unsigned char val) { r.C = val; },							 [](Registers& r) { return r.E; } },
@@ -713,24 +713,24 @@ TEST_F(CpuTestFixture, Ld8RegOrMemRegOrMem)
 		{ 0x7b,		OneCycle,		[](Registers& r, unsigned char val) { r.E = val; },							 [](Registers& r) { return r.A; } },
 		{ 0x4c,		OneCycle,		[](Registers& r, unsigned char val) { r.H = val; },							 [](Registers& r) { return r.C; } },
 		{ 0x5d,		OneCycle,		[](Registers& r, unsigned char val) { r.L = val; },							 [](Registers& r) { return r.E; } },
-		{ 0x7e,		TwoCycles,		[&](Registers& r, unsigned char val) { this->MemoryMap.WriteByte(r.HL, val); }, [](Registers& r) { return r.A; } },
+		{ 0x7e,		TwoCycles,		[&](Registers& r, unsigned char val) { this->Memory.WriteByte(r.HL, val); }, [](Registers& r) { return r.A; } },
 		{ 0x6f,		OneCycle,		[](Registers& r, unsigned char val) { r.A = val; },							 [](Registers& r) { return r.L; } },
 	};
 
 	for (auto& test : tests)
 	{
-		MemoryMap.SetBytes(MemoryMap::RomFixed, { std::get<0>(test) });
+		Memory.SetBytes(MemoryMap::RomFixed, { std::get<0>(test) });
 		
 		for (unsigned char testVal : { 0xaa, 0x33 })
 		{
-			auto& reg = Cpu.Registers();
+			auto& reg = Processor.RegisterFile();
 
 			reg.PC = 0;
 			reg.HL = MemoryMap::RamFixed;
 			std::get<2>(test)(reg, testVal);
 			reg.F = 0;
 
-			EXPECT_EQ(std::get<1>(test), Cpu.DoNextInstruction());
+			EXPECT_EQ(std::get<1>(test), Processor.DoNextInstruction());
 
 			EXPECT_EQ(testVal, std::get<3>(test)(reg));
 			EXPECT_EQ(0, reg.F);
@@ -750,7 +750,7 @@ TEST_F(CpuTestFixture, AluOp8AccRegOrMem)
 		{ OneCycle,		[](Registers& r, unsigned char val) { r.E = val; } },
 		{ OneCycle,		[](Registers& r, unsigned char val) { r.H = val; } },
 		{ OneCycle,		[](Registers& r, unsigned char val) { r.L = val; } },
-		{ TwoCycles,	[&](Registers& r, unsigned char val) { this->MemoryMap.WriteByte(r.HL, val); } },
+		{ TwoCycles,	[&](Registers& r, unsigned char val) { this->Memory.WriteByte(r.HL, val); } },
 		{ OneCycle,		[](Registers& r, unsigned char val) { r.A = val; } }
 	};
 
@@ -836,9 +836,9 @@ TEST_F(CpuTestFixture, AluOp8AccRegOrMem)
 			// Only use A as source if both operands are identical
 			if (i != 7 || test[1] == test[2])
 			{
-				MemoryMap.SetBytes(MemoryMap::RomFixed, { static_cast<unsigned char>(test[0] | i) });
+				Memory.SetBytes(MemoryMap::RomFixed, { static_cast<unsigned char>(test[0] | i) });
 
-				auto& reg = Cpu.Registers();
+				auto& reg = Processor.RegisterFile();
 
 				reg.PC = 0;
 				reg.HL = MemoryMap::RamFixed;
@@ -846,7 +846,7 @@ TEST_F(CpuTestFixture, AluOp8AccRegOrMem)
 				reg.F = test[3];
 				std::get<1>(sources[i])(reg, test[2]);
 
-				EXPECT_EQ(std::get<0>(sources[i]), Cpu.DoNextInstruction());
+				EXPECT_EQ(std::get<0>(sources[i]), Processor.DoNextInstruction());
 
 				EXPECT_EQ(test[4], reg.A);
 				EXPECT_EQ(test[5], reg.F);
@@ -935,15 +935,15 @@ TEST_F(CpuTestFixture, AluOp8AccImm)
 
 	for (auto& test : tests)
 	{
-		MemoryMap.SetBytes(MemoryMap::RomFixed, { test[0], test[2] });
+		Memory.SetBytes(MemoryMap::RomFixed, { test[0], test[2] });
 
-		auto& reg = Cpu.Registers();
+		auto& reg = Processor.RegisterFile();
 
 		reg.PC = 0;
 		reg.A = test[1];
 		reg.F = test[3];
 
-		EXPECT_EQ(TwoCycles, Cpu.DoNextInstruction());
+		EXPECT_EQ(TwoCycles, Processor.DoNextInstruction());
 
 		EXPECT_EQ(test[4], reg.A);
 		EXPECT_EQ(test[5], reg.F);
@@ -997,15 +997,15 @@ TEST_F(CpuTestFixture, Ret)
 
 	for (auto& test : tests)
 	{
-		auto& interruptsEnabled = Cpu.InterruptsEnabled();
+		auto& interruptsEnabled = Processor.InterruptsEnabled();
 		interruptsEnabled = false;
 
-		MemoryMap.SetBytes(MemoryMap::RomFixed, { std::get<0>(test) });
+		Memory.SetBytes(MemoryMap::RomFixed, { std::get<0>(test) });
 
 		// Return address stored on stack
-		MemoryMap.SetBytes(MemoryMap::RamFixed, { 0x34, 0x12 });
+		Memory.SetBytes(MemoryMap::RamFixed, { 0x34, 0x12 });
 
-		auto& reg = Cpu.Registers();
+		auto& reg = Processor.RegisterFile();
 
 		reg.PC = 0;
 		reg.SP = MemoryMap::RamFixed;
@@ -1014,7 +1014,7 @@ TEST_F(CpuTestFixture, Ret)
 		auto oldReg{ reg };
 
 		EXPECT_FALSE(interruptsEnabled);
-		EXPECT_EQ(std::get<3>(test), Cpu.DoNextInstruction());
+		EXPECT_EQ(std::get<3>(test), Processor.DoNextInstruction());
 
 		if (std::get<2>(test))
 		{
@@ -1045,15 +1045,15 @@ TEST_F(CpuTestFixture, Pop)
 
 	for (auto& scenario : scenarios)
 	{
-		MemoryMap.SetBytes(MemoryMap::RomFixed, { std::get<0>(scenario) });
+		Memory.SetBytes(MemoryMap::RomFixed, { std::get<0>(scenario) });
 
 		for (unsigned short testVal : { 0x1234, 0xa9f3, 0xfedc })
 		{
 			// Data to be popped stored on stack
-			MemoryMap.SetBytes(MemoryMap::RamFixed, { static_cast<unsigned char>(testVal & 0xff),
+			Memory.SetBytes(MemoryMap::RamFixed, { static_cast<unsigned char>(testVal & 0xff),
 												static_cast<unsigned char>(testVal >> 8) });
 
-			auto& registers = Cpu.Registers();
+			auto& registers = Processor.RegisterFile();
 			auto& destRegFn = std::get<1>(scenario);
 
 			registers.PC = 0;
@@ -1062,7 +1062,7 @@ TEST_F(CpuTestFixture, Pop)
 
 			auto oldRegisters{ registers };
 
-			EXPECT_EQ(ThreeCycles, Cpu.DoNextInstruction());
+			EXPECT_EQ(ThreeCycles, Processor.DoNextInstruction());
 
 			oldRegisters.PC = 1;
 			oldRegisters.SP += 2;
@@ -1085,17 +1085,17 @@ TEST_F(CpuTestFixture, Push)
 
 	for (auto& scenario : scenarios)
 	{
-		MemoryMap.SetBytes(MemoryMap::RomFixed, { std::get<0>(scenario) });
+		Memory.SetBytes(MemoryMap::RomFixed, { std::get<0>(scenario) });
 
 		for (unsigned short testVal : { 0x1234, 0xa9f3, 0xfedc })
 		{
 			// Clear stack
-			MemoryMap.SetBytes(MemoryMap::RamFixed, { 0, 0 });
+			Memory.SetBytes(MemoryMap::RamFixed, { 0, 0 });
 
-			EXPECT_EQ(0, MemoryMap.ReadByte(MemoryMap::RamFixed));
-			EXPECT_EQ(0, MemoryMap.ReadByte(MemoryMap::RamFixed + 1));
+			EXPECT_EQ(0, Memory.ReadByte(MemoryMap::RamFixed));
+			EXPECT_EQ(0, Memory.ReadByte(MemoryMap::RamFixed + 1));
 
-			auto& registers = Cpu.Registers();
+			auto& registers = Processor.RegisterFile();
 			auto& destRegFn = std::get<1>(scenario);
 
 			registers.PC = 0;
@@ -1104,15 +1104,15 @@ TEST_F(CpuTestFixture, Push)
 
 			auto oldRegisters{ registers };
 
-			EXPECT_EQ(FourCycles, Cpu.DoNextInstruction());
+			EXPECT_EQ(FourCycles, Processor.DoNextInstruction());
 
 			oldRegisters.PC = 1;
 			oldRegisters.SP -= 2;
 
 			EXPECT_EQ(oldRegisters, registers);
 
-			EXPECT_EQ(testVal & 0xff, MemoryMap.ReadByte(MemoryMap::RamFixed));
-			EXPECT_EQ(testVal >> 8, MemoryMap.ReadByte(MemoryMap::RamFixed + 1));
+			EXPECT_EQ(testVal & 0xff, Memory.ReadByte(MemoryMap::RamFixed));
+			EXPECT_EQ(testVal >> 8, Memory.ReadByte(MemoryMap::RamFixed + 1));
 		}
 	}
 }
@@ -1187,14 +1187,14 @@ TEST_F(CpuTestFixture, JpCall)
 
 	for (auto& test : tests)
 	{
-		MemoryMap.SetBytes(MemoryMap::RamFixed, { std::get<0>(test), 0x34, 0x12 });
+		Memory.SetBytes(MemoryMap::RamFixed, { std::get<0>(test), 0x34, 0x12 });
 
 		const unsigned short stackStart = MemoryMap::RamFixed + 3;
 
 		// Clear stack
-		MemoryMap.SetBytes(stackStart, { 0, 0 });
+		Memory.SetBytes(stackStart, { 0, 0 });
 
-		auto& reg = Cpu.Registers();
+		auto& reg = Processor.RegisterFile();
 
 		reg.PC = MemoryMap::RamFixed;
 		reg.SP = stackStart + 2;
@@ -1206,7 +1206,7 @@ TEST_F(CpuTestFixture, JpCall)
 							? std::get<2>(test)	? SixCycles	: FourCycles
 							: ThreeCycles;
 
-		EXPECT_EQ(cycleCount, Cpu.DoNextInstruction());
+		EXPECT_EQ(cycleCount, Processor.DoNextInstruction());
 
 		if (std::get<3>(test))
 		{
@@ -1217,8 +1217,8 @@ TEST_F(CpuTestFixture, JpCall)
 				oldReg.SP = stackStart;
 
 				// Check address of next byte after call instruction (which is also stack start) is on stack
-				EXPECT_EQ(stackStart & 0xff, MemoryMap.ReadByte(stackStart));
-				EXPECT_EQ(stackStart >> 8, MemoryMap.ReadByte(stackStart + 1));
+				EXPECT_EQ(stackStart & 0xff, Memory.ReadByte(stackStart));
+				EXPECT_EQ(stackStart >> 8, Memory.ReadByte(stackStart + 1));
 			}
 		}
 		else
@@ -1248,28 +1248,28 @@ TEST_F(CpuTestFixture, Rst)
 
 	for (auto& test : tests)
 	{
-		MemoryMap.SetBytes(MemoryMap::RamFixed, { test[0] });
+		Memory.SetBytes(MemoryMap::RamFixed, { test[0] });
 
 		const unsigned short stackStart = MemoryMap::RamFixed + 1;
 
 		// Clear stack
-		MemoryMap.SetBytes(stackStart, { 0, 0 });
+		Memory.SetBytes(stackStart, { 0, 0 });
 
-		auto& reg = Cpu.Registers();
+		auto& reg = Processor.RegisterFile();
 
 		reg.PC = MemoryMap::RamFixed;
 		reg.SP = stackStart + 2;
 
 		auto oldReg{ reg };
 
-		EXPECT_EQ(FourCycles, Cpu.DoNextInstruction());
+		EXPECT_EQ(FourCycles, Processor.DoNextInstruction());
 
 		oldReg.PC = test[1];
 		oldReg.SP = stackStart;
 
 		// Check address of next byte after RST instruction (which is also stack start) is on stack
-		EXPECT_EQ(stackStart & 0xff, MemoryMap.ReadByte(stackStart));
-		EXPECT_EQ(stackStart >> 8, MemoryMap.ReadByte(stackStart + 1));
+		EXPECT_EQ(stackStart & 0xff, Memory.ReadByte(stackStart));
+		EXPECT_EQ(stackStart >> 8, Memory.ReadByte(stackStart + 1));
 
 		EXPECT_EQ(oldReg, reg);
 	}
@@ -1287,7 +1287,7 @@ TEST_F(CpuTestFixture, CbPrefixOpcodes)
 		{ TwoCycles,	[](Registers& r) { return r.E; },						[](Registers& r, unsigned char val) { r.E = val; } },
 		{ TwoCycles,	[](Registers& r) { return r.H; },						[](Registers& r, unsigned char val) { r.H = val; } },
 		{ TwoCycles,	[](Registers& r) { return r.L; },						[](Registers& r, unsigned char val) { r.L = val; } },
-		{ FourCycles,	[&](Registers& r) { return MemoryMap.ReadByte(r.HL); },	[&](Registers& r, unsigned char val) { this->MemoryMap.WriteByte(r.HL, val); } },
+		{ FourCycles,	[&](Registers& r) { return Memory.ReadByte(r.HL); },	[&](Registers& r, unsigned char val) { this->Memory.WriteByte(r.HL, val); } },
 		{ TwoCycles,	[](Registers& r) { return r.A; },						[](Registers& r, unsigned char val) { r.A = val; } }
 	};
 
@@ -1426,9 +1426,9 @@ TEST_F(CpuTestFixture, CbPrefixOpcodes)
 			// Apply operand source and bit offset to base operation to get final opcode
 			auto opcode = static_cast<unsigned char>(test[2] + (test[3] << 3) + i);
 
-			MemoryMap.SetBytes(MemoryMap::RomFixed, { 0xcb, opcode });
+			Memory.SetBytes(MemoryMap::RomFixed, { 0xcb, opcode });
 
-			auto& reg = Cpu.Registers();
+			auto& reg = Processor.RegisterFile();
 
 			reg.PC = 0;
 			reg.HL = MemoryMap::RamFixed;
@@ -1438,7 +1438,7 @@ TEST_F(CpuTestFixture, CbPrefixOpcodes)
 			// BIT n,(HL) only reads (HL), so takes a machine cycle less than the other (HL) operations, which also
 			// write it back (https://gbdev.io/gb-opcodes/optables/, confirmed by blargg's instr_timing ROM)
 			auto expectedCycles = i == 6 && test[2] == Bit ? ThreeCycles : std::get<0>(sources[i]);
-			EXPECT_EQ(expectedCycles, Cpu.DoNextInstruction());
+			EXPECT_EQ(expectedCycles, Processor.DoNextInstruction());
 
 			EXPECT_EQ(test[4], std::get<1>(sources[i])(reg));
 			EXPECT_EQ(test[5], reg.F);
@@ -1452,25 +1452,25 @@ TEST_F(CpuTestFixture, InterruptsDisabledAtPowerOn)
 {
 	// Per https://gbdev.io/pandocs/Interrupts.html#ime-interrupt-master-enable-flag-write-only, IME is clear when
 	// the CPU starts, so a pending, enabled interrupt isn't dispatched until EI
-	Cpu.EnabledInterrupts() = InterruptFlags::VBlankInt;
-	Cpu.RequestInterrupt(InterruptFlags::VBlankInt);
+	Processor.EnabledInterrupts() = InterruptFlags::VBlankInt;
+	Processor.RequestInterrupt(InterruptFlags::VBlankInt);
 
-	EXPECT_FALSE(Cpu.InterruptsEnabled());
-	Cpu.DoNextInstruction();
-	EXPECT_EQ(1, Cpu.Registers().PC);
+	EXPECT_FALSE(Processor.InterruptsEnabled());
+	Processor.DoNextInstruction();
+	EXPECT_EQ(1, Processor.RegisterFile().PC);
 }
 
 TEST_F(CpuTestFixture, InterruptEnableKeepsUpperBits)
 {
 	// Mooneye-test-suite's unused_hwio-GS: IE's upper three bits read back as written
-	MemoryMap.SetBytes(MemoryMap::RomFixed, { 0xe0, 0xff, 0xf0, 0xff });		// LDH ($FF),A; LDH A,($FF)
-	Cpu.Registers().A = 0xe0;
+	Memory.SetBytes(MemoryMap::RomFixed, { 0xe0, 0xff, 0xf0, 0xff });		// LDH ($FF),A; LDH A,($FF)
+	Processor.RegisterFile().A = 0xe0;
 
-	Cpu.DoNextInstruction();
-	Cpu.Registers().A = 0;
-	Cpu.DoNextInstruction();
+	Processor.DoNextInstruction();
+	Processor.RegisterFile().A = 0;
+	Processor.DoNextInstruction();
 
-	EXPECT_EQ(0xe0, Cpu.Registers().A);
+	EXPECT_EQ(0xe0, Processor.RegisterFile().A);
 }
 
 TEST_F(CpuTestFixture, VBlankInterrupt)
@@ -1491,68 +1491,68 @@ TEST_F(CpuTestFixture, VBlankInterrupt)
 	 */
 
 	// Main loop
-	MemoryMap.SetBytes(MemoryMap::RomFixed, { 0xfa, 0x0, 0xc0, 0xea, 0x1, 0xc0, 0xc3, 0x0, 0x0 });
+	Memory.SetBytes(MemoryMap::RomFixed, { 0xfa, 0x0, 0xc0, 0xea, 0x1, 0xc0, 0xc3, 0x0, 0x0 });
 
 	// VBlank interrupt handler
-	MemoryMap.SetBytes(0x40, { 0xe5, 0x21, 0x0, 0xc0, 0x36, 0xa9, 0xe1, 0xd9 });
+	Memory.SetBytes(0x40, { 0xe5, 0x21, 0x0, 0xc0, 0x36, 0xa9, 0xe1, 0xd9 });
 
 	// Starting values
-	MemoryMap.SetBytes(MemoryMap::RamFixed, { 0x38, 0xff, 0xff, 0xff });
+	Memory.SetBytes(MemoryMap::RamFixed, { 0x38, 0xff, 0xff, 0xff });
 
 	// Enable all individual interrupt types, and interrupts as a whole (which are disabled at power-on)
-	Cpu.EnabledInterrupts() = 0xff;
-	Cpu.InterruptsEnabled() = true;
+	Processor.EnabledInterrupts() = 0xff;
+	Processor.InterruptsEnabled() = true;
 
-	auto& reg = Cpu.Registers();
+	auto& reg = Processor.RegisterFile();
 
 	reg.PC = 0;
 	reg.HL = 0x5678;
 	reg.SP = MemoryMap::RamFixed + 6;
-	Cpu.DoNextInstruction();
-	Cpu.DoNextInstruction();
+	Processor.DoNextInstruction();
+	Processor.DoNextInstruction();
 
-	EXPECT_EQ(0x38, MemoryMap.ReadByte(MemoryMap::RamFixed));
-	EXPECT_EQ(0x38, MemoryMap.ReadByte(MemoryMap::RamFixed+1));
+	EXPECT_EQ(0x38, Memory.ReadByte(MemoryMap::RamFixed));
+	EXPECT_EQ(0x38, Memory.ReadByte(MemoryMap::RamFixed+1));
 
-	Cpu.DoNextInstruction();
-	Cpu.DoNextInstruction();
+	Processor.DoNextInstruction();
+	Processor.DoNextInstruction();
 
 	// Should have jumped back to program start and done first instruction again
 	EXPECT_EQ(0x3, reg.PC);
 
-	Cpu.RequestInterrupt(InterruptFlags::VBlankInt);
+	Processor.RequestInterrupt(InterruptFlags::VBlankInt);
 
 	// Dispatching the interrupt (two wait states, pushing PC, jumping to the vector) takes five cycles
-	EXPECT_EQ(FiveCycles, Cpu.DoNextInstruction());
+	EXPECT_EQ(FiveCycles, Processor.DoNextInstruction());
 
 	// Should be at int vector now
 	EXPECT_EQ(0x40, reg.PC);
 
 	// Should have pushed previous PC on stack
 	EXPECT_EQ(reg.SP, MemoryMap::RamFixed + 4);
-	EXPECT_EQ(0x3, MemoryMap.ReadByte(MemoryMap::RamFixed + 4));
-	EXPECT_EQ(0x0, MemoryMap.ReadByte(MemoryMap::RamFixed + 5));
+	EXPECT_EQ(0x3, Memory.ReadByte(MemoryMap::RamFixed + 4));
+	EXPECT_EQ(0x0, Memory.ReadByte(MemoryMap::RamFixed + 5));
 
 	// Interrupts should be disabled
-	EXPECT_FALSE(Cpu.InterruptsEnabled());
+	EXPECT_FALSE(Processor.InterruptsEnabled());
 
-	Cpu.DoNextInstruction();
-	Cpu.DoNextInstruction();
+	Processor.DoNextInstruction();
+	Processor.DoNextInstruction();
 	
 	// HL should be MemoryMap::RamFixed
 	EXPECT_EQ(0xc000, reg.HL);
 
-	Cpu.DoNextInstruction();
-	Cpu.DoNextInstruction();
+	Processor.DoNextInstruction();
+	Processor.DoNextInstruction();
 
 	// HL should be restored
 	EXPECT_EQ(0x5678, reg.HL);
 
 	// Return from interrupt handler
-	Cpu.DoNextInstruction();
+	Processor.DoNextInstruction();
 
 	// Interrupts should be enabled
-	EXPECT_TRUE(Cpu.InterruptsEnabled());
+	EXPECT_TRUE(Processor.InterruptsEnabled());
 
 	// Should be back at instruction prior to interrupt
 	EXPECT_EQ(0x3, reg.PC);
@@ -1560,15 +1560,15 @@ TEST_F(CpuTestFixture, VBlankInterrupt)
 	// Should have popped PC from stack
 	EXPECT_EQ(reg.SP, MemoryMap::RamFixed + 6);
 
-	EXPECT_EQ(0xa9, MemoryMap.ReadByte(MemoryMap::RamFixed));
+	EXPECT_EQ(0xa9, Memory.ReadByte(MemoryMap::RamFixed));
 
-	Cpu.DoNextInstruction();
-	Cpu.DoNextInstruction();
-	Cpu.DoNextInstruction();
-	Cpu.DoNextInstruction();
+	Processor.DoNextInstruction();
+	Processor.DoNextInstruction();
+	Processor.DoNextInstruction();
+	Processor.DoNextInstruction();
 
 	// Main loop should have copied new value
-	EXPECT_EQ(0xa9, MemoryMap.ReadByte(MemoryMap::RamFixed + 1));
+	EXPECT_EQ(0xa9, Memory.ReadByte(MemoryMap::RamFixed + 1));
 }
 
 
@@ -1590,38 +1590,38 @@ TEST_F(CpuTestFixture, VBlankInterruptDisabled)
 	*/
 
 	// Main loop
-	MemoryMap.SetBytes(MemoryMap::RomFixed, { 0xfa, 0x0, 0xc0, 0xea, 0x1, 0xc0, 0xc3, 0x0, 0x0 });
+	Memory.SetBytes(MemoryMap::RomFixed, { 0xfa, 0x0, 0xc0, 0xea, 0x1, 0xc0, 0xc3, 0x0, 0x0 });
 
 	// VBlank interrupt handler
-	MemoryMap.SetBytes(0x40, { 0xe5, 0x21, 0x0, 0xc0, 0x36, 0xa9, 0xe1, 0xd9 });
+	Memory.SetBytes(0x40, { 0xe5, 0x21, 0x0, 0xc0, 0x36, 0xa9, 0xe1, 0xd9 });
 
 	// Starting values
-	MemoryMap.SetBytes(MemoryMap::RamFixed, { 0x38, 0xff, 0xff, 0xff });
+	Memory.SetBytes(MemoryMap::RamFixed, { 0x38, 0xff, 0xff, 0xff });
 
-	Cpu.EnabledInterrupts() = ~InterruptFlags::VBlankInt;
+	Processor.EnabledInterrupts() = ~InterruptFlags::VBlankInt;
 
-	auto& reg = Cpu.Registers();
+	auto& reg = Processor.RegisterFile();
 
 	reg.PC = 0;
 	reg.HL = 0x5678;
 	reg.SP = MemoryMap::RamFixed + 6;
 
 	// Run main loop for a bit
-	for (auto i = 0; i < 10; i++) Cpu.DoNextInstruction();
+	for (auto i = 0; i < 10; i++) Processor.DoNextInstruction();
 
 	// Check that main loop is running as intended
-	EXPECT_EQ(0x38, MemoryMap.ReadByte(MemoryMap::RamFixed));
-	EXPECT_EQ(0x38, MemoryMap.ReadByte(MemoryMap::RamFixed + 1));
+	EXPECT_EQ(0x38, Memory.ReadByte(MemoryMap::RamFixed));
+	EXPECT_EQ(0x38, Memory.ReadByte(MemoryMap::RamFixed + 1));
 
-	Cpu.RequestInterrupt(InterruptFlags::VBlankInt);
-	EXPECT_EQ(InterruptFlags::VBlankInt, Cpu.WaitingInterrupts());
+	Processor.RequestInterrupt(InterruptFlags::VBlankInt);
+	EXPECT_EQ(InterruptFlags::VBlankInt, Processor.WaitingInterrupts());
 
 	// Run main loop for a bit
-	for (auto i = 0; i < 10; i++) Cpu.DoNextInstruction();
+	for (auto i = 0; i < 10; i++) Processor.DoNextInstruction();
 
 	// Check that interrupt hasn't triggered
-	EXPECT_EQ(0x38, MemoryMap.ReadByte(MemoryMap::RamFixed));
-	EXPECT_EQ(0x38, MemoryMap.ReadByte(MemoryMap::RamFixed + 1));
+	EXPECT_EQ(0x38, Memory.ReadByte(MemoryMap::RamFixed));
+	EXPECT_EQ(0x38, Memory.ReadByte(MemoryMap::RamFixed + 1));
 }
 
 

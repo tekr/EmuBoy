@@ -42,33 +42,33 @@ namespace
 class CpuStopTests : public CpuTestFixture
 {
 public:
-	::Timer Timer;
-	TimerTestHardware Hardware{ Timer };
+	Timer TimerUnit;
+	TimerTestHardware Hardware{ TimerUnit };
 
 	CpuStopTests()
 	{
-		Timer.SetCpu(&Cpu);
-		MemoryMap.SetTimer(&Timer);
-		Cpu.SetClockedHardware(&Hardware);
-		Joypad.SetCpu(&Cpu);
+		TimerUnit.SetCpu(&Processor);
+		Memory.SetTimer(&TimerUnit);
+		Processor.SetClockedHardware(&Hardware);
+		Joypad.SetCpu(&Processor);
 
-		Cpu.Registers().PC = 0;
-		Cpu.Registers().SP = StackTop;
-		Cpu.InterruptsEnabled() = false;
-		Cpu.EnabledInterrupts() = 0;
-		Cpu.WaitingInterrupts() = 0;
+		Processor.RegisterFile().PC = 0;
+		Processor.RegisterFile().SP = StackTop;
+		Processor.InterruptsEnabled() = false;
+		Processor.EnabledInterrupts() = 0;
+		Processor.WaitingInterrupts() = 0;
 
-		MemoryMap.SetBytes(0, { 0x10, IncB, IncA, 0x18, 0xfe });	// STOP; INC B; INC A; JR -2
-		MemoryMap.WriteByte(JoypAddress, SelectDirections);
+		Memory.SetBytes(0, { 0x10, IncB, IncA, 0x18, 0xfe });	// STOP; INC B; INC A; JR -2
+		Memory.WriteByte(JoypAddress, SelectDirections);
 
 		// Leave DIV non-zero, to show whether STOP resets it
-		Timer.RunCycles(0x1234);
+		TimerUnit.RunCycles(0x1234);
 	}
 
 	void MakeInterruptPending()
 	{
-		Cpu.EnabledInterrupts() = InterruptFlags::TimerInt;
-		Cpu.WaitingInterrupts() = InterruptFlags::TimerInt;
+		Processor.EnabledInterrupts() = InterruptFlags::TimerInt;
+		Processor.WaitingInterrupts() = InterruptFlags::TimerInt;
 	}
 
 	// Ends STOP mode and runs the instruction after STOP
@@ -78,14 +78,14 @@ public:
 		Step(2);
 	}
 
-	unsigned char Div() { return MemoryMap.ReadByte(MemoryMap::DividerPort); }
+	unsigned char Div() { return Memory.ReadByte(MemoryMap::DividerPort); }
 };
 
 TEST_F(CpuStopTests, WithNoButtonOrInterruptEntersStopModeAndResetsDiv)
 {
 	Step(1);
-	EXPECT_EQ(CpuState::Stopped, Cpu.State());
-	EXPECT_TRUE(Cpu.IsStopped());
+	EXPECT_EQ(CpuState::Stopped, Processor.State());
+	EXPECT_TRUE(Processor.IsStopped());
 	EXPECT_EQ(0, Div());
 }
 
@@ -94,8 +94,8 @@ TEST_F(CpuStopTests, WithNoButtonOrInterruptIsATwoByteOpcode)
 	Step(1);
 	WakeAndRunNextInstruction();
 
-	EXPECT_EQ(0, Cpu.Registers().B);
-	EXPECT_EQ(1, Cpu.Registers().A);
+	EXPECT_EQ(0, Processor.RegisterFile().B);
+	EXPECT_EQ(1, Processor.RegisterFile().A);
 }
 
 TEST_F(CpuStopTests, WithAnInterruptPendingEntersStopModeAndResetsDiv)
@@ -103,7 +103,7 @@ TEST_F(CpuStopTests, WithAnInterruptPendingEntersStopModeAndResetsDiv)
 	MakeInterruptPending();
 
 	Step(1);
-	EXPECT_EQ(CpuState::Stopped, Cpu.State());
+	EXPECT_EQ(CpuState::Stopped, Processor.State());
 	EXPECT_EQ(0, Div());
 }
 
@@ -114,8 +114,8 @@ TEST_F(CpuStopTests, WithAnInterruptPendingIsAOneByteOpcode)
 	Step(1);
 	WakeAndRunNextInstruction();
 
-	EXPECT_EQ(1, Cpu.Registers().B);
-	EXPECT_EQ(0, Cpu.Registers().A);
+	EXPECT_EQ(1, Processor.RegisterFile().B);
+	EXPECT_EQ(0, Processor.RegisterFile().A);
 }
 
 TEST_F(CpuStopTests, WithASelectedButtonHeldEntersHaltModeAsATwoByteOpcode)
@@ -124,17 +124,17 @@ TEST_F(CpuStopTests, WithASelectedButtonHeldEntersHaltModeAsATwoByteOpcode)
 	auto div = Div();
 
 	// Reading the skipped byte takes a machine cycle
-	EXPECT_EQ(2 * MachineCycle, Cpu.DoNextInstruction());
-	EXPECT_EQ(CpuState::Halted, Cpu.State());
-	EXPECT_EQ(2, Cpu.Registers().PC);
+	EXPECT_EQ(2 * MachineCycle, Processor.DoNextInstruction());
+	EXPECT_EQ(CpuState::Halted, Processor.State());
+	EXPECT_EQ(2, Processor.RegisterFile().PC);
 	EXPECT_EQ(div, Div());
 
 	// An interrupt ends the halt as usual, and execution carries on after the skipped byte
 	MakeInterruptPending();
 	Step(1);
-	EXPECT_EQ(CpuState::Running, Cpu.State());
-	EXPECT_EQ(0, Cpu.Registers().B);
-	EXPECT_EQ(1, Cpu.Registers().A);
+	EXPECT_EQ(CpuState::Running, Processor.State());
+	EXPECT_EQ(0, Processor.RegisterFile().B);
+	EXPECT_EQ(1, Processor.RegisterFile().A);
 }
 
 TEST_F(CpuStopTests, WithASelectedButtonHeldAndAnInterruptPendingDoesNothingAsAOneByteOpcode)
@@ -143,12 +143,12 @@ TEST_F(CpuStopTests, WithASelectedButtonHeldAndAnInterruptPendingDoesNothingAsAO
 	MakeInterruptPending();
 	auto div = Div();
 
-	EXPECT_EQ(MachineCycle, Cpu.DoNextInstruction());
-	EXPECT_EQ(CpuState::Running, Cpu.State());
+	EXPECT_EQ(MachineCycle, Processor.DoNextInstruction());
+	EXPECT_EQ(CpuState::Running, Processor.State());
 	EXPECT_EQ(div, Div());
 
 	Step(1);
-	EXPECT_EQ(1, Cpu.Registers().B);
+	EXPECT_EQ(1, Processor.RegisterFile().B);
 }
 
 TEST_F(CpuStopTests, AHeldButtonThatJoypDoesntSelectDoesntCount)
@@ -156,57 +156,57 @@ TEST_F(CpuStopTests, AHeldButtonThatJoypDoesntSelectDoesntCount)
 	Joypad.SetKeysDown(JoypadKey::A);
 
 	Step(1);
-	EXPECT_EQ(CpuState::Stopped, Cpu.State());
+	EXPECT_EQ(CpuState::Stopped, Processor.State());
 	EXPECT_EQ(0, Div());
 }
 
 TEST_F(CpuStopTests, AHeldButtonWithNothingSelectedDoesntCount)
 {
-	MemoryMap.WriteByte(JoypAddress, SelectNothing);
+	Memory.WriteByte(JoypAddress, SelectNothing);
 	Joypad.SetKeysDown(JoypadKey::Right);
 
 	Step(1);
-	EXPECT_EQ(CpuState::Stopped, Cpu.State());
+	EXPECT_EQ(CpuState::Stopped, Processor.State());
 }
 
 TEST_F(CpuStopTests, TimerDoesntRunWhileStopped)
 {
-	MemoryMap.WriteByte(TacAddress, 0x05);	// Enabled, increments every 4 machine cycles
-	MemoryMap.WriteByte(TimaAddress, 0x80);
+	Memory.WriteByte(TacAddress, 0x05);	// Enabled, increments every 4 machine cycles
+	Memory.WriteByte(TimaAddress, 0x80);
 	Step(1);
-	auto tima = MemoryMap.ReadByte(TimaAddress);
+	auto tima = Memory.ReadByte(TimaAddress);
 
 	Step(10000);
 	EXPECT_EQ(0, Div());
-	EXPECT_EQ(tima, MemoryMap.ReadByte(TimaAddress));
-	EXPECT_EQ(0, Cpu.WaitingInterrupts());
+	EXPECT_EQ(tima, Memory.ReadByte(TimaAddress));
+	EXPECT_EQ(0, Processor.WaitingInterrupts());
 }
 
 TEST_F(CpuStopTests, TimePassesWhileStoppedWithoutRunningTheSystemClock)
 {
 	Step(1);
 	auto cycles = Hardware.Cycles;
-	auto totalCycles = Cpu.GetTotalCycles();
+	auto totalCycles = Processor.GetTotalCycles();
 
-	for (auto i = 0; i < 1000; i++) EXPECT_EQ(MachineCycle, Cpu.DoNextInstruction());
+	for (auto i = 0; i < 1000; i++) EXPECT_EQ(MachineCycle, Processor.DoNextInstruction());
 
 	EXPECT_EQ(cycles, Hardware.Cycles);
 	EXPECT_EQ(1000 * MachineCycle, Hardware.StoppedCycles);
-	EXPECT_EQ(totalCycles + 1000 * MachineCycle, Cpu.GetTotalCycles());
+	EXPECT_EQ(totalCycles + 1000 * MachineCycle, Processor.GetTotalCycles());
 }
 
 TEST_F(CpuStopTests, InterruptsDontEndStopMode)
 {
 	Step(1);
-	Cpu.InterruptsEnabled() = true;
-	Cpu.EnabledInterrupts() = InterruptFlags::AllInt;
-	Cpu.RequestInterrupt(InterruptFlags::VBlankInt);
-	Cpu.RequestInterrupt(InterruptFlags::JoypadInt);
-	auto registers = Cpu.Registers();
+	Processor.InterruptsEnabled() = true;
+	Processor.EnabledInterrupts() = InterruptFlags::AllInt;
+	Processor.RequestInterrupt(InterruptFlags::VBlankInt);
+	Processor.RequestInterrupt(InterruptFlags::JoypadInt);
+	auto registers = Processor.RegisterFile();
 
 	Step(100);
-	EXPECT_EQ(CpuState::Stopped, Cpu.State());
-	EXPECT_EQ(registers, Cpu.Registers());
+	EXPECT_EQ(CpuState::Stopped, Processor.State());
+	EXPECT_EQ(registers, Processor.RegisterFile());
 }
 
 TEST_F(CpuStopTests, PressingAButtonJoypDoesntSelectDoesntEndStopMode)
@@ -215,17 +215,17 @@ TEST_F(CpuStopTests, PressingAButtonJoypDoesntSelectDoesntEndStopMode)
 	Joypad.SetKeysDown(JoypadKey::Start);
 
 	Step(100);
-	EXPECT_EQ(CpuState::Stopped, Cpu.State());
+	EXPECT_EQ(CpuState::Stopped, Processor.State());
 }
 
 TEST_F(CpuStopTests, PressingASelectedButtonEndsStopMode)
 {
-	MemoryMap.WriteByte(JoypAddress, SelectButtons);
+	Memory.WriteByte(JoypAddress, SelectButtons);
 	Step(1);
 
 	Joypad.SetKeysDown(JoypadKey::Start);
 	Step(1);
-	EXPECT_EQ(CpuState::Running, Cpu.State());
+	EXPECT_EQ(CpuState::Running, Processor.State());
 }
 
 TEST_F(CpuStopTests, TimerRunsAgainAfterWaking)
@@ -240,44 +240,44 @@ TEST_F(CpuStopTests, TimerRunsAgainAfterWaking)
 
 TEST_F(CpuStopTests, JoypadInterruptIsDispatchedAfterWakingWhenEnabled)
 {
-	Cpu.InterruptsEnabled() = true;
-	Cpu.EnabledInterrupts() = InterruptFlags::JoypadInt;
+	Processor.InterruptsEnabled() = true;
+	Processor.EnabledInterrupts() = InterruptFlags::JoypadInt;
 	Step(1);
 
 	Joypad.SetKeysDown(JoypadKey::Right);
 	Step(2);
-	EXPECT_EQ(0x60, Cpu.Registers().PC);
+	EXPECT_EQ(0x60, Processor.RegisterFile().PC);
 }
 
 TEST_F(CpuStopTests, InterruptAfterWakingFromAOneByteStopReturnsToTheByteAfterStop)
 {
 	// EI takes effect after the instruction that follows it, so STOP runs with an interrupt pending, then IME is set
-	MemoryMap.SetBytes(0, { 0xfb, 0x10, IncB, IncA });	// EI; STOP; INC B; INC A
+	Memory.SetBytes(0, { 0xfb, 0x10, IncB, IncA });	// EI; STOP; INC B; INC A
 	MakeInterruptPending();
 
 	Step(2);
-	ASSERT_EQ(CpuState::Stopped, Cpu.State());
-	EXPECT_TRUE(Cpu.InterruptsEnabled());
+	ASSERT_EQ(CpuState::Stopped, Processor.State());
+	EXPECT_TRUE(Processor.InterruptsEnabled());
 
 	Joypad.SetKeysDown(JoypadKey::Right);
 	Step(2);
-	EXPECT_EQ(0x50, Cpu.Registers().PC);
-	EXPECT_EQ(StackTop - 2, Cpu.Registers().SP);
-	EXPECT_EQ(0x02, MemoryMap.ReadByte(StackTop - 2));
-	EXPECT_EQ(0x00, MemoryMap.ReadByte(StackTop - 1));
+	EXPECT_EQ(0x50, Processor.RegisterFile().PC);
+	EXPECT_EQ(StackTop - 2, Processor.RegisterFile().SP);
+	EXPECT_EQ(0x02, Memory.ReadByte(StackTop - 2));
+	EXPECT_EQ(0x00, Memory.ReadByte(StackTop - 1));
 }
 
 TEST_F(CpuStopTests, DivResetIncrementsTimaLikeADivWrite)
 {
 	// Per https://gbdev.io/pandocs/Timer_Obscure_Behaviour.html, resetting DIV while the divider bit that TAC selects
 	// is set is a falling edge, which increments TIMA
-	MemoryMap.WriteByte(MemoryMap::DividerPort, 0);
-	MemoryMap.WriteByte(TacAddress, 0x05);	// Enabled, divider bit 3
-	MemoryMap.WriteByte(TimaAddress, 0x80);
-	Timer.RunCycles(8);						// STOP's opcode fetch takes the divider to 12: bit 3 still set
+	Memory.WriteByte(MemoryMap::DividerPort, 0);
+	Memory.WriteByte(TacAddress, 0x05);	// Enabled, divider bit 3
+	Memory.WriteByte(TimaAddress, 0x80);
+	TimerUnit.RunCycles(8);						// STOP's opcode fetch takes the divider to 12: bit 3 still set
 
 	Step(1);
-	EXPECT_EQ(0x81, MemoryMap.ReadByte(TimaAddress));
+	EXPECT_EQ(0x81, Memory.ReadByte(TimaAddress));
 }
 
 TEST_F(CpuStopTests, DivResetStepsTheApuFrameSequencerLikeADivWrite)
@@ -285,7 +285,7 @@ TEST_F(CpuStopTests, DivResetStepsTheApuFrameSequencerLikeADivWrite)
 	// Per https://gbdev.io/pandocs/Audio_details.html, resetting DIV while its bit 4 is set steps the frame
 	// sequencer. Its first step clocks the length counters, so a channel with 1 step of length left stops
 	ApuTest::ApuHarness apu;
-	MemoryMap.SetApu(&apu.Device);
+	Memory.SetApu(&apu.Device);
 	apu.Write(ApuTest::Nr22, 0xf0);
 	apu.Write(ApuTest::Nr21, 63);
 	apu.Write(ApuTest::Nr24, 0xc0);
@@ -301,14 +301,13 @@ TEST_F(CpuStopTests, DivResetStepsTheApuFrameSequencerLikeADivWrite)
 class EmulatorStopTests : public testing::Test
 {
 public:
-	// Qualified with :: as the member is named after its type, which GCC otherwise rejects
 	std::shared_ptr<TestCartridge> Rom{ std::make_shared<TestCartridge>() };
-	::Emulator Emulator{ Rom };
+	Emulator GameBoy{ Rom };
 
 	EmulatorStopTests()
 	{
 		// Disable the internal ROM so the program runs from address 0
-		Emulator.GetMemoryMap().WriteByte(0xff50, 1);
+		GameBoy.GetMemoryMap().WriteByte(0xff50, 1);
 
 		// With BGP mapping colour 0 to black, the blank tiles in VRAM make a black screen while the LCD is on
 		Rom->SetBytes(0, {
@@ -323,7 +322,7 @@ public:
 		});
 	}
 
-	unsigned char ReadByte(unsigned short address) { return Emulator.GetMemoryMap().ReadByte(address); }
+	unsigned char ReadByte(unsigned short address) { return GameBoy.GetMemoryMap().ReadByte(address); }
 
 	static bool IsAll(const int* frame, int colour)
 	{
@@ -336,13 +335,13 @@ public:
 TEST_F(EmulatorStopTests, EachFrameLastsAFrameOfClocksWhileStopped)
 {
 	// The front end paces frames by the clocks emulated, so a stopped Game Boy must keep the normal frame rate
-	Emulator.GetFrame();
+	GameBoy.GetFrame();
 
 	for (auto i = 0; i < 3; i++)
 	{
-		auto clocks = Emulator.GetCpuClocks();
-		Emulator.GetFrame();
-		EXPECT_EQ(uint64_t{ Graphics::FrameClocks }, Emulator.GetCpuClocks() - clocks);
+		auto clocks = GameBoy.GetCpuClocks();
+		GameBoy.GetFrame();
+		EXPECT_EQ(uint64_t{ Graphics::FrameClocks }, GameBoy.GetCpuClocks() - clocks);
 	}
 }
 
@@ -375,13 +374,13 @@ TEST_F(EmulatorStopTests, ScreenShowsLightestShadeWhileStoppedWithLcdOn)
 	});
 
 	// The first frame after turning the LCD on is blank
-	ASSERT_TRUE(IsBlank(Emulator.GetFrame()));
-	ASSERT_TRUE(IsAll(Emulator.GetFrame(), Graphics::ShadeColour(3)));
+	ASSERT_TRUE(IsBlank(GameBoy.GetFrame()));
+	ASSERT_TRUE(IsAll(GameBoy.GetFrame(), Graphics::ShadeColour(3)));
 
 	for (auto i = 0; i < 3; i++)
 	{
-		EXPECT_TRUE(IsAll(Emulator.GetFrame(), Graphics::ShadeColour(0))) << "stopped frame " << i;
-		EXPECT_TRUE(Emulator.GetCpu().IsStopped());
+		EXPECT_TRUE(IsAll(GameBoy.GetFrame(), Graphics::ShadeColour(0))) << "stopped frame " << i;
+		EXPECT_TRUE(GameBoy.GetCpu().IsStopped());
 	}
 }
 
@@ -394,19 +393,19 @@ TEST_F(EmulatorStopTests, ScreenShowsLcdOffColourWhileStoppedWithLcdOff)
 		0x18, 0xfe				// JR -2
 	});
 
-	for (auto i = 0; i < 2; i++) EXPECT_TRUE(IsBlank(Emulator.GetFrame()));
-	EXPECT_TRUE(Emulator.GetCpu().IsStopped());
+	for (auto i = 0; i < 2; i++) EXPECT_TRUE(IsBlank(GameBoy.GetFrame()));
+	EXPECT_TRUE(GameBoy.GetCpu().IsStopped());
 }
 
 TEST_F(EmulatorStopTests, ScreenComesBackAfterWaking)
 {
 	// The program turns the LCD on just before STOP, so the frame completed at the first V-Blank after waking is still
 	// the first since then, which stays blank (https://gbdev.io/pandocs/LCDC.html#lcdc7--lcd-enable). The next shows
-	Emulator.GetFrame();
-	Emulator.GetJoypad().SetKeysDown(JoypadKey::Right);
+	GameBoy.GetFrame();
+	GameBoy.GetJoypad().SetKeysDown(JoypadKey::Right);
 
-	EXPECT_TRUE(IsBlank(Emulator.GetFrame()));
-	EXPECT_TRUE(IsAll(Emulator.GetFrame(), Graphics::ShadeColour(3)));
+	EXPECT_TRUE(IsBlank(GameBoy.GetFrame()));
+	EXPECT_TRUE(IsAll(GameBoy.GetFrame(), Graphics::ShadeColour(3)));
 }
 
 TEST_F(EmulatorStopTests, PpuDoesntRunWhileStopped)
@@ -414,11 +413,11 @@ TEST_F(EmulatorStopTests, PpuDoesntRunWhileStopped)
 	// STOP runs early in line 0 after the LCD is turned on, which has no OAM scan, so STAT shows mode 0 until mode 3
 	// (mooneye-test-suite's lcdon_timing-GS), and the PPU stays there. A running PPU would end each frame as V-Blank
 	// (mode 1) starts, on line 144
-	Emulator.GetFrame();
+	GameBoy.GetFrame();
 
 	for (auto i = 0; i < 3; i++)
 	{
-		Emulator.GetFrame();
+		GameBoy.GetFrame();
 		EXPECT_EQ(0, ReadByte(LyAddress));
 		EXPECT_EQ(0, ReadByte(StatAddress) & 3);
 	}
@@ -428,7 +427,7 @@ TEST_F(EmulatorStopTests, DivDoesntRunWhileStopped)
 {
 	for (auto i = 0; i < 3; i++)
 	{
-		Emulator.GetFrame();
+		GameBoy.GetFrame();
 		EXPECT_EQ(0, ReadByte(MemoryMap::DividerPort));
 	}
 }
@@ -436,14 +435,14 @@ TEST_F(EmulatorStopTests, DivDoesntRunWhileStopped)
 TEST_F(EmulatorStopTests, AudioKeepsItsRateWhileStopped)
 {
 	std::vector<short> samples;
-	Emulator.GetFrame();
-	Emulator.TakeAudioSamples(samples);
+	GameBoy.GetFrame();
+	GameBoy.TakeAudioSamples(samples);
 
 	// A frame lasts 70224 cycles at 4194304 Hz: about 738.3 stereo samples at 44100 Hz
 	for (auto i = 0; i < 3; i++)
 	{
-		Emulator.GetFrame();
-		Emulator.TakeAudioSamples(samples);
+		GameBoy.GetFrame();
+		GameBoy.TakeAudioSamples(samples);
 		EXPECT_GE(samples.size(), 2u * 738);
 		EXPECT_LE(samples.size(), 2u * 739);
 	}
@@ -454,12 +453,12 @@ TEST_F(EmulatorStopTests, DivRunsAgainAfterWaking)
 	// DIV counts every 256 clocks and wraps every 65536, so it's compared across a whole frame (70224 clocks, from
 	// one V-Blank to the next), over which it moves on 274 counts, 18 after wrapping. The frame after waking runs
 	// from line 0 to V-Blank, close enough to 65536 clocks for DIV to read 0 again
-	Emulator.GetFrame();
-	Emulator.GetJoypad().SetKeysDown(JoypadKey::Right);
-	Emulator.GetFrame();
+	GameBoy.GetFrame();
+	GameBoy.GetJoypad().SetKeysDown(JoypadKey::Right);
+	GameBoy.GetFrame();
 	auto div = ReadByte(MemoryMap::DividerPort);
 
-	Emulator.GetFrame();
+	GameBoy.GetFrame();
 	EXPECT_NE(div, ReadByte(MemoryMap::DividerPort));
 }
 
@@ -488,10 +487,10 @@ TEST_F(EmulatorStopTests, PpuCarriesOnFromItsLineOnWaking)
 		0x18, 0xfe				// JR -2
 	});
 
-	Emulator.GetFrame();
-	Emulator.GetFrame();
-	Emulator.GetJoypad().SetKeysDown(JoypadKey::Right);
-	Emulator.GetFrame();
+	GameBoy.GetFrame();
+	GameBoy.GetFrame();
+	GameBoy.GetJoypad().SetKeysDown(JoypadKey::Right);
+	GameBoy.GetFrame();
 
 	EXPECT_EQ(50, ReadByte(0xff80));
 	EXPECT_EQ(2, ReadByte(0xff81) & 3);
@@ -513,7 +512,7 @@ TEST(EmulatorStopClockTest, CartridgeClockKeepsCountingWhileStopped)
 	rom[CartridgeFactory::CartridgeTypeHeaderOffset] = 0x0f;	// MBC3+TIMER+BATTERY
 
 	auto cartridge = CartridgeFactory::Create(std::move(rom));
-	::Emulator emulator{ cartridge };
+	Emulator emulator{ cartridge };
 	emulator.GetMemoryMap().WriteByte(0xff50, 1);
 
 	for (auto frame = 0; frame < 60; frame++) emulator.GetFrame();

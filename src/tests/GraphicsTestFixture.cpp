@@ -11,7 +11,7 @@ void GraphicsTestFixture::Run(int clocks)
 
 	for (; clocks > 0; clocks -= 4)
 	{
-		Graphics.RunCycles(4);
+		Ppu.RunCycles(4);
 		_clocksSinceTurnOn += 4;
 	}
 }

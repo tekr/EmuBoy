@@ -20,8 +20,8 @@ public:
 
 	struct Result
 	{
-		MooneyeRomRunner::Outcome Outcome;
-		::Registers Registers;
+		Outcome Status;
+		Registers FinalRegisters;
 	};
 
 	// The slowest MBC tests take around 12 seconds of emulated time; a minute leaves plenty of margin
@@ -64,7 +64,7 @@ inline std::ostream& operator<<(std::ostream& os, const MooneyeRomRunner::Result
 {
 	static const char* outcomes[] = { "ROM not found (run the tests from src/tests)", "timed out", "passed", "failed" };
 
-	auto& r = result.Registers;
-	return os << outcomes[static_cast<int>(result.Outcome)] << " with BC=" << std::hex << r.BC << " DE=" << r.DE
+	auto& r = result.FinalRegisters;
+	return os << outcomes[static_cast<int>(result.Status)] << " with BC=" << std::hex << r.BC << " DE=" << r.DE
 		<< " HL=" << r.HL << " PC=" << r.PC;
 }

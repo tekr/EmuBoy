@@ -22,20 +22,18 @@ const int ModePeriods[] = { 1024, 16, 64, 256 };
 class TimerQuirkTests : public CpuTestFixture
 {
 public:
-	// Members named after their types qualify the type with :: so the name's meaning doesn't change within the
-	// class, which GCC rejects
-	::Timer Timer;
+	Timer TimerUnit;
 
 	TimerQuirkTests()
 	{
-		Timer.SetCpu(&Cpu);
-		Cpu.WaitingInterrupts() = 0;
+		TimerUnit.SetCpu(&Processor);
+		Processor.WaitingInterrupts() = 0;
 
 		// Starts from a divider of 0 rather than its power-on phase
-		Timer.WriteRegister(DivReg, 0);
+		TimerUnit.WriteRegister(DivReg, 0);
 	}
 
-	unsigned char Counter() { return Timer.ReadRegister(CounterReg); }
+	unsigned char Counter() { return TimerUnit.ReadRegister(CounterReg); }
 };
 
 TEST_F(TimerQuirkTests, CountsAtTheRateOfEachMode)
@@ -43,20 +41,20 @@ TEST_F(TimerQuirkTests, CountsAtTheRateOfEachMode)
 	for (auto mode = 0; mode < 4; mode++)
 	{
 		SCOPED_TRACE(mode);
-		Timer.WriteRegister(DivReg, 0);
-		Timer.WriteRegister(ControlReg, TimerEnable | mode);
-		Timer.WriteRegister(CounterReg, 0);
+		TimerUnit.WriteRegister(DivReg, 0);
+		TimerUnit.WriteRegister(ControlReg, TimerEnable | mode);
+		TimerUnit.WriteRegister(CounterReg, 0);
 
-		Timer.RunCycles(ModePeriods[mode] - 1);
+		TimerUnit.RunCycles(ModePeriods[mode] - 1);
 		EXPECT_EQ(0, Counter());
 
-		Timer.RunCycles(1);
+		TimerUnit.RunCycles(1);
 		EXPECT_EQ(1, Counter());
 
-		Timer.RunCycles(ModePeriods[mode] * 10);
+		TimerUnit.RunCycles(ModePeriods[mode] * 10);
 		EXPECT_EQ(11, Counter());
 
-		Timer.WriteRegister(ControlReg, mode);
+		TimerUnit.WriteRegister(ControlReg, mode);
 	}
 }
 
@@ -64,7 +62,7 @@ TEST(TimerPowerOnTest, DividerHasCountedAMachineCycle)
 {
 	// Mooneye-test-suite's boot_div-dmgABCmgb: with the divider a machine cycle in at power-on, DIV has the phase
 	// the DMG boot ROM hands over with
-	::Timer timer;
+	Timer timer;
 
 	timer.RunCycles(256 - 4 - 1);
 	EXPECT_EQ(0, timer.ReadRegister(DivReg));
@@ -76,7 +74,7 @@ TEST(TimerPowerOnTest, DividerHasCountedAMachineCycle)
 TEST(TimerPowerOnTest, UnusedControlBitsReadAsOne)
 {
 	// Mooneye-test-suite's unused_hwio-GS
-	::Timer timer;
+	Timer timer;
 	EXPECT_EQ(0xf8, timer.ReadRegister(ControlReg));
 
 	timer.WriteRegister(ControlReg, 0x05);
@@ -85,28 +83,28 @@ TEST(TimerPowerOnTest, UnusedControlBitsReadAsOne)
 
 TEST_F(TimerQuirkTests, DivIsTheUpperByteOfTheDivider)
 {
-	Timer.RunCycles(0x1234);
-	EXPECT_EQ(0x12, Timer.ReadRegister(DivReg));
+	TimerUnit.RunCycles(0x1234);
+	EXPECT_EQ(0x12, TimerUnit.ReadRegister(DivReg));
 
-	Timer.WriteRegister(DivReg, 0x55);
-	EXPECT_EQ(0, Timer.ReadRegister(DivReg));
+	TimerUnit.WriteRegister(DivReg, 0x55);
+	EXPECT_EQ(0, TimerUnit.ReadRegister(DivReg));
 }
 
 TEST_F(TimerQuirkTests, DivWriteInSecondHalfOfPeriodIncrementsCounter)
 {
-	Timer.WriteRegister(ControlReg, TimerEnable | 0);
-	Timer.RunCycles(768);
+	TimerUnit.WriteRegister(ControlReg, TimerEnable | 0);
+	TimerUnit.RunCycles(768);
 
-	Timer.WriteRegister(DivReg, 0);
+	TimerUnit.WriteRegister(DivReg, 0);
 	EXPECT_EQ(1, Counter());
 }
 
 TEST_F(TimerQuirkTests, DivWriteInFirstHalfOfPeriodDoesNotIncrementCounter)
 {
-	Timer.WriteRegister(ControlReg, TimerEnable | 0);
-	Timer.RunCycles(256);
+	TimerUnit.WriteRegister(ControlReg, TimerEnable | 0);
+	TimerUnit.RunCycles(256);
 
-	Timer.WriteRegister(DivReg, 0);
+	TimerUnit.WriteRegister(DivReg, 0);
 	EXPECT_EQ(0, Counter());
 }
 
@@ -115,59 +113,59 @@ TEST_F(TimerQuirkTests, DivWriteRestartsThePeriod)
 	for (auto cyclesBeforeWrite : { 4, 12 })
 	{
 		SCOPED_TRACE(cyclesBeforeWrite);
-		Timer.WriteRegister(ControlReg, 0);
-		Timer.WriteRegister(DivReg, 0);
-		Timer.WriteRegister(ControlReg, TimerEnable | 1);
-		Timer.WriteRegister(CounterReg, 0);
+		TimerUnit.WriteRegister(ControlReg, 0);
+		TimerUnit.WriteRegister(DivReg, 0);
+		TimerUnit.WriteRegister(ControlReg, TimerEnable | 1);
+		TimerUnit.WriteRegister(CounterReg, 0);
 
-		Timer.RunCycles(cyclesBeforeWrite);
-		Timer.WriteRegister(DivReg, 0);
+		TimerUnit.RunCycles(cyclesBeforeWrite);
+		TimerUnit.WriteRegister(DivReg, 0);
 		auto counter = Counter();
 
-		Timer.RunCycles(15);
+		TimerUnit.RunCycles(15);
 		EXPECT_EQ(counter, Counter());
 
-		Timer.RunCycles(1);
+		TimerUnit.RunCycles(1);
 		EXPECT_EQ(counter + 1, Counter());
 	}
 }
 
 TEST_F(TimerQuirkTests, DisablingTimerWhileSelectedBitIsSetIncrementsCounter)
 {
-	Timer.WriteRegister(ControlReg, TimerEnable | 1);
-	Timer.RunCycles(12);
+	TimerUnit.WriteRegister(ControlReg, TimerEnable | 1);
+	TimerUnit.RunCycles(12);
 
-	Timer.WriteRegister(ControlReg, 1);
+	TimerUnit.WriteRegister(ControlReg, 1);
 	EXPECT_EQ(1, Counter());
 }
 
 TEST_F(TimerQuirkTests, DisablingTimerWhileSelectedBitIsClearDoesNotIncrementCounter)
 {
-	Timer.WriteRegister(ControlReg, TimerEnable | 1);
-	Timer.RunCycles(4);
+	TimerUnit.WriteRegister(ControlReg, TimerEnable | 1);
+	TimerUnit.RunCycles(4);
 
-	Timer.WriteRegister(ControlReg, 1);
+	TimerUnit.WriteRegister(ControlReg, 1);
 	EXPECT_EQ(0, Counter());
 }
 
 TEST_F(TimerQuirkTests, ModeChangeFromSetBitToClearBitIncrementsCounter)
 {
 	// Divider 8: bit 3 (mode 1) is set, bit 5 (mode 2) is clear
-	Timer.WriteRegister(ControlReg, TimerEnable | 1);
-	Timer.RunCycles(8);
+	TimerUnit.WriteRegister(ControlReg, TimerEnable | 1);
+	TimerUnit.RunCycles(8);
 
-	Timer.WriteRegister(ControlReg, TimerEnable | 2);
+	TimerUnit.WriteRegister(ControlReg, TimerEnable | 2);
 	EXPECT_EQ(1, Counter());
 }
 
 TEST_F(TimerQuirkTests, ModeChangeFromClearBitToSetBitDoesNotIncrementCounter)
 {
 	// Divider 32: bit 3 (mode 1) is clear, bit 5 (mode 2) is set
-	Timer.WriteRegister(ControlReg, TimerEnable | 1);
-	Timer.RunCycles(32);
-	Timer.WriteRegister(CounterReg, 0);
+	TimerUnit.WriteRegister(ControlReg, TimerEnable | 1);
+	TimerUnit.RunCycles(32);
+	TimerUnit.WriteRegister(CounterReg, 0);
 
-	Timer.WriteRegister(ControlReg, TimerEnable | 2);
+	TimerUnit.WriteRegister(ControlReg, TimerEnable | 2);
 	EXPECT_EQ(0, Counter());
 }
 
@@ -180,27 +178,27 @@ class TimerOverflowTests : public TimerQuirkTests
 public:
 	TimerOverflowTests()
 	{
-		Timer.WriteRegister(ModuloReg, 0xf0);
-		Timer.WriteRegister(CounterReg, 0xff);
-		Timer.WriteRegister(ControlReg, TimerEnable | 1);
+		TimerUnit.WriteRegister(ModuloReg, 0xf0);
+		TimerUnit.WriteRegister(CounterReg, 0xff);
+		TimerUnit.WriteRegister(ControlReg, TimerEnable | 1);
 	}
 
-	bool TimerInterruptRequested() { return (Cpu.WaitingInterrupts() & InterruptFlags::TimerInt) != 0; }
+	bool TimerInterruptRequested() { return (Processor.WaitingInterrupts() & InterruptFlags::TimerInt) != 0; }
 
 	// Runs to the start of cycle A: the counter has just overflowed
-	void RunToOverflow() { Timer.RunCycles(16); }
+	void RunToOverflow() { TimerUnit.RunCycles(16); }
 };
 
 TEST_F(TimerOverflowTests, CounterReadsZeroForOneMachineCycleAfterOverflow)
 {
-	Timer.RunCycles(15);
+	TimerUnit.RunCycles(15);
 	EXPECT_EQ(0xff, Counter());
 
-	Timer.RunCycles(1);
+	TimerUnit.RunCycles(1);
 	EXPECT_EQ(0, Counter());
 	EXPECT_FALSE(TimerInterruptRequested());
 
-	Timer.RunCycles(3);
+	TimerUnit.RunCycles(3);
 	EXPECT_EQ(0, Counter());
 	EXPECT_FALSE(TimerInterruptRequested());
 }
@@ -208,7 +206,7 @@ TEST_F(TimerOverflowTests, CounterReadsZeroForOneMachineCycleAfterOverflow)
 TEST_F(TimerOverflowTests, ReloadsModuloAndRequestsInterruptAMachineCycleAfterOverflow)
 {
 	RunToOverflow();
-	Timer.RunCycles(4);
+	TimerUnit.RunCycles(4);
 
 	EXPECT_EQ(0xf0, Counter());
 	EXPECT_TRUE(TimerInterruptRequested());
@@ -216,7 +214,7 @@ TEST_F(TimerOverflowTests, ReloadsModuloAndRequestsInterruptAMachineCycleAfterOv
 
 TEST_F(TimerOverflowTests, ReloadsWhenRunInOneLargeStep)
 {
-	Timer.RunCycles(16 * 3);
+	TimerUnit.RunCycles(16 * 3);
 
 	EXPECT_EQ(0xf2, Counter());
 	EXPECT_TRUE(TimerInterruptRequested());
@@ -225,8 +223,8 @@ TEST_F(TimerOverflowTests, ReloadsWhenRunInOneLargeStep)
 TEST_F(TimerOverflowTests, CounterWriteBeforeReloadCancelsIt)
 {
 	RunToOverflow();
-	Timer.WriteRegister(CounterReg, 0x42);
-	Timer.RunCycles(4);
+	TimerUnit.WriteRegister(CounterReg, 0x42);
+	TimerUnit.RunCycles(4);
 
 	EXPECT_EQ(0x42, Counter());
 	EXPECT_FALSE(TimerInterruptRequested());
@@ -235,8 +233,8 @@ TEST_F(TimerOverflowTests, CounterWriteBeforeReloadCancelsIt)
 TEST_F(TimerOverflowTests, CounterWriteDuringReloadCycleIsIgnored)
 {
 	RunToOverflow();
-	Timer.RunCycles(4);
-	Timer.WriteRegister(CounterReg, 0x42);
+	TimerUnit.RunCycles(4);
+	TimerUnit.WriteRegister(CounterReg, 0x42);
 
 	EXPECT_EQ(0xf0, Counter());
 }
@@ -244,8 +242,8 @@ TEST_F(TimerOverflowTests, CounterWriteDuringReloadCycleIsIgnored)
 TEST_F(TimerOverflowTests, CounterWriteAfterReloadCycleTakesEffect)
 {
 	RunToOverflow();
-	Timer.RunCycles(8);
-	Timer.WriteRegister(CounterReg, 0x42);
+	TimerUnit.RunCycles(8);
+	TimerUnit.WriteRegister(CounterReg, 0x42);
 
 	EXPECT_EQ(0x42, Counter());
 }
@@ -253,8 +251,8 @@ TEST_F(TimerOverflowTests, CounterWriteAfterReloadCycleTakesEffect)
 TEST_F(TimerOverflowTests, ModuloWriteBeforeReloadIsReloaded)
 {
 	RunToOverflow();
-	Timer.WriteRegister(ModuloReg, 0x37);
-	Timer.RunCycles(4);
+	TimerUnit.WriteRegister(ModuloReg, 0x37);
+	TimerUnit.RunCycles(4);
 
 	EXPECT_EQ(0x37, Counter());
 }
@@ -262,18 +260,18 @@ TEST_F(TimerOverflowTests, ModuloWriteBeforeReloadIsReloaded)
 TEST_F(TimerOverflowTests, ModuloWriteDuringReloadCycleAlsoLoadsCounter)
 {
 	RunToOverflow();
-	Timer.RunCycles(4);
-	Timer.WriteRegister(ModuloReg, 0x37);
+	TimerUnit.RunCycles(4);
+	TimerUnit.WriteRegister(ModuloReg, 0x37);
 
 	EXPECT_EQ(0x37, Counter());
-	EXPECT_EQ(0x37, Timer.ReadRegister(ModuloReg));
+	EXPECT_EQ(0x37, TimerUnit.ReadRegister(ModuloReg));
 }
 
 TEST_F(TimerOverflowTests, ModuloWriteAfterReloadCycleDoesNotLoadCounter)
 {
 	RunToOverflow();
-	Timer.RunCycles(8);
-	Timer.WriteRegister(ModuloReg, 0x37);
+	TimerUnit.RunCycles(8);
+	TimerUnit.WriteRegister(ModuloReg, 0x37);
 
 	EXPECT_EQ(0xf0, Counter());
 }
@@ -281,12 +279,12 @@ TEST_F(TimerOverflowTests, ModuloWriteAfterReloadCycleDoesNotLoadCounter)
 TEST_F(TimerOverflowTests, OverflowCausedByTacWriteHasTheSameReloadCycles)
 {
 	// Disabling the timer with divider bit 3 set increments TIMA, overflowing it
-	Timer.RunCycles(12);
-	Timer.WriteRegister(ControlReg, 1);
+	TimerUnit.RunCycles(12);
+	TimerUnit.WriteRegister(ControlReg, 1);
 	EXPECT_EQ(0, Counter());
 
-	Timer.WriteRegister(CounterReg, 0x42);
-	Timer.RunCycles(4);
+	TimerUnit.WriteRegister(CounterReg, 0x42);
+	TimerUnit.RunCycles(4);
 
 	EXPECT_EQ(0x42, Counter());
 	EXPECT_FALSE(TimerInterruptRequested());
@@ -294,9 +292,9 @@ TEST_F(TimerOverflowTests, OverflowCausedByTacWriteHasTheSameReloadCycles)
 
 TEST_F(TimerOverflowTests, OverflowCausedByTacWriteReloadsEvenThoughTimerIsDisabled)
 {
-	Timer.RunCycles(12);
-	Timer.WriteRegister(ControlReg, 1);
-	Timer.RunCycles(4);
+	TimerUnit.RunCycles(12);
+	TimerUnit.WriteRegister(ControlReg, 1);
+	TimerUnit.RunCycles(4);
 
 	EXPECT_EQ(0xf0, Counter());
 	EXPECT_TRUE(TimerInterruptRequested());
@@ -304,13 +302,13 @@ TEST_F(TimerOverflowTests, OverflowCausedByTacWriteReloadsEvenThoughTimerIsDisab
 
 TEST_F(TimerQuirkTests, CountsAcrossDividerWraparound)
 {
-	Timer.WriteRegister(ControlReg, TimerEnable | 1);
-	Timer.RunCycles(0xfff8);
-	Timer.WriteRegister(CounterReg, 0);
+	TimerUnit.WriteRegister(ControlReg, TimerEnable | 1);
+	TimerUnit.RunCycles(0xfff8);
+	TimerUnit.WriteRegister(CounterReg, 0);
 
-	Timer.RunCycles(16);
+	TimerUnit.RunCycles(16);
 	EXPECT_EQ(1, Counter());
-	EXPECT_EQ(0, Timer.ReadRegister(DivReg));
+	EXPECT_EQ(0, TimerUnit.ReadRegister(DivReg));
 }
 
 // Runs a program from address 0 through the whole emulator, so the timer must see
@@ -319,12 +317,12 @@ class TimerEmulatorTests : public testing::Test
 {
 public:
 	std::shared_ptr<TestCartridge> Rom{ std::make_shared<TestCartridge>() };
-	::Emulator Emulator{ Rom };
+	Emulator GameBoy{ Rom };
 
 	TimerEmulatorTests()
 	{
 		// Disable the internal ROM so the program runs from address 0
-		Emulator.GetMemoryMap().WriteByte(0xff50, 1);
+		GameBoy.GetMemoryMap().WriteByte(0xff50, 1);
 
 		// Mode 1 (16 cycles per increment). LDH reads and writes all happen in the instruction's third
 		// machine cycle, so the timings below, from the first DIV write, are exact
@@ -344,10 +342,10 @@ public:
 			0x18, 0xfe			// JR -2
 		});
 
-		Emulator.GetFrame();
+		GameBoy.GetFrame();
 	}
 
-	unsigned char ReadByte(unsigned short address) { return Emulator.GetMemoryMap().ReadByte(address); }
+	unsigned char ReadByte(unsigned short address) { return GameBoy.GetMemoryMap().ReadByte(address); }
 };
 
 TEST_F(TimerEmulatorTests, DivWriteInSecondHalfOfPeriodIncrementsCounter)
