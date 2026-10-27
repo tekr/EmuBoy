@@ -22,7 +22,9 @@ const int ModePeriods[] = { 1024, 16, 64, 256 };
 class TimerQuirkTests : public CpuTestFixture
 {
 public:
-	Timer Timer;
+	// Members named after their types qualify the type with :: so the name's meaning doesn't change within the
+	// class, which GCC rejects
+	::Timer Timer;
 
 	TimerQuirkTests()
 	{
@@ -186,7 +188,7 @@ class TimerEmulatorTests : public testing::Test
 {
 public:
 	std::shared_ptr<TestCartridge> Rom{ std::make_shared<TestCartridge>() };
-	Emulator Emulator{ Rom };
+	::Emulator Emulator{ Rom };
 
 	TimerEmulatorTests()
 	{

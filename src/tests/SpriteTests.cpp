@@ -26,10 +26,12 @@ const unsigned char FirstLine = SpriteManager::SpriteYOffset;
 class SpriteTests : public testing::Test
 {
 public:
+	// Members named after their types qualify the type with :: so the name's meaning doesn't change within the
+	// class, which GCC rejects
 	InputJoypad Joypad;
 	TestMemoryMap MemoryMap{ Joypad };
 	TestCpu Cpu{ MemoryMap };
-	SpriteManager SpriteManager{};
+	::SpriteManager SpriteManager{};
 	TestGraphics Graphics{ Cpu, MemoryMap, SpriteManager };
 
 	SpriteTests()
