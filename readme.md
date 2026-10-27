@@ -1,6 +1,7 @@
 
 Emu Boy
 =======
+
 A Nintendo Game Boy emulator written in C++.
 
 ## Why another emulator?
@@ -42,10 +43,26 @@ without it, only the emulator is built.
 screen captures.
 
 
+## Building on Linux
+Install the dependencies with your package manager, then build with CMake. On Ubuntu 24.04 or Debian 12/13:
+
+```sh
+sudo apt-get update
+sudo apt-get install cmake g++ libboost-dev libsfml-dev libgtest-dev
+cmake -S . -B build
+cmake --build build
+./build/EmuBoy ROMs/gb-snake.gb
+```
+
+SFML 2.5 or 2.6 is needed; SFML 3 (the version packaged from Ubuntu 26.04) isn't supported yet. Run the unit
+tests as on macOS.
+
+
 ## Current status
 As of now Emu Boy is still in its early stages and is very much a work in progress. It currently supports the following:
 
-* Fairly cycle-accurate emulation of the LR35902 CPU (all documented instructions + interrupts)
+* Fairly cycle-accurate emulation of the LR35902 CPU (all documented instructions + interrupts), including STOP
+  and the lock-up caused by the unused opcodes
 * Full graphics implementation (sprites + background + window support)
 * Runs (at least) the included snake and Super Mario Land
 * Sound: all four channels of the original Game Boy's sound hardware, including its documented quirks. Passes all of
@@ -55,7 +72,7 @@ As of now Emu Boy is still in its early stages and is very much a work in progre
   Boy's library. Other mappers are run as MBC1 with a warning. Passes the mooneye-test-suite's MBC1, MBC2 and MBC5
   test ROMs and rtc3test
 * Unit testing of most CPU instructions, the sound hardware and the cartridge mappers
-* Windows (Visual Studio 2015 solution) and macOS (CMake)
+* Windows (Visual Studio 2015 solution), macOS and Linux (CMake), with CI builds and tests on macOS and Linux
 * Simulates the slow response-time of the Game Boy LCD screen and smoothes upsized jagged pixels
 * Keyboard input
 
@@ -66,5 +83,8 @@ As of now Emu Boy is still in its early stages and is very much a work in progre
 Various features remain to be added including:
 
 * Menus & ROM file selector
-* Linux support
 * Performance optimisation
+
+Known bugs are tracked as [GitHub issues](https://github.com/tekr/EmuBoy/issues). Places where the emulator may
+differ from the hardware, but where the right behaviour is unclear or unlikely to matter, are listed in
+[docs/known-gaps.md](docs/known-gaps.md).

@@ -146,6 +146,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="BlarggRomRunner.h" />
     <ClInclude Include="ApuTestHelpers.h" />
     <ClInclude Include="CartridgeTestHelpers.h" />
     <ClInclude Include="CpuTestFixture.h" />
@@ -157,8 +158,17 @@
     <ClInclude Include="TestCpu.h" />
     <ClInclude Include="TestGraphics.h" />
     <ClInclude Include="TestMemoryMap.h" />
+    <ClInclude Include="TimerTestHardware.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="CpuIllegalOpcodeTests.cpp" />
+    <ClCompile Include="CpuStopTests.cpp" />
+    <ClCompile Include="ApuStoppedTests.cpp" />
+    <ClCompile Include="CpuTimerTests.cpp" />
+    <ClCompile Include="CpuTimingTests.cpp" />
+    <ClCompile Include="BlarggCpuTests.cpp" />
+    <ClCompile Include="BlarggRomRunner.cpp" />
+    <ClCompile Include="SerialTests.cpp" />
     <ClCompile Include="ApuTests.cpp" />
     <ClCompile Include="ApuTestsChannels.cpp" />
     <ClCompile Include="ApuTestsMixing.cpp" />
@@ -180,6 +190,8 @@
     <ClCompile Include="CartridgeRamTests.cpp" />
     <ClCompile Include="CpuTestFixture.cpp" />
     <ClCompile Include="CpuTests.cpp" />
+    <ClCompile Include="DmgAcid2Tests.cpp" />
+    <ClCompile Include="EmulatorTimingTests.cpp" />
     <ClCompile Include="GraphicsTestFixture.cpp" />
     <ClCompile Include="GraphicsTests.cpp" />
     <ClCompile Include="SpriteTests.cpp" />

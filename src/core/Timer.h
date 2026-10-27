@@ -1,5 +1,4 @@
 #pragma once
-#include <algorithm>
 
 class Cpu;
 
@@ -17,6 +16,9 @@ class Timer
 	static const int ModuloReg = 2;
 	static const int ControlReg = 3;
 
+	// After TIMA overflows it holds 0 for one machine cycle before being reloaded from TMA
+	static const int ReloadDelayCycles = 4;
+
 	Cpu* _cpu;
 
 	// Increments every cycle; DIV is its upper byte
@@ -27,43 +29,32 @@ class Timer
 	bool _isRunning;
 	int _divisorMode;
 
+	// Cycles until an overflowed TIMA is reloaded, or 0 if no reload is pending
+	int _cyclesToReload;
+
+	// Cycles left of the machine cycle in which TIMA was reloaded, or 0 outside it
+	int _cyclesLeftInReload;
+
 	int GetCyclesPerCounterInc() const { return 2 << ModeBits[_divisorMode]; }
 	bool GetCounterSignal() const { return _isRunning && (_divider & GetCyclesPerCounterInc() >> 1) != 0; }
+	int GetCyclesToNextEvent() const;
 
 	void IncCounter();
+	void Reload();
+	void WriteCounter(unsigned char value);
+	void WriteModulo(unsigned char value);
 
 public:
 	Timer();
-
-	int GetCyclesToNextEvent() const
-	{
-		auto cyclesToNextDivInc = 0x100 - (_divider & 0xff);
-		return _isRunning ? std::min(cyclesToNextDivInc, GetCyclesPerCounterInc() - (_divider & (GetCyclesPerCounterInc() - 1))) : cyclesToNextDivInc;
-	}
 
 	void RunCycles(int numCycles);
 
 	void SetCpu(Cpu* cpu) { _cpu = cpu; }
 
-	void WriteRegister(int address, unsigned char value)
-	{
-		// Resetting the divider, disabling the timer or changing the mode can cause a falling edge
-		auto oldSignal = GetCounterSignal();
+	void WriteRegister(int address, unsigned char value);
 
-		if (address == DivReg) _divider = 0;
-		else if (address < ControlReg) _registers[address] = value;
-		else
-		{
-			_divisorMode = value & 3;
-			_isRunning = (value & 4) != 0;
-		}
-
-		if (oldSignal && !GetCounterSignal()) IncCounter();
-	}
-
-	unsigned char ReadRegister(int address)
+	unsigned char ReadRegister(int address) const
 	{
 		return address == DivReg ? _divider >> 8 : address < ControlReg ? _registers[address] : _divisorMode | (_isRunning ? 4 : 0);
 	}
 };
-

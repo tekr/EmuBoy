@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "TestMemoryMap.h"
+#include <string>
 
 unsigned char& TestMemoryMap::operator[](unsigned short address)
 {
