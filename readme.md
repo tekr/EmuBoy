@@ -64,3 +64,7 @@ Various features remain to be added including:
 * Menus & ROM file selector
 * Linux support
 * Performance optimisation
+
+Known bugs are tracked as [GitHub issues](https://github.com/tekr/EmuBoy/issues). Places where the emulator may
+differ from the hardware, but where the right behaviour is unclear or unlikely to matter, are listed in
+[docs/known-gaps.md](docs/known-gaps.md).
