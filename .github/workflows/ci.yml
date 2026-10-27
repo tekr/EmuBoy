@@ -1,8 +1,14 @@
 name: CI
 
+# Only pull requests: when one is opened (or reopened) and whenever a push updates it
 on:
-  push:
   pull_request:
+    types: [opened, synchronize, reopened]
+
+# A newer push to the same pull request supersedes a run still in progress
+concurrency:
+  group: ci-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 permissions:
   contents: read

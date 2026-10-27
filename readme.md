@@ -1,7 +1,6 @@
 
 Emu Boy
 =======
-[![CI](https://github.com/tekr/EmuBoy/actions/workflows/ci.yml/badge.svg)](https://github.com/tekr/EmuBoy/actions/workflows/ci.yml)
 
 A Nintendo Game Boy emulator written in C++.
 
